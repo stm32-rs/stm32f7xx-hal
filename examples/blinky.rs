@@ -1,0 +1,33 @@
+//! Blinks an LED
+
+#![deny(unsafe_code)]
+#![deny(warnings)]
+#![no_main]
+#![no_std]
+
+extern crate panic_halt;
+
+use stm32f7xx_hal as hal;
+
+use crate::hal::{
+    prelude::*,
+    device,
+};
+use cortex_m_rt::entry;
+
+#[entry]
+fn main() -> ! {
+    let p = device::Peripherals::take().unwrap();
+
+    let gpioi = p.GPIOI.split();
+    let mut led = gpioi.pi1.into_push_pull_output();
+
+    loop {
+        for _ in 0..10_000 {
+            led.set_high();
+        }
+        for _ in 0..10_000 {
+            led.set_low();
+        }
+    }
+}
