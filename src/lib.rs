@@ -17,7 +17,7 @@ pub use stm32f7::stm32f7x6 as device;
 
 // Enable use of interrupt macro
 #[cfg(feature = "rt")]
-pub use crate::stm32::interrupt;
+pub use crate::device::interrupt;
 
 #[cfg(feature = "doc")]
 pub mod examples;
