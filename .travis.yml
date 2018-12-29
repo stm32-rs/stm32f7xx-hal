@@ -12,7 +12,7 @@ matrix:
 script:
   - rustup target add thumbv7em-none-eabihf
   - cargo build --features=$MCU --verbose
-  - cargo test --features=$MCU --verbose
+  - cargo build --features=$MCU --examples --verbose
   - cargo doc --features=$MCU --verbose
 notifications:
   email:
