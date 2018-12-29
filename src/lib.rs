@@ -19,6 +19,9 @@ pub use stm32f7::stm32f7x6 as device;
 #[cfg(feature = "rt")]
 pub use crate::device::interrupt;
 
+#[cfg(feature = "stm32f746")]
+pub mod delay;
+
 #[cfg(feature = "doc")]
 pub mod examples;
 
