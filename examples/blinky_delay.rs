@@ -25,7 +25,7 @@ fn main() -> ! {
     // Constrain clocking registers
     let rcc = p.RCC.constrain();
 
-    // Configure clock to and freeze it
+    // Configure clock and freeze it
     let clocks = rcc.cfgr.sysclk(216.mhz()).freeze();
 
     // Get delay provider
