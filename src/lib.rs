@@ -35,4 +35,7 @@ pub mod prelude;
 pub mod rcc;
 
 #[cfg(feature = "stm32f746")]
+pub mod serial;
+
+#[cfg(feature = "stm32f746")]
 pub mod time;
