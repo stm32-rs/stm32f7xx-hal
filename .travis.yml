@@ -1,0 +1,19 @@
+language: rust
+rust:
+  - stable
+  - nightly
+cache: cargo
+env:
+- MCU=stm32f746
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+script:
+  - rustup target add thumbv7em-none-eabihf
+  - cargo build --features=$MCU --verbose
+  - cargo test --features=$MCU --verbose
+  - cargo doc --features=$MCU --verbose
+notifications:
+  email:
+    on_success: never
