@@ -4,7 +4,20 @@ rust:
   - nightly
 cache: cargo
 env:
+- MCU=stm32f722
+- MCU=stm32f723
+- MCU=stm32f732
+- MCU=stm32f733
+- MCU=stm32f745
 - MCU=stm32f746
+- MCU=stm32f756
+- MCU=stm32f765
+- MCU=stm32f767
+- MCU=stm32f769
+- MCU=stm32f777
+- MCU=stm32f778
+- MCU=stm32f779
+
 matrix:
   allow_failures:
     - rust: nightly
@@ -12,7 +25,9 @@ matrix:
 script:
   - rustup target add thumbv7em-none-eabihf
   - cargo build --features=$MCU --verbose
+  - cargo build --features=$MCU --release --verbose
   - cargo build --features=$MCU --examples --verbose
+  - cargo build --features=$MCU --examples --release --verbose
   - cargo doc --features=$MCU --verbose
 notifications:
   email:
