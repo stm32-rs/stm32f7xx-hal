@@ -63,3 +63,6 @@ pub mod serial;
 
 #[cfg(feature = "stm32f746")]
 pub mod time;
+
+#[cfg(feature = "stm32f746")]
+pub mod timer;

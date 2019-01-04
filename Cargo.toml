@@ -63,3 +63,7 @@ codegen-units = 1
 codegen-units = 1
 debug = true
 lto = true
+
+[[example]]
+name = "timer"
+required-features = ["stm32f746", "rt"]
