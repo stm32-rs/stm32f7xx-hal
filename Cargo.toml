@@ -65,5 +65,25 @@ debug = true
 lto = true
 
 [[example]]
+name = "blinky_delay"
+required-features = ["stm32f746", "rt"]
+
+[[example]]
+name = "blinky"
+required-features = ["stm32f746", "rt"]
+
+[[example]]
+name = "hello"
+required-features = ["stm32f746", "rt"]
+
+[[example]]
+name = "serial_delay"
+required-features = ["stm32f746", "rt"]
+
+[[example]]
+name = "serial_echo"
+required-features = ["stm32f746", "rt"]
+
+[[example]]
 name = "timer"
 required-features = ["stm32f746", "rt"]
