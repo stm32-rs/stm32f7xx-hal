@@ -2,6 +2,3 @@
 **/*.orig
 **/*.rs.bk
 Cargo.lock
-
-openocd.cfg
-openocd.gdb
