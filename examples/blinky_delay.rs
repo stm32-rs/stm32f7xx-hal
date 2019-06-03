@@ -32,10 +32,12 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, clocks);
 
     loop {
-        led.set_high();
+        led.set_high()
+            .expect("GPIO can never fail");
         delay.delay_ms(500_u16);
 
-        led.set_low();
+        led.set_low()
+            .expect("GPIO can never fail");
         delay.delay_ms(500_u16);
     }
 }

@@ -24,10 +24,12 @@ fn main() -> ! {
 
     loop {
         for _ in 0..10_000 {
-            led.set_high();
+            led.set_high()
+                .expect("GPIO can never fail");
         }
         for _ in 0..10_000 {
-            led.set_low();
+            led.set_low()
+                .expect("GPIO can never fail");
         }
     }
 }
