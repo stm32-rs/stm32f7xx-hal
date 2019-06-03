@@ -26,7 +26,6 @@ script:
   - rustup target add thumbv7em-none-eabihf
   - cargo build --features=$MCU --verbose
   - cargo build --features=$MCU --release --verbose
-  - cargo doc --features=$MCU --verbose
 notifications:
   email:
     on_success: never
