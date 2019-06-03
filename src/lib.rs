@@ -34,7 +34,7 @@ compile_error!("This crate requires one of the following device features enabled
         stm32f779
                 ");
 
-use embedded_hal as hal;
+pub(crate) use embedded_hal as hal;
 
 #[cfg(feature = "stm32f746")]
 pub use stm32f7::stm32f7x6 as device;
