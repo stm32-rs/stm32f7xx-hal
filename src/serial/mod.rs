@@ -10,25 +10,20 @@ use nb::block;
     feature = "stm32f745",
     feature = "stm32f746",
 ))]
-use crate::device::{RCC, USART1};
+use crate::device::{RCC, USART1, USART2, USART3, USART6};
 
 #[cfg(any(
     feature = "stm32f745",
     feature = "stm32f746",
 ))]
-use crate::gpio::gpioa::{PA9};
-
-#[cfg(any(
-    feature = "stm32f745",
-    feature = "stm32f746",
-))]
-use crate::gpio::gpiob::{PB7};
-
-#[cfg(any(
-    feature = "stm32f745",
-    feature = "stm32f746",
-))]
-use crate::gpio::{Alternate, AF7};
+use crate::gpio::{
+    gpioa::{PA2, PA3, PA9},
+    gpiob::{PB7, PB10, PB11},
+    gpioc::{PC6, PC7, PC10, PC11},
+    gpiod::{PD5, PD6, PD8, PD9},
+    gpiog::{PG9, PG14},
+    Alternate, AF7, AF8,
+};
 
 use crate::rcc::Clocks;
 use crate::time::Bps;
@@ -63,12 +58,26 @@ where
     feature = "stm32f746",
 ))]
 impl PinTx<USART1> for PA9<Alternate<AF7>> {}
+impl PinTx<USART2> for PA2<Alternate<AF7>> {}
+impl PinTx<USART2> for PD5<Alternate<AF7>> {}
+impl PinTx<USART3> for PB10<Alternate<AF7>> {}
+impl PinTx<USART3> for PC10<Alternate<AF7>> {}
+impl PinTx<USART3> for PD8<Alternate<AF7>> {}
+impl PinTx<USART6> for PC6<Alternate<AF8>> {}
+impl PinTx<USART6> for PG14<Alternate<AF8>> {}
 
 #[cfg(any(
     feature = "stm32f745",
     feature = "stm32f746",
 ))]
 impl PinRx<USART1> for PB7<Alternate<AF7>> {}
+impl PinRx<USART2> for PA3<Alternate<AF7>> {}
+impl PinRx<USART2> for PD6<Alternate<AF7>> {}
+impl PinRx<USART3> for PB11<Alternate<AF7>> {}
+impl PinRx<USART3> for PC11<Alternate<AF7>> {}
+impl PinRx<USART3> for PD9<Alternate<AF7>> {}
+impl PinRx<USART6> for PC7<Alternate<AF8>> {}
+impl PinRx<USART6> for PG9<Alternate<AF8>> {}
 
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
@@ -95,6 +104,9 @@ mod macros;
 ))]
 halUsart! {
     USART1: (usart1, apb2enr, usart1en),
+    USART2: (usart2, apb1enr, usart2en),
+    USART3: (usart3, apb1enr, usart3en),
+    USART6: (usart6, apb2enr, usart6en),
 }
 
 impl<USART> Write for Tx<USART>
