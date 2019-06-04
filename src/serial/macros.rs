@@ -21,7 +21,7 @@ macro_rules! halUsart {
                     //       the correct registers directly.
 
                     // Use sysclock for baudrate
-                    rcc.dckcfgr2.modify(|_, w| unsafe { w.usart1sel().bits(1) });
+                    rcc.dckcfgr2.modify(|_, w| w.usart1sel().bits(1));
 
                     // Enable clock for USART
                     rcc.$apbXenr.modify(|_, w| w.$usartXen().set_bit());
