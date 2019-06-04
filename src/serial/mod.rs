@@ -17,8 +17,8 @@ use crate::device::{RCC, USART1, USART2, USART3, USART6};
     feature = "stm32f746",
 ))]
 use crate::gpio::{
-    gpioa::{PA2, PA3, PA9},
-    gpiob::{PB7, PB10, PB11},
+    gpioa::{PA2, PA3, PA9, PA10},
+    gpiob::{PB6, PB7, PB10, PB11},
     gpioc::{PC6, PC7, PC10, PC11},
     gpiod::{PD5, PD6, PD8, PD9},
     gpiog::{PG9, PG14},
