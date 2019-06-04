@@ -2,7 +2,7 @@
 
 macro_rules! halUsart {
     ($(
-        $USARTX:ident: ($usartX:ident, $apbXenr:ident, $usartXen:ident, $pclkX:ident),
+        $USARTX:ident: ($usartX:ident, $apbXenr:ident, $usartXen:ident),
     )+) => {
         $(
             impl<PINS> Serial<$USARTX, PINS> {
