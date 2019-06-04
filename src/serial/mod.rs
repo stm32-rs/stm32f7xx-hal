@@ -58,6 +58,7 @@ where
     feature = "stm32f746",
 ))]
 impl PinTx<USART1> for PA9<Alternate<AF7>> {}
+impl PinTx<USART1> for PB6<Alternate<AF7>> {}
 impl PinTx<USART2> for PA2<Alternate<AF7>> {}
 impl PinTx<USART2> for PD5<Alternate<AF7>> {}
 impl PinTx<USART3> for PB10<Alternate<AF7>> {}
@@ -70,6 +71,7 @@ impl PinTx<USART6> for PG14<Alternate<AF8>> {}
     feature = "stm32f745",
     feature = "stm32f746",
 ))]
+impl PinRx<USART1> for PA10<Alternate<AF7>> {}
 impl PinRx<USART1> for PB7<Alternate<AF7>> {}
 impl PinRx<USART2> for PA3<Alternate<AF7>> {}
 impl PinRx<USART2> for PD6<Alternate<AF7>> {}
