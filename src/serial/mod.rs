@@ -105,10 +105,10 @@ mod macros;
     feature = "stm32f746",
 ))]
 halUsart! {
-    USART1: (usart1, apb2enr, usart1en),
-    USART2: (usart2, apb1enr, usart2en),
-    USART3: (usart3, apb1enr, usart3en),
-    USART6: (usart6, apb2enr, usart6en),
+    USART1: (usart1, apb2enr, usart1sel, usart1en),
+    USART2: (usart2, apb1enr, usart2sel, usart2en),
+    USART3: (usart3, apb1enr, usart3sel, usart3en),
+    USART6: (usart6, apb2enr, usart6sel, usart6en),
 }
 
 impl<USART> Write for Tx<USART>

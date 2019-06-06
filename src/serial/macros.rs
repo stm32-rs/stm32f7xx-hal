@@ -2,7 +2,7 @@
 
 macro_rules! halUsart {
     ($(
-        $USARTX:ident: ($usartX:ident, $apbXenr:ident, $usartXen:ident),
+        $USARTX:ident: ($usartX:ident, $apbXenr:ident, $usartXsel:ident, $usartXen:ident),
     )+) => {
         $(
             impl<PINS> Serial<$USARTX, PINS> {
@@ -21,7 +21,7 @@ macro_rules! halUsart {
                     //       the correct registers directly.
 
                     // Use sysclock for baudrate
-                    rcc.dckcfgr2.modify(|_, w| w.usart1sel().bits(1));
+                    rcc.dckcfgr2.modify(|_, w| w.$usartXsel().bits(1));
 
                     // Enable clock for USART
                     rcc.$apbXenr.modify(|_, w| w.$usartXen().set_bit());
