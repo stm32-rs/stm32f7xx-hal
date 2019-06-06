@@ -4,6 +4,7 @@ use core::ptr;
 
 use crate::hal::prelude::*;
 use crate::hal::serial;
+use crate::time::U32Ext;
 use nb::block;
 
 #[cfg(any(
@@ -96,6 +97,21 @@ pub struct Rx<USART> {
 pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
+
+
+/// USART configuration
+pub struct Config {
+    pub baud_rate: Bps,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            baud_rate: 115_200.bps(),
+        }
+    }
+}
+
 
 #[macro_use]
 mod macros;

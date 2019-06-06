@@ -14,7 +14,10 @@ use core::fmt::Write;
 use stm32f7xx_hal::{
     prelude::*,
     device,
-    serial::Serial,
+    serial::{
+        self,
+        Serial,
+    },
     delay::Delay,
 };
 use cortex_m_rt::entry;
@@ -35,7 +38,14 @@ fn main() -> ! {
     let tx = gpioa.pa9.into_alternate_af7();
     let rx = gpiob.pb7.into_alternate_af7();
 
-    let serial = Serial::usart1(p.USART1, (tx, rx), 115_200.bps(), clocks);
+    let serial = Serial::usart1(
+        p.USART1,
+        (tx, rx),
+        clocks,
+        serial::Config {
+            baud_rate: 115_200.bps(),
+        },
+    );
     let (mut tx, _) = serial.split();
 
     let hello: &str = "Hello, I'm a STM32F7xx!\r\n";
