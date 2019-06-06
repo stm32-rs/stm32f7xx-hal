@@ -9,8 +9,8 @@ macro_rules! halUsart {
                 pub fn $usartX(
                     usart: $USARTX,
                     pins: PINS,
-                    baud_rate: Bps,
-                    clocks: Clocks) -> Self
+                    clocks: Clocks,
+                    config: Config) -> Self
                 where
                     PINS: Pins<$USARTX>,
                 {
@@ -27,7 +27,7 @@ macro_rules! halUsart {
                     rcc.$apbXenr.modify(|_, w| w.$usartXen().set_bit());
 
                     // Calculate correct baudrate divisor on the fly
-                    let brr = clocks.sysclk().0 / baud_rate.0;
+                    let brr = clocks.sysclk().0 / config.baud_rate.0;
                     usart.brr.write(|w| unsafe { w.bits(brr) });
 
                     // Reset other registers to disable advanced USART features
