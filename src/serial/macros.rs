@@ -35,7 +35,12 @@ macro_rules! halUsart {
                     usart.cr3.reset();
 
                     // Enable transmission and receiving
-                    usart.cr1.modify(|_, w| unsafe { w.bits(0xD) });
+                    usart.cr1.modify(|_, w|
+                        w
+                            .te().enabled()
+                            .re().enabled()
+                            .ue().enabled()
+                    );
 
                     Serial { usart, pins }
                 }
