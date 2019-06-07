@@ -44,6 +44,7 @@ fn main() -> ! {
         clocks,
         serial::Config {
             baud_rate: 115_200.bps(),
+            oversampling: serial::Oversampling::By16,
         },
     );
     let (mut tx, _) = serial.split();
