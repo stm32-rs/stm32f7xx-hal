@@ -34,7 +34,7 @@ fn main() -> ! {
     let tx = gpioa.pa9.into_alternate_af7();
     let rx = gpiob.pb7.into_alternate_af7();
 
-    let serial = Serial::usart1(
+    let serial = Serial::new(
         p.USART1,
         (tx, rx),
         clocks,
