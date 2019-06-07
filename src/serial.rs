@@ -297,7 +297,7 @@ pub trait Instance: Deref<Target = device::usart1::RegisterBlock> {
     fn enable_clock(rcc: &device::rcc::RegisterBlock);
 }
 
-macro_rules! halUsart {
+macro_rules! impl_instance {
     ($(
         $USARTX:ident: ($apbXenr:ident, $usartXsel:ident, $usartXen:ident),
     )+) => {
@@ -319,12 +319,11 @@ macro_rules! halUsart {
     }
 }
 
-
 #[cfg(any(
     feature = "stm32f745",
     feature = "stm32f746",
 ))]
-halUsart! {
+impl_instance! {
     USART1: (apb2enr, usart1sel, usart1en),
     USART2: (apb1enr, usart2sel, usart2en),
     USART3: (apb1enr, usart3sel, usart3en),
