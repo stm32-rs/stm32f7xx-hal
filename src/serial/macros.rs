@@ -27,7 +27,24 @@ macro_rules! halUsart {
                     rcc.$apbXenr.modify(|_, w| w.$usartXen().set_bit());
 
                     // Calculate correct baudrate divisor on the fly
-                    let brr = clocks.sysclk().0 / config.baud_rate.0;
+                    let brr = match config.oversampling {
+                        Oversampling::By8 => {
+                            usart.cr1.modify(|_, w| w.over8().set_bit());
+
+                            let usart_div =
+                                2 * clocks.sysclk().0 / config.baud_rate.0;
+
+                            0xfff0 & usart_div
+                                | 0x0008 & 0
+                                | 0x0007 & ((usart_div & 0x000f) >> 1)
+                        }
+                        Oversampling::By16 => {
+                            usart.cr1.modify(|_, w| w.over8().clear_bit());
+
+                            clocks.sysclk().0 / config.baud_rate.0
+                        }
+                    };
+
                     usart.brr.write(|w| unsafe { w.bits(brr) });
 
                     // Reset other registers to disable advanced USART features

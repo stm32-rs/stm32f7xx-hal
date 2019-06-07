@@ -102,12 +102,19 @@ pub struct Tx<USART> {
 /// USART configuration
 pub struct Config {
     pub baud_rate: Bps,
+    pub oversampling: Oversampling,
+}
+
+pub enum Oversampling {
+    By8,
+    By16,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             baud_rate: 115_200.bps(),
+            oversampling: Oversampling::By16,
         }
     }
 }
