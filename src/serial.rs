@@ -91,15 +91,16 @@ pub struct Serial<USART, PINS> {
     pins: PINS,
 }
 
-impl<USART, PINS> Serial<USART, PINS> {
+impl<USART, PINS> Serial<USART, PINS>
+    where
+        PINS: Pins<USART>,
+        USART: Instance,
+{
     pub fn new(
         usart: USART,
         pins: PINS,
         clocks: Clocks,
         config: Config) -> Self
-    where
-        PINS: Pins<USART>,
-        USART: Instance,
     {
         // NOTE(unsafe) This executes only during initialisation
         let rcc = unsafe { &(*RCC::ptr()) };
