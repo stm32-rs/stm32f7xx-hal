@@ -210,24 +210,36 @@ impl<USART> serial::Read<u8> for Rx<USART>
         // NOTE(unsafe) atomic read with no side effects
         let isr = unsafe { (*USART::ptr()).isr.read() };
 
-        Err(if isr.pe().bit_is_set() {
-            nb::Error::Other(Error::Parity)
-        } else if isr.fe().bit_is_set() {
-            nb::Error::Other(Error::Framing)
-        } else if isr.nf().bit_is_set() {
-            nb::Error::Other(Error::Noise)
-        } else if isr.ore().bit_is_set() {
-            nb::Error::Other(Error::Overrun)
-        } else if isr.rxne().bit_is_set() {
+        // NOTE(unsafe): Only used for atomic writes, to clear error flags.
+        let icr = unsafe { &(*USART::ptr()).icr };
+
+        if isr.pe().bit_is_set() {
+            icr.write(|w| w.pecf().clear());
+            return Err(nb::Error::Other(Error::Parity));
+        }
+        if isr.fe().bit_is_set() {
+            icr.write(|w| w.fecf().clear());
+            return Err(nb::Error::Other(Error::Framing));
+        }
+        if isr.nf().bit_is_set() {
+            icr.write(|w| w.ncf().clear());
+            return Err(nb::Error::Other(Error::Noise));
+        }
+        if isr.ore().bit_is_set() {
+            icr.write(|w| w.orecf().clear());
+            return Err(nb::Error::Other(Error::Overrun));
+        }
+
+        if isr.rxne().bit_is_set() {
             // NOTE(unsafe): Atomic read with no side effects
             return Ok(unsafe {
                 // Casting to `u8` should be fine, as we've configured the USART
                 // to use 8 data bits.
                 (*USART::ptr()).rdr.read().rdr().bits() as u8
             });
-        } else {
-            nb::Error::WouldBlock
-        })
+        }
+
+        Err(nb::Error::WouldBlock)
     }
 }
 
