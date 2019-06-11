@@ -147,6 +147,30 @@ impl<USART, PINS> Serial<USART, PINS>
         Serial { usart, pins }
     }
 
+    /// Starts listening for an interrupt event
+    pub fn listen(&mut self, event: Event) {
+        match event {
+            Event::Rxne => {
+                self.usart.cr1.modify(|_, w| w.rxneie().set_bit())
+            },
+            Event::Txe => {
+                self.usart.cr1.modify(|_, w| w.txeie().set_bit())
+            },
+        }
+    }
+
+    /// End listening for an interrupt event
+    pub fn unlisten(&mut self, event: Event) {
+        match event {
+            Event::Rxne => {
+                self.usart.cr1.modify(|_, w| w.rxneie().clear_bit())
+            },
+            Event::Txe => {
+                self.usart.cr1.modify(|_, w| w.txeie().clear_bit())
+            },
+        }
+    }
+
     pub fn split(self) -> (Tx<USART>, Rx<USART>) {
         (
             Tx {
@@ -288,6 +312,16 @@ impl Default for Config {
             oversampling: Oversampling::By16,
         }
     }
+}
+
+
+/// Interrupt event
+#[derive(Debug)]
+pub enum Event {
+    /// New data has been received
+    Rxne,
+    /// New data can be sent
+    Txe,
 }
 
 
