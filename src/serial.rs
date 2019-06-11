@@ -219,9 +219,11 @@ impl<USART> serial::Read<u8> for Rx<USART>
         } else if isr.ore().bit_is_set() {
             nb::Error::Other(Error::Overrun)
         } else if isr.rxne().bit_is_set() {
-            // NOTE(read_volatile) see `write_volatile` below
+            // NOTE(unsafe): Atomic read with no side effects
             return Ok(unsafe {
-                ptr::read_volatile(&(*USART::ptr()).rdr as *const _ as *const _)
+                // Casting to `u8` should be fine, as we've configured the USART
+                // to use 8 data bits.
+                (*USART::ptr()).rdr.read().rdr().bits() as u8
             });
         } else {
             nb::Error::WouldBlock
