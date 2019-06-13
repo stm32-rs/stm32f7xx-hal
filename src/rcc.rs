@@ -11,6 +11,7 @@ pub trait RccExt {
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
+            ahb1: AHB1(()),
             apb1: APB1 { _0: () },
             apb2: APB2 { _0: () },
             cfgr: CFGR {
@@ -25,11 +26,29 @@ impl RccExt for RCC {
 
 /// Constrained RCC peripheral
 pub struct Rcc {
+    /// Advanced High-Performance Bus 1 (AHB1) registers
+    pub ahb1: AHB1,
+
     /// Advanced Peripheral Bus 1 (APB1) registers
     pub apb1: APB1,
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
     pub cfgr: CFGR,
+}
+
+/// Advanced High-Performance Bus 1 (AHB1) registers
+pub struct AHB1(());
+
+impl AHB1 {
+    pub fn enr(&mut self) -> &rcc::AHB1ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb1enr }
+    }
+
+    pub fn rstr(&mut self) -> &rcc::AHB1RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb1rstr }
+    }
 }
 
 /// Advanced Peripheral Bus 1 (APB1) registers
