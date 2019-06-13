@@ -86,6 +86,9 @@ pub mod delay;
 pub mod examples;
 
 #[cfg(feature = "stm32f746")]
+pub mod dma;
+
+#[cfg(feature = "stm32f746")]
 pub mod gpio;
 
 #[cfg(feature = "stm32f746")]
