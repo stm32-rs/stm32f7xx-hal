@@ -6,6 +6,7 @@ use core::ptr;
 use crate::hal::prelude::*;
 use crate::hal::serial;
 use crate::device;
+use crate::dma;
 use crate::time::U32Ext;
 use nb::block;
 
@@ -134,7 +135,6 @@ impl<USART, PINS> Serial<USART, PINS>
 
         // Reset other registers to disable advanced USART features
         usart.cr2.reset();
-        usart.cr3.reset();
 
         // Enable transmission and receiving
         usart.cr1.modify(|_, w|
@@ -142,6 +142,13 @@ impl<USART, PINS> Serial<USART, PINS>
                 .te().enabled()
                 .re().enabled()
                 .ue().enabled()
+        );
+
+        // Enable DMA
+        usart.cr3.write(|w|
+            w
+                .dmat().enabled()
+                .dmar().enabled()
         );
 
         Serial { usart, pins }
@@ -272,6 +279,39 @@ impl<USART> serial::Read<u8> for Rx<USART>
 /// Serial transmitter
 pub struct Tx<USART> {
     _usart: PhantomData<USART>,
+}
+
+impl<USART> Tx<USART>
+    where
+        Self:  dma::Tx,
+        USART: Instance,
+{
+    /// Writes data using DMA
+    ///
+    /// DMA supports transfers up to 65535 bytes. If `data` is longer, this
+    /// method will panic.
+    pub fn write_all(self,
+        data:   &'static [u8],
+        dma:    &dma::Handle<<Self as dma::Tx>::Instance, dma::Enabled>,
+        stream: <Self as dma::Tx>::Stream,
+    )
+        -> dma::Transfer<Self>
+    {
+        // Prepare USART for DMA. See reference manual for STM32F75xxx and
+        // STM32F74xxx, section 31.5.15.
+        //
+        // This is safe, as we're doing just one atomic write.
+        let usart = unsafe { &*USART::ptr() };
+        usart.icr.write(|w| w.tccf().clear());
+
+        dma::Transfer::<Self>::start(
+            dma,
+            stream,
+            data,
+            self,
+            &usart.tdr as *const _ as _,
+        )
+    }
 }
 
 impl<USART> serial::Write<u8> for Tx<USART>
