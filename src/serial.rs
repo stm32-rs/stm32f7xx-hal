@@ -1,4 +1,4 @@
-use core::fmt::{Result, Write};
+use core::fmt;
 use core::marker::PhantomData;
 use core::ops::Deref;
 use core::ptr;
@@ -379,11 +379,11 @@ impl_instance! {
     USART6: (apb2enr, usart6sel, usart6en),
 }
 
-impl<USART> Write for Tx<USART>
+impl<USART> fmt::Write for Tx<USART>
 where
     Tx<USART>: serial::Write<u8>,
 {
-    fn write_str(&mut self, s: &str) -> Result {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s
             .as_bytes()
             .into_iter()
