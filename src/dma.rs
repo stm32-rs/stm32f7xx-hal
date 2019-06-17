@@ -96,7 +96,7 @@ pub struct Transfer<Target: Tx> {
 }
 
 impl<Target> Transfer<Target> where Target: Tx {
-    pub(crate) fn start(
+    pub(crate) fn prepare(
         handle:  &Handle<Target::Instance, Enabled>,
         stream:  Target::Stream,
         source:  &'static [u8],
@@ -140,8 +140,6 @@ impl<Target> Transfer<Target> where Target: Tx {
                 .dmdis().enabled()
         );
 
-        atomic::fence(Ordering::SeqCst);
-
         // Select channel
         handle.dma.st[nr].cr.modify(|_, w| {
             let w = Target::Channel::select(w);
@@ -173,8 +171,6 @@ impl<Target> Transfer<Target> where Target: Tx {
                 .htie().disabled()
                 .teie().disabled()
                 .dmeie().disabled()
-                // Start transfer
-                .en().enabled()
         });
 
         Transfer {
@@ -184,6 +180,14 @@ impl<Target> Transfer<Target> where Target: Tx {
                 target,
             }
         }
+    }
+
+    pub fn start(&mut self, handle: &Handle<Target::Instance, Enabled>) {
+        atomic::fence(Ordering::SeqCst);
+
+        handle.dma.st[Target::Stream::number()].cr.modify(|_, w| {
+            w.en().enabled()
+        });
     }
 
     /// Checks whether the transfer is still ongoing
