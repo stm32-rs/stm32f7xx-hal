@@ -60,7 +60,8 @@ fn main() -> ! {
 
     let mut hello = b"Hello, I'm a STM32F7xx!\r\n".as_ref();
     loop {
-        let transfer = tx.write_all(hello, &dma, stream);
+        let mut transfer = tx.write_all(hello, &dma, stream);
+        transfer.start(&dma);
 
         let res = transfer.wait(&dma)
             .unwrap();

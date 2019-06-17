@@ -304,15 +304,13 @@ impl<USART> Tx<USART>
         let usart = unsafe { &*USART::ptr() };
         usart.icr.write(|w| w.tccf().clear());
 
-        let mut transfer = dma::Transfer::prepare(
+        dma::Transfer::prepare(
             dma,
             stream,
             data,
             self,
             &usart.tdr as *const _ as _,
-        );
-        transfer.start(dma);
-        transfer
+        )
     }
 }
 
