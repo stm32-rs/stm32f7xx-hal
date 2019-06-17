@@ -142,7 +142,7 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
         );
 
         // Select channel
-        handle.dma.st[nr].cr.modify(|_, w| {
+        handle.dma.st[nr].cr.write(|w| {
             let w = Target::Channel::select(w);
 
             w
