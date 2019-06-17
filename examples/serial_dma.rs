@@ -85,7 +85,7 @@ fn main() -> ! {
                 .unwrap()
         });
 
-        hello  = res.source;
+        hello  = res.buffer;
         tx     = res.target;
         stream = res.stream;
 

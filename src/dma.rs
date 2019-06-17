@@ -104,13 +104,13 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
     pub(crate) fn prepare(
         handle:  &Handle<Target::Instance, Enabled>,
         stream:  Target::Stream,
-        source:  &'static [u8],
+        buffer:  &'static [u8],
         target:  Target,
         address: u32,
     )
         -> Self
     {
-        assert!(source.len() <= u16::max_value() as usize);
+        assert!(buffer.len() <= u16::max_value() as usize);
 
         // The following configuration procedure is documented in the reference
         // manual for STM32F75xxx and STM32F74xxx, section 8.3.18.
@@ -127,14 +127,14 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
         handle.dma.st[nr].par.write(|w| w.pa().bits(address));
 
         // Set memory address
-        let memory_address = source.as_ptr() as *const _ as u32;
+        let memory_address = buffer.as_ptr() as *const _ as u32;
         handle.dma.st[nr].m0ar.write(|w| w.m0a().bits(memory_address));
 
         // Write number of data items to transfer
         //
         // We've asserted that `data.len()` fits into a `u16`, so the cast
         // should be fine.
-        handle.dma.st[nr].ndtr.write(|w| w.ndt().bits(source.len() as u16));
+        handle.dma.st[nr].ndtr.write(|w| w.ndt().bits(buffer.len() as u16));
 
         // Configure FIFO
         handle.dma.st[nr].fcr.modify(|_, w|
@@ -181,7 +181,7 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
         Transfer {
             res: TransferResources {
                 stream,
-                source,
+                buffer,
                 target,
             },
             _state: Ready,
@@ -287,7 +287,7 @@ impl<Target> Transfer<Target, Started> where Target: Tx {
 /// The resources that an ongoing transfer needs exclusive access to.
 pub struct TransferResources<Target: Tx> {
     pub stream: Target::Stream,
-    pub source: &'static [u8],
+    pub buffer: &'static [u8],
     pub target: Target,
 }
 
