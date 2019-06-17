@@ -283,7 +283,7 @@ pub struct Tx<USART> {
 
 impl<USART> Tx<USART>
     where
-        Self:  dma::Tx,
+        Self:  dma::Target,
         USART: Instance,
 {
     /// Writes data using DMA
@@ -292,8 +292,8 @@ impl<USART> Tx<USART>
     /// method will panic.
     pub fn write_all(self,
         data:   &'static [u8],
-        dma:    &dma::Handle<<Self as dma::Tx>::Instance, dma::Enabled>,
-        stream: <Self as dma::Tx>::Stream,
+        dma:    &dma::Handle<<Self as dma::Target>::Instance, dma::Enabled>,
+        stream: <Self as dma::Target>::Stream,
     )
         -> dma::Transfer<Self, dma::Ready>
     {

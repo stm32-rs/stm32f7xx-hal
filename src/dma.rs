@@ -95,17 +95,17 @@ impl<I> Handle<I, Disabled>
 ///
 /// Peripheral APIs that support DMA have methods like `write_all` and
 /// `read_all`, which return instances of this struct.
-pub struct Transfer<Target: Tx, State> {
-    res:    TransferResources<Target>,
+pub struct Transfer<T: Target, State> {
+    res:    TransferResources<T>,
     _state: State,
 }
 
-impl<Target> Transfer<Target, Ready> where Target: Tx {
+impl<T> Transfer<T, Ready> where T: Target {
     pub(crate) fn prepare(
-        handle:  &Handle<Target::Instance, Enabled>,
-        stream:  Target::Stream,
+        handle:  &Handle<T::Instance, Enabled>,
+        stream:  T::Stream,
         buffer:  &'static [u8],
-        target:  Target,
+        target:  T,
         address: u32,
     )
         -> Self
@@ -115,13 +115,13 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
         // The following configuration procedure is documented in the reference
         // manual for STM32F75xxx and STM32F74xxx, section 8.3.18.
 
-        let nr = Target::Stream::number();
+        let nr = T::Stream::number();
 
         // Disable stream
         handle.dma.st[nr].cr.modify(|_, w| w.en().disabled());
         while handle.dma.st[nr].cr.read().en().is_enabled() {}
 
-        Target::Stream::clear_status_flags(&handle.dma);
+        T::Stream::clear_status_flags(&handle.dma);
 
         // Set peripheral port register address
         handle.dma.st[nr].par.write(|w| w.pa().bits(address));
@@ -147,7 +147,7 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
 
         // Select channel
         handle.dma.st[nr].cr.write(|w| {
-            let w = Target::Channel::select(w);
+            let w = T::Channel::select(w);
 
             w
                 // Single transfer
@@ -189,10 +189,10 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
     }
 
     pub fn enable_interrupts(&mut self,
-        handle:     &Handle<Target::Instance, Enabled>,
+        handle:     &Handle<T::Instance, Enabled>,
         interrupts: Interrupts,
     ) {
-        handle.dma.st[Target::Stream::number()].cr.modify(|_, w| {
+        handle.dma.st[T::Stream::number()].cr.modify(|_, w| {
             let w = if interrupts.transfer_complete {
                 w.tcie().enabled()
             }
@@ -217,18 +217,18 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
         });
 
         // Enable interrupt. Safe, because we're only doing an atomic write.
-        let nr = Target::INTERRUPT.nr();
+        let nr = T::INTERRUPT.nr();
         unsafe {
             (&*NVIC::ptr()).iser[nr as usize / 32].write(0x1 << (nr % 32))
         }
     }
 
-    pub fn start(self, handle: &Handle<Target::Instance, Enabled>)
-        -> Transfer<Target, Started>
+    pub fn start(self, handle: &Handle<T::Instance, Enabled>)
+        -> Transfer<T, Started>
     {
         atomic::fence(Ordering::SeqCst);
 
-        handle.dma.st[Target::Stream::number()].cr.modify(|_, w| {
+        handle.dma.st[T::Stream::number()].cr.modify(|_, w| {
             w.en().enabled()
         });
 
@@ -239,12 +239,12 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
     }
 }
 
-impl<Target> Transfer<Target, Started> where Target: Tx {
+impl<T> Transfer<T, Started> where T: Target {
     /// Checks whether the transfer is still ongoing
-    pub fn is_active(&self, handle: &Handle<Target::Instance, Enabled>)
+    pub fn is_active(&self, handle: &Handle<T::Instance, Enabled>)
         -> bool
     {
-        handle.dma.st[Target::Stream::number()].cr.read().en().is_enabled()
+        handle.dma.st[T::Stream::number()].cr.read().en().is_enabled()
     }
 
     /// Waits for the transfer to end
@@ -257,25 +257,25 @@ impl<Target> Transfer<Target, Started> where Target: Tx {
     /// data buffer, the DMA stream, and the peripheral. Those have been moved
     /// into the `Transfer` instance to prevent concurrent access to them. This
     /// method returns those resources, so they can be used again.
-    pub fn wait(self, handle: &Handle<Target::Instance, Enabled>)
-        -> Result<TransferResources<Target>, (TransferResources<Target>, Error)>
+    pub fn wait(self, handle: &Handle<T::Instance, Enabled>)
+        -> Result<TransferResources<T>, (TransferResources<T>, Error)>
     {
         // Disable interrupt. Safe, because we're only doing an atomic write.
-        let nr = Target::INTERRUPT.nr();
+        let nr = T::INTERRUPT.nr();
         unsafe {
             (&*NVIC::ptr()).icer[nr as usize / 32].write(0x1 << (nr % 32))
         }
 
         // Wait for transfer to finish
         while self.is_active(handle) {
-            if let Err(error) = Error::check::<Target::Stream>(&handle.dma) {
+            if let Err(error) = Error::check::<T::Stream>(&handle.dma) {
                 return Err((self.res, error));
             }
         }
 
         atomic::fence(Ordering::SeqCst);
 
-        if let Err(error) = Error::check::<Target::Stream>(&handle.dma) {
+        if let Err(error) = Error::check::<T::Stream>(&handle.dma) {
             return Err((self.res, error));
         }
 
@@ -285,27 +285,27 @@ impl<Target> Transfer<Target, Started> where Target: Tx {
 
 
 /// The resources that an ongoing transfer needs exclusive access to.
-pub struct TransferResources<Target: Tx> {
-    pub stream: Target::Stream,
+pub struct TransferResources<T: Target> {
+    pub stream: T::Stream,
     pub buffer: &'static [u8],
-    pub target: Target,
+    pub target: T,
 }
 
 // As `TransferResources` is used in the error variant of `Result`, it needs a
 // `Debug` implementation to enable stuff like `unwrap` and `expect`. This can't
 // be derived without putting requirements on the type arguments.
-impl<Target> fmt::Debug for TransferResources<Target> where Target: Tx {
+impl<T> fmt::Debug for TransferResources<T> where T: Target {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TransferResources {{ .. }}")
     }
 }
 
 
-/// Implemented for all peripheral APIs that support transmitting via USART
+/// Implemented for all peripheral APIs that support DMA transfers
 ///
 /// This is an internal trait. End users neither need to implement it, nor use
 /// it directly.
-pub trait Tx {
+pub trait Target {
     type Instance: Deref<Target = dma2::RegisterBlock>;
     type Stream: Stream;
     type Channel: Channel;
@@ -313,7 +313,7 @@ pub trait Tx {
     const INTERRUPT: Interrupt;
 }
 
-macro_rules! impl_tx {
+macro_rules! impl_target {
     (
         $(
             $ty:ty,
@@ -324,7 +324,7 @@ macro_rules! impl_tx {
         )*
     ) => {
         $(
-            impl Tx for $ty {
+            impl Target for $ty {
                 type Instance = $instance;
                 type Stream   = $stream<$instance>;
                 type Channel  = $channel;
@@ -344,7 +344,7 @@ macro_rules! impl_tx {
 //
 // There's probably a smart way to achieve this, but I decided to declare
 // victory and leave this problem to someone who actually needs this capability.
-impl_tx!(
+impl_target!(
     serial::Tx<USART1>, DMA2, Stream7, Channel4, DMA2_STREAM7;
     serial::Tx<USART2>, DMA1, Stream6, Channel4, DMA1_STREAM6;
     serial::Tx<USART3>, DMA1, Stream3, Channel4, DMA1_STREAM3;
