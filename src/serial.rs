@@ -295,7 +295,7 @@ impl<USART> Tx<USART>
         dma:    &dma::Handle<<Self as dma::Tx>::Instance, dma::Enabled>,
         stream: <Self as dma::Tx>::Stream,
     )
-        -> dma::Transfer<Self>
+        -> dma::Transfer<Self, dma::Ready>
     {
         // Prepare USART for DMA. See reference manual for STM32F75xxx and
         // STM32F74xxx, section 31.5.15.

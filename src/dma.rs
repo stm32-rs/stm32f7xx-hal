@@ -91,11 +91,12 @@ impl<I> Handle<I, Disabled>
 ///
 /// Peripheral APIs that support DMA have methods like `write_all` and
 /// `read_all`, which return instances of this struct.
-pub struct Transfer<Target: Tx> {
-    res: TransferResources<Target>,
+pub struct Transfer<Target: Tx, State> {
+    res:    TransferResources<Target>,
+    _state: State,
 }
 
-impl<Target> Transfer<Target> where Target: Tx {
+impl<Target> Transfer<Target, Ready> where Target: Tx {
     pub(crate) fn prepare(
         handle:  &Handle<Target::Instance, Enabled>,
         stream:  Target::Stream,
@@ -103,7 +104,7 @@ impl<Target> Transfer<Target> where Target: Tx {
         target:  Target,
         address: u32,
     )
-        -> Transfer<Target>
+        -> Self
     {
         assert!(source.len() <= u16::max_value() as usize);
 
@@ -178,18 +179,28 @@ impl<Target> Transfer<Target> where Target: Tx {
                 stream,
                 source,
                 target,
-            }
+            },
+            _state: Ready,
         }
     }
 
-    pub fn start(&mut self, handle: &Handle<Target::Instance, Enabled>) {
+    pub fn start(self, handle: &Handle<Target::Instance, Enabled>)
+        -> Transfer<Target, Started>
+    {
         atomic::fence(Ordering::SeqCst);
 
         handle.dma.st[Target::Stream::number()].cr.modify(|_, w| {
             w.en().enabled()
         });
-    }
 
+        Transfer {
+            res:    self.res,
+            _state: Started,
+        }
+    }
+}
+
+impl<Target> Transfer<Target, Started> where Target: Tx {
     /// Checks whether the transfer is still ongoing
     pub fn is_active(&self, handle: &Handle<Target::Instance, Enabled>)
         -> bool
@@ -495,3 +506,9 @@ pub struct Enabled;
 
 /// Indicates that the peripheral is disabled
 pub struct Disabled;
+
+/// Indicates that a DMA transfer is ready to be started
+pub struct Ready;
+
+/// Indicates that a DMA transfer has been started
+pub struct Started;
