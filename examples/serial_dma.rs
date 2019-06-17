@@ -13,11 +13,18 @@
 extern crate panic_halt;
 
 
+use cortex_m::{
+    asm,
+    interrupt,
+};
 use cortex_m_rt::entry;
 use stm32f7xx_hal::{
     prelude::*,
-    device,
-    dma::DMA,
+    device::self,
+    dma::{
+        self,
+        DMA,
+    },
     serial::{
         self,
         Serial,
@@ -60,12 +67,24 @@ fn main() -> ! {
 
     let mut hello = b"Hello, I'm a STM32F7xx!\r\n".as_ref();
     loop {
-        let transfer = tx
-            .write_all(hello, &dma, stream)
-            .start(&dma);
+        let mut transfer = tx.write_all(hello, &dma, stream);
 
-        let res = transfer.wait(&dma)
-            .unwrap();
+        let res = interrupt::free(|_| {
+            transfer.enable_interrupts(&dma, dma::Interrupts {
+                transfer_complete: true,
+                transfer_error:    true,
+                direct_mode_error: true,
+                .. dma::Interrupts::default()
+            });
+
+            let transfer = transfer.start(&dma);
+
+            asm::wfi();
+
+            transfer.wait(&dma)
+                .unwrap()
+        });
+
         hello  = res.source;
         tx     = res.target;
         stream = res.stream;
