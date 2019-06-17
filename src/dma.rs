@@ -11,11 +11,14 @@ use core::{
     },
 };
 
+use cortex_m::interrupt::Nr;
+
 use crate::{
     device::{
         dma2,
         DMA1,
         DMA2,
+        NVIC,
         USART1,
         USART2,
         USART3,
@@ -24,6 +27,7 @@ use crate::{
         USART6,
         UART7,
         UART8,
+        Interrupt,
     },
     rcc::Rcc,
     serial,
@@ -184,6 +188,41 @@ impl<Target> Transfer<Target, Ready> where Target: Tx {
         }
     }
 
+    pub fn enable_interrupts(&mut self,
+        handle:     &Handle<Target::Instance, Enabled>,
+        interrupts: Interrupts,
+    ) {
+        handle.dma.st[Target::Stream::number()].cr.modify(|_, w| {
+            let w = if interrupts.transfer_complete {
+                w.tcie().enabled()
+            }
+            else { w };
+
+            let w = if interrupts.half_transfer {
+                w.htie().enabled()
+            }
+            else { w };
+
+            let w = if interrupts.transfer_error {
+                w.teie().enabled()
+            }
+            else { w };
+
+            let w = if interrupts.direct_mode_error {
+                w.dmeie().enabled()
+            }
+            else { w };
+
+            w
+        });
+
+        // Enable interrupt. Safe, because we're only doing an atomic write.
+        let nr = Target::INTERRUPT.nr();
+        unsafe {
+            (&*NVIC::ptr()).iser[nr as usize / 32].write(0x1 << (nr % 32))
+        }
+    }
+
     pub fn start(self, handle: &Handle<Target::Instance, Enabled>)
         -> Transfer<Target, Started>
     {
@@ -221,6 +260,12 @@ impl<Target> Transfer<Target, Started> where Target: Tx {
     pub fn wait(self, handle: &Handle<Target::Instance, Enabled>)
         -> Result<TransferResources<Target>, (TransferResources<Target>, Error)>
     {
+        // Disable interrupt. Safe, because we're only doing an atomic write.
+        let nr = Target::INTERRUPT.nr();
+        unsafe {
+            (&*NVIC::ptr()).icer[nr as usize / 32].write(0x1 << (nr % 32))
+        }
+
         // Wait for transfer to finish
         while self.is_active(handle) {
             if let Err(error) = Error::check::<Target::Stream>(&handle.dma) {
@@ -264,15 +309,27 @@ pub trait Tx {
     type Instance: Deref<Target = dma2::RegisterBlock>;
     type Stream: Stream;
     type Channel: Channel;
+
+    const INTERRUPT: Interrupt;
 }
 
 macro_rules! impl_tx {
-    ($($ty:ty, $instance:ty, $stream:ident, $channel:ty;)*) => {
+    (
+        $(
+            $ty:ty,
+            $instance:ty,
+            $stream:ident,
+            $channel:ty,
+            $interrupt:ident;
+        )*
+    ) => {
         $(
             impl Tx for $ty {
                 type Instance = $instance;
                 type Stream   = $stream<$instance>;
                 type Channel  = $channel;
+
+                const INTERRUPT: Interrupt = Interrupt::$interrupt;
             }
         )*
     }
@@ -288,16 +345,16 @@ macro_rules! impl_tx {
 // There's probably a smart way to achieve this, but I decided to declare
 // victory and leave this problem to someone who actually needs this capability.
 impl_tx!(
-    serial::Tx<USART1>, DMA2, Stream7, Channel4;
-    serial::Tx<USART2>, DMA1, Stream6, Channel4;
-    serial::Tx<USART3>, DMA1, Stream3, Channel4;
+    serial::Tx<USART1>, DMA2, Stream7, Channel4, DMA2_STREAM7;
+    serial::Tx<USART2>, DMA1, Stream6, Channel4, DMA1_STREAM6;
+    serial::Tx<USART3>, DMA1, Stream3, Channel4, DMA1_STREAM3;
     // USART3 for DMA1, stream 4, channel 7 is unsupported
-    serial::Tx<UART4>,  DMA1, Stream4, Channel4;
-    serial::Tx<UART5>,  DMA1, Stream7, Channel4;
-    serial::Tx<USART6>, DMA2, Stream6, Channel5;
+    serial::Tx<UART4>,  DMA1, Stream4, Channel4, DMA1_STREAM4;
+    serial::Tx<UART5>,  DMA1, Stream7, Channel4, DMA1_STREAM7;
+    serial::Tx<USART6>, DMA2, Stream6, Channel5, DMA2_STREAM6;
     // USART6 for DMA2, stream 7, channel 5 is unsupported
-    serial::Tx<UART7>,  DMA1, Stream1, Channel5;
-    serial::Tx<UART8>,  DMA1, Stream0, Channel5;
+    serial::Tx<UART7>,  DMA1, Stream1, Channel5, DMA1_STREAM1;
+    serial::Tx<UART8>,  DMA1, Stream0, Channel5, DMA1_STREAM0;
 );
 
 
@@ -471,6 +528,26 @@ impl_instance!(
     DMA1, dma1rst, dma1en;
     DMA2, dma2rst, dma2en;
 );
+
+
+/// Used by [`Transfer::enable_interrupts`] to identify DMA interrupts
+pub struct Interrupts {
+    pub transfer_complete: bool,
+    pub half_transfer:     bool,
+    pub transfer_error:    bool,
+    pub direct_mode_error: bool,
+}
+
+impl Default for Interrupts {
+    fn default() -> Self {
+        Self {
+            transfer_complete: false,
+            half_transfer:     false,
+            transfer_error:    false,
+            direct_mode_error: false,
+        }
+    }
+}
 
 
 /// A DMA error
