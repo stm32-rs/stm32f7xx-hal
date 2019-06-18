@@ -1,7 +1,10 @@
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::Deref;
+use core::pin::Pin;
 use core::ptr;
+
+use as_slice::AsSlice;
 
 use crate::hal::prelude::*;
 use crate::hal::serial;
@@ -290,12 +293,15 @@ impl<USART> Tx<USART>
     ///
     /// DMA supports transfers up to 65535 bytes. If `data` is longer, this
     /// method will panic.
-    pub fn write_all(self,
-        data:   &'static [u8],
+    pub fn write_all<B>(self,
+        data:   Pin<B>,
         dma:    &dma::Handle<<Self as dma::Target>::Instance, dma::Enabled>,
         stream: <Self as dma::Target>::Stream,
     )
-        -> dma::Transfer<Self, dma::Ready>
+        -> dma::Transfer<Self, B, dma::Ready>
+        where
+            B: Deref + 'static,
+            B::Target: AsSlice<Element=u8>,
     {
         // Prepare USART for DMA. See reference manual for STM32F75xxx and
         // STM32F74xxx, section 31.5.15.
