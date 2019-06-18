@@ -310,7 +310,7 @@ impl<USART> Tx<USART>
         let usart = unsafe { &*USART::ptr() };
         usart.icr.write(|w| w.tccf().clear());
 
-        dma::Transfer::prepare(
+        dma::Transfer::memory_to_peripheral(
             dma,
             stream,
             data,
