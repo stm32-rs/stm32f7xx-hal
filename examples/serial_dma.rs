@@ -1,9 +1,11 @@
-//! Write a string to the serial port every half second using DMA.
+//! Reads 4 bytes from USART then writes them back, both using DMA
+//!
+//! Echoing 4 bytes at a time makes for weird behavior, but is a better test for
+//! DMA than doing it byte by byte would be.
 //!
 //! Note: This example is for the STM32F746
 
 
-#![deny(unsafe_code)]
 #![deny(warnings)]
 
 #![no_main]
@@ -31,25 +33,23 @@ use stm32f7xx_hal::{
         self,
         Serial,
     },
-    delay::Delay,
 };
 
 
 #[entry]
 fn main() -> ! {
     let p = device::Peripherals::take().unwrap();
-    let cp = cortex_m::Peripherals::take().unwrap();
 
     let mut rcc = p.RCC.constrain();
 
-    let     dma    = DMA::new(p.DMA1);
-    let mut stream = dma.streams.stream3;
-    let     dma    = dma.handle.enable(&mut rcc);
+    let dma = DMA::new(p.DMA1);
 
+    let mut rx_stream = dma.streams.stream1;
+    let mut tx_stream = dma.streams.stream3;
+
+    let dma = dma.handle.enable(&mut rcc);
 
     let clocks = rcc.cfgr.sysclk(216.mhz()).freeze();
-
-    let mut delay = Delay::new(cp.SYST, clocks);
 
     let gpiod = p.GPIOD.split();
 
@@ -65,12 +65,16 @@ fn main() -> ! {
             oversampling: serial::Oversampling::By16,
         },
     );
-    let (mut tx, _) = serial.split();
+    let (mut tx, mut rx) = serial.split();
 
-    let mut hello = Pin::new(b"Hello, I'm a STM32F7xx!\r\n".as_ref());
+    // Create the buffer we're going to use for DMA. This is safe, as this
+    // function won't return as long as the program runs, so there's no chance
+    // of anyone else using the same static.
+    static mut BUFFER: [u8; 4] = [0; 4];
+    let mut buffer = unsafe { Pin::new(&mut BUFFER) };
     loop {
-        let mut transfer = tx.write_all(hello, &dma, stream);
-
+        // Read using DMA
+        let mut transfer = rx.read_all(buffer, &dma, rx_stream);
         let res = interrupt::free(|_| {
             transfer.enable_interrupts(&dma, dma::Interrupts {
                 transfer_complete: true,
@@ -86,11 +90,29 @@ fn main() -> ! {
             transfer.wait(&dma)
                 .unwrap()
         });
+        buffer    = res.buffer;
+        rx        = res.target;
+        rx_stream = res.stream;
 
-        hello  = res.buffer;
-        tx     = res.target;
-        stream = res.stream;
+        // Write using DMA
+        let mut transfer = tx.write_all(buffer, &dma, tx_stream);
+        let res = interrupt::free(|_| {
+            transfer.enable_interrupts(&dma, dma::Interrupts {
+                transfer_complete: true,
+                transfer_error:    true,
+                direct_mode_error: true,
+                .. dma::Interrupts::default()
+            });
 
-        delay.delay_ms(500u16);
+            let transfer = transfer.start(&dma);
+
+            asm::wfi();
+
+            transfer.wait(&dma)
+                .unwrap()
+        });
+        buffer    = res.buffer;
+        tx        = res.target;
+        tx_stream = res.stream;
     }
 }

@@ -1,10 +1,16 @@
 use core::fmt;
 use core::marker::PhantomData;
-use core::ops::Deref;
+use core::ops::{
+    Deref,
+    DerefMut,
+};
 use core::pin::Pin;
 use core::ptr;
 
-use as_slice::AsSlice;
+use as_slice::{
+    AsMutSlice,
+    AsSlice,
+};
 
 use crate::hal::prelude::*;
 use crate::hal::serial;
@@ -234,6 +240,39 @@ impl<USART, PINS> serial::Write<u8> for Serial<USART, PINS>
 /// Serial receiver
 pub struct Rx<USART> {
     _usart: PhantomData<USART>,
+}
+
+impl<USART> Rx<USART>
+    where
+        USART: Instance,
+        Self:  dma::Target,
+{
+    /// Reads data using DMA until `buffer` is full
+    ///
+    /// DMA supports transfers up to 65535 bytes. If `buffer` is longer, this
+    /// method will panic.
+    pub fn read_all<B>(self,
+        buffer: Pin<B>,
+        dma:    &dma::Handle<<Self as dma::Target>::Instance, dma::Enabled>,
+        stream: <Self as dma::Target>::Stream,
+    )
+        -> dma::Transfer<Self, B, dma::Ready>
+        where
+            B: DerefMut + 'static,
+            B::Target: AsMutSlice<Element=u8>,
+    {
+        // This is safe, as we're only using the USART instance to access the
+        // address of one register.
+        let address = &unsafe { &*USART::ptr() }.rdr as *const _ as _;
+
+        dma::Transfer::peripheral_to_memory(
+            dma,
+            stream,
+            buffer,
+            self,
+            address,
+        )
+    }
 }
 
 impl<USART> serial::Read<u8> for Rx<USART>

@@ -4,7 +4,10 @@
 use core::{
     fmt,
     marker::PhantomData,
-    ops::Deref,
+    ops::{
+        Deref,
+        DerefMut,
+    },
     pin::Pin,
     sync::atomic::{
         self,
@@ -12,7 +15,10 @@ use core::{
     },
 };
 
-use as_slice::AsSlice;
+use as_slice::{
+    AsMutSlice,
+    AsSlice,
+};
 use cortex_m::interrupt::Nr;
 
 use crate::{
@@ -105,8 +111,7 @@ pub struct Transfer<T: Target, B, State> {
 impl<T, B> Transfer<T, B, Ready>
     where
         T: Target,
-        B: Deref + 'static,
-        B::Target: AsSlice<Element=u8>,
+        B: 'static,
 {
     pub(crate) fn memory_to_peripheral(
         handle:  &Handle<T::Instance, Enabled>,
@@ -116,6 +121,67 @@ impl<T, B> Transfer<T, B, Ready>
         address: u32,
     )
         -> Self
+        where
+            B: Deref,
+            B::Target: AsSlice<Element=u8>,
+    {
+        // Safe, because we're only using DMA to read from the buffer.
+        unsafe {
+            Self::new(
+                handle,
+                stream,
+                buffer,
+                target,
+                address,
+                Direction::MemoryToPeripheral,
+            )
+        }
+    }
+
+    pub(crate) fn peripheral_to_memory(
+        handle:  &Handle<T::Instance, Enabled>,
+        stream:  T::Stream,
+        buffer:  Pin<B>,
+        target:  T,
+        address: u32,
+    )
+        -> Self
+        where
+            B: DerefMut,
+            B::Target: AsMutSlice<Element=u8>,
+    {
+        // Safe, because the trait bounds on this method guarantee that the
+        // buffer can be written to safely.
+        unsafe {
+            Self::new(
+                handle,
+                stream,
+                buffer,
+                target,
+                address,
+                Direction::PeripheralToMemory,
+            )
+        }
+    }
+
+    /// Internal constructor to create a new `Transfer`
+    ///
+    /// # Safety
+    ///
+    /// If this method is used to prepare a peripheral-to-memory transfer, the
+    /// caller must make sure that the buffer can be safely written to.
+    unsafe fn new(
+        handle:    &Handle<T::Instance, Enabled>,
+        stream:    T::Stream,
+        buffer:    Pin<B>,
+        target:    T,
+        address:   u32,
+        direction: Direction,
+    )
+        -> Self
+        where
+            B: Deref,
+            B::Target: AsSlice<Element=u8>,
     {
         assert!(buffer.as_slice().len() <= u16::max_value() as usize);
 
@@ -158,6 +224,13 @@ impl<T, B> Transfer<T, B, Ready>
         handle.dma.st[nr].cr.write(|w| {
             let w = T::Channel::select(w);
 
+            let w = match direction {
+                Direction::MemoryToPeripheral =>
+                    w.dir().memory_to_peripheral(),
+                Direction::PeripheralToMemory =>
+                    w.dir().peripheral_to_memory(),
+            };
+
             w
                 // Single transfer
                 .mburst().single()
@@ -176,8 +249,6 @@ impl<T, B> Transfer<T, B, Ready>
                 .pinc().fixed()
                 // Circular mode disabled
                 .circ().disabled()
-                // Transfer from memory to peripheral
-                .dir().memory_to_peripheral()
                 // DMA is the flow controller
                 .pfctrl().dma()
                 // All interrupts disabled
@@ -310,6 +381,12 @@ impl<T, B> fmt::Debug for TransferResources<T, B> where T: Target {
 }
 
 
+enum Direction {
+    MemoryToPeripheral,
+    PeripheralToMemory,
+}
+
+
 /// Implemented for all peripheral APIs that support DMA transfers
 ///
 /// This is an internal trait. End users neither need to implement it, nor use
@@ -354,6 +431,19 @@ macro_rules! impl_target {
 // There's probably a smart way to achieve this, but I decided to declare
 // victory and leave this problem to someone who actually needs this capability.
 impl_target!(
+    // USART receive
+    serial::Rx<USART1>, DMA2, Stream2, Channel4, DMA2_STREAM2;
+    // USART1 for DMA2, stream 5, channel 4 is unsupported
+    serial::Rx<USART2>, DMA1, Stream5, Channel4, DMA1_STREAM5;
+    serial::Rx<USART3>, DMA1, Stream1, Channel4, DMA1_STREAM1;
+    serial::Rx<UART4>, DMA1, Stream2, Channel4, DMA1_STREAM2;
+    serial::Rx<UART5>, DMA1, Stream0, Channel4, DMA1_STREAM0;
+    serial::Rx<USART6>, DMA2, Stream1, Channel5, DMA2_STREAM1;
+    // USART6 for DMA2, stream 2, channel 5 is unsupported
+    serial::Rx<UART7>, DMA1, Stream3, Channel5, DMA1_STREAM3;
+    serial::Rx<UART8>, DMA1, Stream6, Channel5, DMA1_STREAM6;
+
+    // USART transmit
     serial::Tx<USART1>, DMA2, Stream7, Channel4, DMA2_STREAM7;
     serial::Tx<USART2>, DMA1, Stream6, Channel4, DMA1_STREAM6;
     serial::Tx<USART3>, DMA1, Stream3, Channel4, DMA1_STREAM3;
