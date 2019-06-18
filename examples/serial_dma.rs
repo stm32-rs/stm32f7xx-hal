@@ -13,6 +13,8 @@
 extern crate panic_halt;
 
 
+use core::pin::Pin;
+
 use cortex_m::{
     asm,
     interrupt,
@@ -65,7 +67,7 @@ fn main() -> ! {
     );
     let (mut tx, _) = serial.split();
 
-    let mut hello = b"Hello, I'm a STM32F7xx!\r\n".as_ref();
+    let mut hello = Pin::new(b"Hello, I'm a STM32F7xx!\r\n".as_ref());
     loop {
         let mut transfer = tx.write_all(hello, &dma, stream);
 

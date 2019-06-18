@@ -5,12 +5,14 @@ use core::{
     fmt,
     marker::PhantomData,
     ops::Deref,
+    pin::Pin,
     sync::atomic::{
         self,
         Ordering,
     },
 };
 
+use as_slice::AsSlice;
 use cortex_m::interrupt::Nr;
 
 use crate::{
@@ -95,22 +97,27 @@ impl<I> Handle<I, Disabled>
 ///
 /// Peripheral APIs that support DMA have methods like `write_all` and
 /// `read_all`, which return instances of this struct.
-pub struct Transfer<T: Target, State> {
-    res:    TransferResources<T>,
+pub struct Transfer<T: Target, B, State> {
+    res:    TransferResources<T, B>,
     _state: State,
 }
 
-impl<T> Transfer<T, Ready> where T: Target {
+impl<T, B> Transfer<T, B, Ready>
+    where
+        T: Target,
+        B: Deref + 'static,
+        B::Target: AsSlice<Element=u8>,
+{
     pub(crate) fn prepare(
         handle:  &Handle<T::Instance, Enabled>,
         stream:  T::Stream,
-        buffer:  &'static [u8],
+        buffer:  Pin<B>,
         target:  T,
         address: u32,
     )
         -> Self
     {
-        assert!(buffer.len() <= u16::max_value() as usize);
+        assert!(buffer.as_slice().len() <= u16::max_value() as usize);
 
         // The following configuration procedure is documented in the reference
         // manual for STM32F75xxx and STM32F74xxx, section 8.3.18.
@@ -127,14 +134,16 @@ impl<T> Transfer<T, Ready> where T: Target {
         handle.dma.st[nr].par.write(|w| w.pa().bits(address));
 
         // Set memory address
-        let memory_address = buffer.as_ptr() as *const _ as u32;
+        let memory_address = buffer.as_slice().as_ptr() as *const _ as u32;
         handle.dma.st[nr].m0ar.write(|w| w.m0a().bits(memory_address));
 
         // Write number of data items to transfer
         //
         // We've asserted that `data.len()` fits into a `u16`, so the cast
         // should be fine.
-        handle.dma.st[nr].ndtr.write(|w| w.ndt().bits(buffer.len() as u16));
+        handle.dma.st[nr].ndtr.write(|w|
+            w.ndt().bits(buffer.as_slice().len() as u16)
+        );
 
         // Configure FIFO
         handle.dma.st[nr].fcr.modify(|_, w|
@@ -224,7 +233,7 @@ impl<T> Transfer<T, Ready> where T: Target {
     }
 
     pub fn start(self, handle: &Handle<T::Instance, Enabled>)
-        -> Transfer<T, Started>
+        -> Transfer<T, B, Started>
     {
         atomic::fence(Ordering::SeqCst);
 
@@ -239,7 +248,7 @@ impl<T> Transfer<T, Ready> where T: Target {
     }
 }
 
-impl<T> Transfer<T, Started> where T: Target {
+impl<T, B> Transfer<T, B, Started> where T: Target {
     /// Checks whether the transfer is still ongoing
     pub fn is_active(&self, handle: &Handle<T::Instance, Enabled>)
         -> bool
@@ -258,7 +267,7 @@ impl<T> Transfer<T, Started> where T: Target {
     /// into the `Transfer` instance to prevent concurrent access to them. This
     /// method returns those resources, so they can be used again.
     pub fn wait(self, handle: &Handle<T::Instance, Enabled>)
-        -> Result<TransferResources<T>, (TransferResources<T>, Error)>
+        -> Result<TransferResources<T, B>, (TransferResources<T, B>, Error)>
     {
         // Disable interrupt. Safe, because we're only doing an atomic write.
         let nr = T::INTERRUPT.nr();
@@ -285,16 +294,16 @@ impl<T> Transfer<T, Started> where T: Target {
 
 
 /// The resources that an ongoing transfer needs exclusive access to.
-pub struct TransferResources<T: Target> {
+pub struct TransferResources<T: Target, B> {
     pub stream: T::Stream,
-    pub buffer: &'static [u8],
+    pub buffer: Pin<B>,
     pub target: T,
 }
 
 // As `TransferResources` is used in the error variant of `Result`, it needs a
 // `Debug` implementation to enable stuff like `unwrap` and `expect`. This can't
 // be derived without putting requirements on the type arguments.
-impl<T> fmt::Debug for TransferResources<T> where T: Target {
+impl<T, B> fmt::Debug for TransferResources<T, B> where T: Target {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TransferResources {{ .. }}")
     }
