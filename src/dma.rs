@@ -108,7 +108,7 @@ impl<T, B> Transfer<T, B, Ready>
         B: Deref + 'static,
         B::Target: AsSlice<Element=u8>,
 {
-    pub(crate) fn prepare(
+    pub(crate) fn memory_to_peripheral(
         handle:  &Handle<T::Instance, Enabled>,
         stream:  T::Stream,
         buffer:  Pin<B>,
