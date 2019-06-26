@@ -16,6 +16,7 @@ use crate::hal::prelude::*;
 use crate::hal::serial;
 use crate::device;
 use crate::dma;
+use crate::state;
 use crate::time::U32Ext;
 use nb::block;
 
@@ -253,7 +254,7 @@ impl<USART> Rx<USART>
     /// method will panic.
     pub fn read_all<B>(self,
         buffer: Pin<B>,
-        dma:    &dma::Handle<<Self as dma::Target>::Instance, dma::Enabled>,
+        dma:    &dma::Handle<<Self as dma::Target>::Instance, state::Enabled>,
         stream: <Self as dma::Target>::Stream,
     )
         -> dma::Transfer<Self, B, dma::Ready>
@@ -334,7 +335,7 @@ impl<USART> Tx<USART>
     /// method will panic.
     pub fn write_all<B>(self,
         data:   Pin<B>,
-        dma:    &dma::Handle<<Self as dma::Target>::Instance, dma::Enabled>,
+        dma:    &dma::Handle<<Self as dma::Target>::Instance, state::Enabled>,
         stream: <Self as dma::Target>::Stream,
     )
         -> dma::Transfer<Self, B, dma::Ready>

@@ -105,3 +105,12 @@ pub mod time;
 
 #[cfg(feature = "stm32f746")]
 pub mod timer;
+
+
+pub mod state {
+    /// Indicates that a peripheral is enabled
+    pub struct Enabled;
+
+    /// Indicates that a peripheral is disabled
+    pub struct Disabled;
+}
