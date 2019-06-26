@@ -39,13 +39,14 @@ use crate::{
     },
     rcc::Rcc,
     serial,
+    state,
 };
 
 
 /// Entry point to the DMA API
 pub struct DMA<I> {
     /// Handle to the DMA instance
-    pub handle: Handle<I, Disabled>,
+    pub handle: Handle<I, state::Disabled>,
 
     /// The streams associated with this DMA instance
     pub streams: Streams<I>,
@@ -76,24 +77,24 @@ pub struct Handle<I, State> {
     _state: State,
 }
 
-impl<I> Handle<I, Disabled>
+impl<I> Handle<I, state::Disabled>
     where
         I: Instance,
 {
     fn new(instance: I) -> Self {
         Self {
             dma:    instance,
-            _state: Disabled,
+            _state: state::Disabled,
         }
     }
 
     /// Initializes the DMA instance
-    pub fn enable(self, rcc: &mut Rcc) -> Handle<I, Enabled> {
+    pub fn enable(self, rcc: &mut Rcc) -> Handle<I, state::Enabled> {
         I::enable(rcc);
 
         Handle {
             dma:    self.dma,
-            _state: Enabled,
+            _state: state::Enabled,
         }
     }
 }
@@ -114,7 +115,7 @@ impl<T, B> Transfer<T, B, Ready>
         B: 'static,
 {
     pub(crate) fn memory_to_peripheral(
-        handle:  &Handle<T::Instance, Enabled>,
+        handle:  &Handle<T::Instance, state::Enabled>,
         stream:  T::Stream,
         buffer:  Pin<B>,
         target:  T,
@@ -139,7 +140,7 @@ impl<T, B> Transfer<T, B, Ready>
     }
 
     pub(crate) fn peripheral_to_memory(
-        handle:  &Handle<T::Instance, Enabled>,
+        handle:  &Handle<T::Instance, state::Enabled>,
         stream:  T::Stream,
         buffer:  Pin<B>,
         target:  T,
@@ -171,7 +172,7 @@ impl<T, B> Transfer<T, B, Ready>
     /// If this method is used to prepare a peripheral-to-memory transfer, the
     /// caller must make sure that the buffer can be safely written to.
     unsafe fn new(
-        handle:    &Handle<T::Instance, Enabled>,
+        handle:    &Handle<T::Instance, state::Enabled>,
         stream:    T::Stream,
         buffer:    Pin<B>,
         target:    T,
@@ -269,7 +270,7 @@ impl<T, B> Transfer<T, B, Ready>
     }
 
     pub fn enable_interrupts(&mut self,
-        handle:     &Handle<T::Instance, Enabled>,
+        handle:     &Handle<T::Instance, state::Enabled>,
         interrupts: Interrupts,
     ) {
         handle.dma.st[T::Stream::number()].cr.modify(|_, w| {
@@ -303,7 +304,7 @@ impl<T, B> Transfer<T, B, Ready>
         }
     }
 
-    pub fn start(self, handle: &Handle<T::Instance, Enabled>)
+    pub fn start(self, handle: &Handle<T::Instance, state::Enabled>)
         -> Transfer<T, B, Started>
     {
         atomic::fence(Ordering::SeqCst);
@@ -321,7 +322,7 @@ impl<T, B> Transfer<T, B, Ready>
 
 impl<T, B> Transfer<T, B, Started> where T: Target {
     /// Checks whether the transfer is still ongoing
-    pub fn is_active(&self, handle: &Handle<T::Instance, Enabled>)
+    pub fn is_active(&self, handle: &Handle<T::Instance, state::Enabled>)
         -> bool
     {
         handle.dma.st[T::Stream::number()].cr.read().en().is_enabled()
@@ -337,7 +338,7 @@ impl<T, B> Transfer<T, B, Started> where T: Target {
     /// data buffer, the DMA stream, and the peripheral. Those have been moved
     /// into the `Transfer` instance to prevent concurrent access to them. This
     /// method returns those resources, so they can be used again.
-    pub fn wait(self, handle: &Handle<T::Instance, Enabled>)
+    pub fn wait(self, handle: &Handle<T::Instance, state::Enabled>)
         -> Result<TransferResources<T, B>, (TransferResources<T, B>, Error)>
     {
         // Disable interrupt. Safe, because we're only doing an atomic write.
@@ -676,12 +677,6 @@ impl Error {
     }
 }
 
-
-/// Indicates that the peripheral is enabled
-pub struct Enabled;
-
-/// Indicates that the peripheral is disabled
-pub struct Disabled;
 
 /// Indicates that a DMA transfer is ready to be started
 pub struct Ready;
