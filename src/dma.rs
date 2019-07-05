@@ -4,10 +4,7 @@
 use core::{
     fmt,
     marker::PhantomData,
-    ops::{
-        Deref,
-        DerefMut,
-    },
+    ops::Deref,
     pin::Pin,
     sync::atomic::{
         self,
@@ -15,10 +12,7 @@ use core::{
     },
 };
 
-use as_slice::{
-    AsMutSlice,
-    AsSlice,
-};
+use as_slice::AsSlice;
 use cortex_m::interrupt::Nr;
 
 use crate::{
@@ -114,64 +108,19 @@ impl<T, B> Transfer<T, B, Ready>
         T: Target,
         B: 'static,
 {
-    pub(crate) fn memory_to_peripheral(
-        handle:  &Handle<T::Instance, state::Enabled>,
-        stream:  T::Stream,
-        buffer:  Pin<B>,
-        target:  T,
-        address: u32,
-    )
-        -> Self
-        where
-            B: Deref,
-            B::Target: AsSlice<Element=u8>,
-    {
-        // Safe, because we're only using DMA to read from the buffer.
-        unsafe {
-            Self::new(
-                handle,
-                stream,
-                buffer,
-                target,
-                address,
-                Direction::MemoryToPeripheral,
-            )
-        }
-    }
-
-    pub(crate) fn peripheral_to_memory(
-        handle:  &Handle<T::Instance, state::Enabled>,
-        stream:  T::Stream,
-        buffer:  Pin<B>,
-        target:  T,
-        address: u32,
-    )
-        -> Self
-        where
-            B: DerefMut,
-            B::Target: AsMutSlice<Element=u8>,
-    {
-        // Safe, because the trait bounds on this method guarantee that the
-        // buffer can be written to safely.
-        unsafe {
-            Self::new(
-                handle,
-                stream,
-                buffer,
-                target,
-                address,
-                Direction::PeripheralToMemory,
-            )
-        }
-    }
-
     /// Internal constructor to create a new `Transfer`
     ///
     /// # Safety
     ///
+    /// [`Buffer`] can be used to acquire a raw pointer and a length. This
+    /// defines a memory region, i.e. "the buffer".
+    ///
+    /// If this method is used to prepare a memory-to-peripheral transfer, the
+    /// caller must make sure that the buffer can be read from safely.
+    ///
     /// If this method is used to prepare a peripheral-to-memory transfer, the
-    /// caller must make sure that the buffer can be safely written to.
-    unsafe fn new(
+    /// caller must make sure that the buffer can be written to safely.
+    pub(crate) unsafe fn new(
         handle:    &Handle<T::Instance, state::Enabled>,
         stream:    T::Stream,
         buffer:    Pin<B>,
@@ -181,10 +130,10 @@ impl<T, B> Transfer<T, B, Ready>
     )
         -> Self
         where
-            B: Deref,
-            B::Target: AsSlice<Element=u8>,
+            B:         Deref,
+            B::Target: Buffer,
     {
-        assert!(buffer.as_slice().len() <= u16::max_value() as usize);
+        assert!(buffer.len() <= u16::max_value() as usize);
 
         // The following configuration procedure is documented in the reference
         // manual for STM32F75xxx and STM32F74xxx, section 8.3.18.
@@ -201,7 +150,7 @@ impl<T, B> Transfer<T, B, Ready>
         handle.dma.st[nr].par.write(|w| w.pa().bits(address));
 
         // Set memory address
-        let memory_address = buffer.as_slice().as_ptr() as *const _ as u32;
+        let memory_address = buffer.as_ptr() as u32;
         handle.dma.st[nr].m0ar.write(|w| w.m0a().bits(memory_address));
 
         // Write number of data items to transfer
@@ -209,7 +158,7 @@ impl<T, B> Transfer<T, B, Ready>
         // We've asserted that `data.len()` fits into a `u16`, so the cast
         // should be fine.
         handle.dma.st[nr].ndtr.write(|w|
-            w.ndt().bits(buffer.as_slice().len() as u16)
+            w.ndt().bits(buffer.len() as u16)
         );
 
         // Configure FIFO
@@ -382,7 +331,7 @@ impl<T, B> fmt::Debug for TransferResources<T, B> where T: Target {
 }
 
 
-enum Direction {
+pub(crate) enum Direction {
     MemoryToPeripheral,
     PeripheralToMemory,
 }
@@ -683,3 +632,22 @@ pub struct Ready;
 
 /// Indicates that a DMA transfer has been started
 pub struct Started;
+
+
+/// Implemented for types that can be used as a buffer for DMA transfers
+pub(crate) trait Buffer {
+    fn as_ptr(&self) -> *const u8;
+    fn len(&self) -> usize;
+}
+
+impl<T> Buffer for T
+    where T: ?Sized + AsSlice<Element=u8>
+{
+    fn as_ptr(&self) -> *const u8 {
+        self.as_slice().as_ptr()
+    }
+
+    fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+}

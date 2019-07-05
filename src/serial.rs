@@ -266,13 +266,18 @@ impl<USART> Rx<USART>
         // address of one register.
         let address = &unsafe { &*USART::ptr() }.rdr as *const _ as _;
 
-        dma::Transfer::peripheral_to_memory(
-            dma,
-            stream,
-            buffer,
-            self,
-            address,
-        )
+        // Safe, because the trait bounds on this method guarantee that `buffer`
+        // can be written to safely.
+        unsafe {
+            dma::Transfer::new(
+                dma,
+                stream,
+                buffer,
+                self,
+                address,
+                dma::Direction::PeripheralToMemory,
+            )
+        }
     }
 }
 
@@ -350,13 +355,18 @@ impl<USART> Tx<USART>
         let usart = unsafe { &*USART::ptr() };
         usart.icr.write(|w| w.tccf().clear());
 
-        dma::Transfer::memory_to_peripheral(
-            dma,
-            stream,
-            data,
-            self,
-            &usart.tdr as *const _ as _,
-        )
+        // Safe, because the trait bounds on this method guarantee that `buffer`
+        // can be read from safely.
+        unsafe {
+            dma::Transfer::new(
+                dma,
+                stream,
+                data,
+                self,
+                &usart.tdr as *const _ as _,
+                dma::Direction::MemoryToPeripheral,
+            )
+        }
     }
 }
 
