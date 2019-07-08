@@ -218,6 +218,11 @@ impl<T, B> Transfer<T, B, Ready>
         }
     }
 
+    /// Enables the given interrupts for this DMA transfer
+    ///
+    /// These interrupts are only enabled for this transfer. The settings
+    /// doesn't affect other transfers, nor subsequent transfers using the same
+    /// DMA stream.
     pub fn enable_interrupts(&mut self,
         handle:     &Handle<T::Instance, state::Enabled>,
         interrupts: Interrupts,
@@ -253,6 +258,10 @@ impl<T, B> Transfer<T, B, Ready>
         }
     }
 
+    /// Start the DMA transfer
+    ///
+    /// Consumes this instance of `Transfer` and returns another instance with
+    /// its type state set to indicate the transfer has been started.
     pub fn start(self, handle: &Handle<T::Instance, state::Enabled>)
         -> Transfer<T, B, Started>
     {
@@ -314,7 +323,7 @@ impl<T, B> Transfer<T, B, Started> where T: Target {
 }
 
 
-/// The resources that an ongoing transfer needs exclusive access to.
+/// The resources that an ongoing transfer needs exclusive access to
 pub struct TransferResources<T: Target, B> {
     pub stream: T::Stream,
     pub buffer: Pin<B>,
