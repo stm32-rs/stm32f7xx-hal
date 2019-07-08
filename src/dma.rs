@@ -580,6 +580,7 @@ impl_instance!(
 
 
 /// Used by [`Transfer::enable_interrupts`] to identify DMA interrupts
+#[derive(Clone, Copy)]
 pub struct Interrupts {
     pub transfer_complete: bool,
     pub half_transfer:     bool,
