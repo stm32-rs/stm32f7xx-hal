@@ -34,6 +34,7 @@ use embedded_hal::{
 
 use crate::{
     device::{
+        spi1::cr2,
         SPI1,
         SPI2,
         SPI3,
@@ -131,14 +132,19 @@ impl<I, P> Spi<I, P, state::Disabled>
     }
 
     /// Initialize the SPI peripheral
-    pub fn enable(self, rcc: &mut Rcc, clock_divider: ClockDivider, mode: Mode)
-        -> Spi<I, P, Enabled<u8>>
+    pub fn enable<Word>(self,
+        rcc:           &mut Rcc,
+        clock_divider: ClockDivider,
+        mode:          Mode,
+    )
+        -> Spi<I, P, Enabled<Word>>
+        where Word: SupportedWordSize
     {
         let cpol = mode.polarity == Polarity::IdleHigh;
         let cpha = mode.phase == Phase::CaptureOnSecondTransition;
 
         self.spi.enable_clock(rcc);
-        self.spi.configure(clock_divider._bits(), cpol, cpha);
+        self.spi.configure::<Word>(clock_divider._bits(), cpol, cpha);
 
         Spi {
             spi:    self.spi,
@@ -252,38 +258,42 @@ impl<I, P> Spi<I, P, Enabled<u8>>
     }
 }
 
-impl<I, P> FullDuplex<u8> for Spi<I, P, Enabled<u8>>
+impl<I, P, Word> FullDuplex<Word> for Spi<I, P, Enabled<Word>>
     where
-        I: Instance,
-        P: Pins<I>,
+        I:    Instance,
+        P:    Pins<I>,
+        Word: SupportedWordSize,
 {
     type Error = Error;
 
-    fn read(&mut self) -> nb::Result<u8, Self::Error> {
+    fn read(&mut self) -> nb::Result<Word, Self::Error> {
         self.spi.read()
     }
 
-    fn send(&mut self, word: u8) -> nb::Result<(), Self::Error> {
+    fn send(&mut self, word: Word) -> nb::Result<(), Self::Error> {
         self.spi.send(word)
     }
 }
 
-impl<I, P> transfer::Default<u8> for Spi<I, P, Enabled<u8>>
+impl<I, P, Word> transfer::Default<Word> for Spi<I, P, Enabled<Word>>
     where
-        I: Instance,
-        P: Pins<I>,
+        I:    Instance,
+        P:    Pins<I>,
+        Word: SupportedWordSize,
 {}
 
-impl<I, P> write::Default<u8> for Spi<I, P, Enabled<u8>>
+impl<I, P, Word> write::Default<Word> for Spi<I, P, Enabled<Word>>
     where
-        I: Instance,
-        P: Pins<I>,
+        I:    Instance,
+        P:    Pins<I>,
+        Word: SupportedWordSize,
 {}
 
-impl<I, P> write_iter::Default<u8> for Spi<I, P, Enabled<u8>>
+impl<I, P, Word> write_iter::Default<Word> for Spi<I, P, Enabled<Word>>
     where
-        I: Instance,
-        P: Pins<I>,
+        I:    Instance,
+        P:    Pins<I>,
+        Word: SupportedWordSize,
 {}
 
 impl<I, P, State> Spi<I, P, State>
@@ -303,9 +313,12 @@ impl<I, P, State> Spi<I, P, State>
 /// Users of this crate should not implement this trait.
 pub trait Instance {
     fn enable_clock(&self, rcc: &mut Rcc);
-    fn configure(&self, br: u8, cpol: bool, cpha: bool);
-    fn read(&self) -> nb::Result<u8, Error>;
-    fn send(&self, word: u8) -> nb::Result<(), Error>;
+    fn configure<Word>(&self, br: u8, cpol: bool, cpha: bool)
+        where Word: SupportedWordSize;
+    fn read<Word>(&self) -> nb::Result<Word, Error>
+        where Word: SupportedWordSize;
+    fn send<Word>(&self, word: Word) -> nb::Result<(), Error>
+        where Word: SupportedWordSize;
     fn dr_address(&self) -> u32;
 }
 
@@ -364,14 +377,19 @@ macro_rules! impl_instance {
                 // Maybe this is a problem in the SVD file that can be fixed
                 // there.
 
-                fn configure(&self, br: u8, cpol: bool, cpha: bool) {
-                    self.cr2.write(|w|
+                fn configure<Word>(&self, br: u8, cpol: bool, cpha: bool)
+                    where Word: SupportedWordSize
+                {
+                    self.cr2.write(|w| {
+                        // Data size
+                        //
+                        // This is safe, as `Word::ds` returns an enum which can
+                        // only encode valid variants for this field.
+                        let w = unsafe { w.ds().bits(Word::ds()._bits()) };
+
                         w
-                            // FIFO reception threshold. This is the right value
-                            // for 8 bits.
-                            .frxth().quarter()
-                            // Data size
-                            .ds().eight_bit()
+                            // FIFO reception threshold.
+                            .frxth().bit(Word::frxth()._bits())
                             // Disable TX buffer empty interrupt
                             .txeie().masked()
                             // Disable RX buffer not empty interrupt
@@ -387,7 +405,7 @@ macro_rules! impl_instance {
                             // Enable DMA support
                             .txdmaen().enabled()
                             .rxdmaen().enabled()
-                    );
+                    });
 
                     self.cr1.write(|w|
                         w
@@ -415,7 +433,7 @@ macro_rules! impl_instance {
                     );
                 }
 
-                fn read(&self) -> nb::Result<u8, Error> {
+                fn read<Word>(&self) -> nb::Result<Word, Error> {
                     let sr = self.sr.read();
 
                     // Check for errors
@@ -442,7 +460,7 @@ macro_rules! impl_instance {
                         // memory-mapped register.
                         let value = unsafe {
                             ptr::read_volatile(
-                                &self.dr as *const _ as *const u8,
+                                &self.dr as *const _ as *const _,
                             )
                         };
 
@@ -452,7 +470,7 @@ macro_rules! impl_instance {
                     Err(nb::Error::WouldBlock)
                 }
 
-                fn send(&self, word: u8) -> nb::Result<(), Error> {
+                fn send<Word>(&self, word: Word) -> nb::Result<(), Error> {
                     let sr = self.sr.read();
 
                     // Check for errors
@@ -479,7 +497,7 @@ macro_rules! impl_instance {
                         // memory-mapped register.
                         unsafe {
                             ptr::write_volatile(
-                                &self.dr as *const _ as *mut u8,
+                                &self.dr as *const _ as *mut _,
                                 word,
                             );
                         }
@@ -778,3 +796,30 @@ impl<I, P, Rx, Tx, Buffer> fmt::Debug
 /// The `Word` type parameter indicates which word size the peripheral is
 /// configured for.
 pub struct Enabled<Word>(PhantomData<Word>);
+
+
+pub trait SupportedWordSize: private::Sealed {
+    fn frxth() -> cr2::FRXTHW;
+    fn ds() -> cr2::DSW;
+}
+
+impl private::Sealed for u8 {}
+impl SupportedWordSize for u8 {
+    fn frxth() -> cr2::FRXTHW {
+        cr2::FRXTHW::QUARTER
+    }
+
+    fn ds() -> cr2::DSW {
+        cr2::DSW::EIGHTBIT
+    }
+}
+
+
+mod private {
+    /// Prevents code outside of the parent module from implementing traits
+    ///
+    /// This trait is located in a module that is not accessible outside of the
+    /// parent module. This means that any trait that requires `Sealed` cannot
+    /// be implemented only in the parent module.
+    pub trait Sealed {}
+}
