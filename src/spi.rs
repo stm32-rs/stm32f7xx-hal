@@ -132,7 +132,7 @@ impl<I, P> Spi<I, P, state::Disabled>
 
     /// Initialize the SPI peripheral
     pub fn enable(self, rcc: &mut Rcc, clock_divider: ClockDivider, mode: Mode)
-        -> Spi<I, P, state::Enabled>
+        -> Spi<I, P, Enabled<u8>>
     {
         let cpol = mode.polarity == Polarity::IdleHigh;
         let cpha = mode.phase == Phase::CaptureOnSecondTransition;
@@ -143,12 +143,12 @@ impl<I, P> Spi<I, P, state::Disabled>
         Spi {
             spi:    self.spi,
             pins:   self.pins,
-            _state: state::Enabled,
+            _state: Enabled(PhantomData),
         }
     }
 }
 
-impl<I, P> Spi<I, P, state::Enabled>
+impl<I, P> Spi<I, P, Enabled<u8>>
     where
         I: Instance,
         P: Pins<I>,
@@ -252,7 +252,7 @@ impl<I, P> Spi<I, P, state::Enabled>
     }
 }
 
-impl<I, P> FullDuplex<u8> for Spi<I, P, state::Enabled>
+impl<I, P> FullDuplex<u8> for Spi<I, P, Enabled<u8>>
     where
         I: Instance,
         P: Pins<I>,
@@ -268,19 +268,19 @@ impl<I, P> FullDuplex<u8> for Spi<I, P, state::Enabled>
     }
 }
 
-impl<I, P> transfer::Default<u8> for Spi<I, P, state::Enabled>
+impl<I, P> transfer::Default<u8> for Spi<I, P, Enabled<u8>>
     where
         I: Instance,
         P: Pins<I>,
 {}
 
-impl<I, P> write::Default<u8> for Spi<I, P, state::Enabled>
+impl<I, P> write::Default<u8> for Spi<I, P, Enabled<u8>>
     where
         I: Instance,
         P: Pins<I>,
 {}
 
-impl<I, P> write_iter::Default<u8> for Spi<I, P, state::Enabled>
+impl<I, P> write_iter::Default<u8> for Spi<I, P, Enabled<u8>>
     where
         I: Instance,
         P: Pins<I>,
@@ -643,7 +643,7 @@ pub struct Tx<I>(PhantomData<I>);
 /// underlying [`dma::Transfer`] instances.
 pub struct Transfer<I, P, Buffer, Rx: dma::Target, Tx: dma::Target, State> {
     buffer: Pin<Buffer>,
-    target: Spi<I, P, state::Enabled>,
+    target: Spi<I, P, Enabled<u8>>,
     rx:     dma::Transfer<Rx, dma::PtrBuffer, State>,
     tx:     dma::Transfer<Tx, dma::PtrBuffer, State>,
     _state: State,
@@ -754,7 +754,7 @@ impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Started>
 pub struct TransferResources<I, P, Rx: dma::Target, Tx: dma::Target, Buffer> {
     pub rx_stream: Rx::Stream,
     pub tx_stream: Tx::Stream,
-    pub target:    Spi<I, P, state::Enabled>,
+    pub target:    Spi<I, P, Enabled<u8>>,
     pub buffer:    Pin<Buffer>,
 }
 
@@ -771,3 +771,10 @@ impl<I, P, Rx, Tx, Buffer> fmt::Debug
         write!(f, "TransferResources {{ .. }}")
     }
 }
+
+
+/// Indicates that the SPI peripheral is enabled
+///
+/// The `Word` type parameter indicates which word size the peripheral is
+/// configured for.
+pub struct Enabled<Word>(PhantomData<Word>);
