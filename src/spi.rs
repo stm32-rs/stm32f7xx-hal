@@ -11,8 +11,18 @@ pub use embedded_hal::spi::{
 pub use crate::device::spi1::cr1::BRW as ClockDivider;
 
 
-use core::ptr;
+use core::{
+    fmt,
+    marker::PhantomData,
+    ops::DerefMut,
+    pin::Pin,
+    ptr,
+};
 
+use as_slice::{
+    AsMutSlice,
+    AsSlice as _,
+};
 use embedded_hal::{
     blocking::spi::{
         transfer,
@@ -31,6 +41,7 @@ use crate::{
         SPI5,
         SPI6,
     },
+    dma,
     gpio::{
         Alternate,
         AF5,
@@ -137,6 +148,110 @@ impl<I, P> Spi<I, P, state::Disabled>
     }
 }
 
+impl<I, P> Spi<I, P, state::Enabled>
+    where
+        I: Instance,
+        P: Pins<I>,
+{
+    /// Start an SPI transfer using DMA
+    ///
+    /// Sends the data in `buffer` and writes the received data into buffer
+    /// right after. Returns a [`Transfer`], to represent the ongoing SPI
+    /// transfer.
+    ///
+    /// Please note that the word "transfer" is used with two different meanings
+    /// here:
+    /// - An SPI transfer, as in an SPI transaction that involves both sending
+    ///   and receiving data. The method name refers to this kind of transfer.
+    /// - A DMA transfer, as in an ongoing DMA operation. The name of the return
+    ///   type refers to this kind of transfer.
+    ///
+    /// This method, as well as all other DMA-related methods in this module,
+    /// requires references to two DMA handles, one each for the RX and TX
+    /// streams. This will actually always be the same handle, as each SPI
+    /// instance uses the same DMA instance for both sending and receiving. It
+    /// would be nice to simplify that, but I believe that requires an equality
+    /// constraint in the where clause, which is not supported yet by the
+    /// compiler.
+    pub fn transfer_all<B>(self,
+        buffer: Pin<B>,
+        dma_rx: &dma::Handle<<Rx<I> as dma::Target>::Instance, state::Enabled>,
+        dma_tx: &dma::Handle<<Tx<I> as dma::Target>::Instance, state::Enabled>,
+        rx:     <Rx<I> as dma::Target>::Stream,
+        tx:     <Tx<I> as dma::Target>::Stream,
+    )
+        -> Transfer<I, P, B, Rx<I>, Tx<I>, dma::Ready>
+        where
+            Rx<I>:     dma::Target,
+            Tx<I>:     dma::Target,
+            B:         DerefMut + 'static,
+            B::Target: AsMutSlice<Element=u8>,
+    {
+        // Create the RX/TX tokens for the transfer. Those must only exist once,
+        // otherwise it would be possible to create multiple transfers trying to
+        // use the same hardware resources.
+        //
+        // We guarantee that they only exist once by only creating them where we
+        // have access to `self`, moving `self` into the `Transfer` while they
+        // are in use, and dropping them when returning `self` from the
+        // transfer.
+        let rx_token = Rx(PhantomData);
+        let tx_token = Tx(PhantomData);
+
+        // We need to move a buffer into each of the `dma::Transfer` instances,
+        // while keeping the original buffer around to return to the caller
+        // later, when the transfer is finished.
+        //
+        // Here we create two `Buffer` from raw pointers acquired from `buffer`.
+        let rx_buffer = dma::PtrBuffer {
+            ptr: buffer.as_slice().as_ptr(),
+            len: buffer.as_slice().len(),
+        };
+        let tx_buffer = dma::PtrBuffer {
+            ptr: buffer.as_slice().as_ptr(),
+            len: buffer.as_slice().len(),
+        };
+
+        // Create the two DMA transfers. This is safe, for the following
+        // reasons:
+        // 1. The trait bounds on this method guarantee that `buffer`, which we
+        //    created the two buffer instances from, can be safely read from and
+        //    written to.
+        // 2. The semantics of the SPI peripheral guarantee that the buffer
+        //    reads/writes are synchronized, preventing race conditions.
+        let rx_transfer = unsafe {
+            dma::Transfer::new(
+                dma_rx,
+                rx,
+                Pin::new(rx_buffer),
+                rx_token,
+                self.spi.dr_address(),
+                dma::Direction::PeripheralToMemory,
+            )
+        };
+        let tx_transfer = unsafe {
+            dma::Transfer::new(
+                dma_tx,
+                tx,
+                Pin::new(tx_buffer),
+                tx_token,
+                self.spi.dr_address(),
+                dma::Direction::MemoryToPeripheral,
+            )
+        };
+
+        Transfer {
+            buffer,
+            target: self,
+
+            rx: rx_transfer,
+            tx: tx_transfer,
+
+            _state: dma::Ready,
+        }
+    }
+}
+
 impl<I, P> FullDuplex<u8> for Spi<I, P, state::Enabled>
     where
         I: Instance,
@@ -191,6 +306,7 @@ pub trait Instance {
     fn configure(&self, br: u8, cpol: bool, cpha: bool);
     fn read(&self) -> nb::Result<u8, Error>;
     fn send(&self, word: u8) -> nb::Result<(), Error>;
+    fn dr_address(&self) -> u32;
 }
 
 /// Implemented for all tuples that contain a full set of valid SPI pins
@@ -268,9 +384,9 @@ macro_rules! impl_instance {
                             .nssp().no_pulse()
                             // SS output
                             .ssoe().disabled()
-                            // Disable DMA support
-                            .txdmaen().disabled()
-                            .rxdmaen().disabled()
+                            // Enable DMA support
+                            .txdmaen().enabled()
+                            .rxdmaen().enabled()
                     );
 
                     self.cr1.write(|w|
@@ -372,6 +488,10 @@ macro_rules! impl_instance {
                     }
 
                     Err(nb::Error::WouldBlock)
+                }
+
+                fn dr_address(&self) -> u32 {
+                    &self.dr as *const _ as _
                 }
             }
 
@@ -506,4 +626,148 @@ pub enum Error {
     FrameFormat,
     Overrun,
     ModeFault,
+}
+
+
+/// RX token used for DMA transfers
+pub struct Rx<I>(PhantomData<I>);
+
+/// TX token used for DMA transfers
+pub struct Tx<I>(PhantomData<I>);
+
+
+/// A DMA transfer of the SPI peripheral
+///
+/// Since DMA can send and receive at the same time, using two DMA transfers and
+/// two DMA streams, we need this type to represent this operation and wrap the
+/// underlying [`dma::Transfer`] instances.
+pub struct Transfer<I, P, Buffer, Rx: dma::Target, Tx: dma::Target, State> {
+    buffer: Pin<Buffer>,
+    target: Spi<I, P, state::Enabled>,
+    rx:     dma::Transfer<Rx, dma::PtrBuffer, State>,
+    tx:     dma::Transfer<Tx, dma::PtrBuffer, State>,
+    _state: State,
+}
+
+impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Ready>
+    where
+        Rx: dma::Target,
+        Tx: dma::Target,
+{
+    /// Enables the given interrupts for this DMA transfer
+    ///
+    /// These interrupts are only enabled for this transfer. The settings
+    /// doesn't affect other transfers, nor subsequent transfers using the same
+    /// DMA streams.
+    pub fn enable_interrupts(&mut self,
+        rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
+        tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
+        interrupts: dma::Interrupts,
+    ) {
+        self.rx.enable_interrupts(rx_handle, interrupts);
+        self.tx.enable_interrupts(tx_handle, interrupts);
+    }
+
+    /// Start the DMA transfer
+    ///
+    /// Consumes this instance of `Transfer` and returns another instance with
+    /// its type state set to indicate the transfer has been started.
+    pub fn start(self,
+        rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
+        tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
+    )
+        -> Transfer<I, P, Buffer, Rx, Tx, dma::Started>
+    {
+        Transfer {
+            buffer: self.buffer,
+            target: self.target,
+            rx:     self.rx.start(rx_handle),
+            tx:     self.tx.start(tx_handle),
+            _state: dma::Started,
+        }
+    }
+}
+
+impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Started>
+    where
+        Rx: dma::Target,
+        Tx: dma::Target,
+{
+    /// Checks whether the transfer is still ongoing
+    pub fn is_active(&self,
+        rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
+        tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
+    )
+        -> bool
+    {
+        self.rx.is_active(rx_handle) || self.tx.is_active(tx_handle)
+    }
+
+    /// Waits for the transfer to end
+    ///
+    /// This method will block if the transfer is still ongoing. If you want
+    /// this method to return immediately, first check whether the transfer is
+    /// still ongoing by calling `is_active`.
+    ///
+    /// An ongoing transfer needs exlusive access to some resources, namely the
+    /// data buffer, the DMA stream, and the peripheral. Those have been moved
+    /// into the `Transfer` instance to prevent concurrent access to them. This
+    /// method returns those resources, so they can be used again.
+    pub fn wait(self,
+        rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
+        tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
+    )
+        -> Result<
+            TransferResources<I, P, Rx, Tx, Buffer>,
+            (TransferResources<I, P, Rx, Tx, Buffer>, dma::Error)
+        >
+    {
+        let (rx_res, rx_err) = match self.rx.wait(rx_handle) {
+            Ok(res)         => (res, None),
+            Err((res, err)) => (res, Some(err)),
+        };
+        let (tx_res, tx_err) = match self.tx.wait(tx_handle) {
+            Ok(res)         => (res, None),
+            Err((res, err)) => (res, Some(err)),
+        };
+
+        let res = TransferResources {
+            rx_stream: rx_res.stream,
+            tx_stream: tx_res.stream,
+            target:    self.target,
+            buffer:    self.buffer,
+        };
+
+        if let Some(err) = rx_err {
+            return Err((res, err));
+        }
+        if let Some(err) = tx_err {
+            return Err((res, err));
+        }
+
+        Ok(res)
+    }
+}
+
+
+/// The resources that an ongoing transfer needs exclusive access to
+pub struct TransferResources<I, P, Rx: dma::Target, Tx: dma::Target, Buffer> {
+    pub rx_stream: Rx::Stream,
+    pub tx_stream: Tx::Stream,
+    pub target:    Spi<I, P, state::Enabled>,
+    pub buffer:    Pin<Buffer>,
+}
+
+// As `TransferResources` is used in the error variant of `Result`, it needs a
+// `Debug` implementation to enable stuff like `unwrap` and `expect`. This can't
+// be derived without putting requirements on the type arguments.
+impl<I, P, Rx, Tx, Buffer> fmt::Debug
+    for TransferResources<I, P, Rx, Tx, Buffer>
+    where
+        Rx: dma::Target,
+        Tx: dma::Target,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TransferResources {{ .. }}")
+    }
 }

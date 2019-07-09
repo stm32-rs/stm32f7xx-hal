@@ -21,6 +21,12 @@ use crate::{
         DMA1,
         DMA2,
         NVIC,
+        SPI1,
+        SPI2,
+        SPI3,
+        SPI4,
+        SPI5,
+        SPI6,
         USART1,
         USART2,
         USART3,
@@ -33,6 +39,7 @@ use crate::{
     },
     rcc::Rcc,
     serial,
+    spi,
     state,
 };
 
@@ -382,14 +389,38 @@ macro_rules! impl_target {
 
 // See section 8.3.4, tables 25 and 26
 //
-// Some USART instances can be used with multiple stream/channel combinations.
-// To model this, we'd need to implement `Tx` multiple times, which means `Tx`
+// Some peripherals can be used with multiple stream/channel combinations. To
+// model this, we'd need to implement `Tx` multiple times, which means `Tx`
 // would need a type parameter. When attempting to do this, I ran into errors
 // about unconstrained type parameters when trying to use `Tx`.
 //
 // There's probably a smart way to achieve this, but I decided to declare
 // victory and leave this problem to someone who actually needs this capability.
 impl_target!(
+    // SPI receive
+    spi::Rx<SPI1>, DMA2, Stream0, Channel3, DMA2_STREAM0;
+    // SPI1 for DMA2, stream 2, channel 3 is unsupported
+    spi::Rx<SPI2>, DMA1, Stream3, Channel0, DMA1_STREAM3;
+    spi::Rx<SPI3>, DMA1, Stream0, Channel0, DMA1_STREAM0;
+    // SPI3 for DMA1, stream 2, channel 0 is unsupported
+    spi::Rx<SPI4>, DMA2, Stream0, Channel4, DMA2_STREAM0;
+    // SPI4 for DMA2, stream 3, channel 5 is unsupported
+    spi::Rx<SPI5>, DMA2, Stream3, Channel2, DMA2_STREAM3;
+    // SPI5 for DMA2, stream 5, channel 7 is unsupported
+    spi::Rx<SPI6>, DMA2, Stream6, Channel1, DMA2_STREAM6;
+
+    // SPI transmit
+    spi::Tx<SPI1>, DMA2, Stream3, Channel3, DMA2_STREAM3;
+    // SPI1 for DMA2, stream 5, channel 3 is unsupported
+    spi::Tx<SPI2>, DMA1, Stream4, Channel0, DMA1_STREAM4;
+    spi::Tx<SPI3>, DMA1, Stream5, Channel0, DMA1_STREAM5;
+    // SPI3 for DMA1, stream 7, channel 0 is unsupported
+    spi::Tx<SPI4>, DMA2, Stream1, Channel4, DMA2_STREAM1;
+    // SPI4 for DMA2, stream 4, channel 5 is unsupported
+    spi::Tx<SPI5>, DMA2, Stream4, Channel2, DMA2_STREAM4;
+    // SPI5 for DMA2, stream 6, channel 7 is unsupported
+    spi::Tx<SPI6>, DMA2, Stream5, Channel1, DMA2_STREAM5;
+
     // USART receive
     serial::Rx<USART1>, DMA2, Stream2, Channel4, DMA2_STREAM2;
     // USART1 for DMA2, stream 5, channel 4 is unsupported
@@ -659,5 +690,34 @@ impl<T> Buffer for T
 
     fn len(&self) -> usize {
         self.as_slice().len()
+    }
+}
+
+
+/// Can be used as a fallback [`Buffer`], if safer implementations can't be used
+///
+/// The `ptr` and `len` fields MUST define a valid memory region.
+pub(crate) struct PtrBuffer {
+    pub ptr: *const u8,
+    pub len: usize,
+}
+
+// Required to make in possible to put this in a `Pin`, in a way that satisfies
+// the requirements on `Transfer::new`.
+impl Deref for PtrBuffer {
+    type Target = Self;
+
+    fn deref(&self) -> &Self::Target {
+        self
+    }
+}
+
+impl Buffer for PtrBuffer {
+    fn as_ptr(&self) -> *const u8 {
+        self.ptr
+    }
+
+    fn len(&self) -> usize {
+        self.len
     }
 }
