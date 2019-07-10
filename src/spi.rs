@@ -827,6 +827,17 @@ impl SupportedWordSize for u8 {
     }
 }
 
+impl private::Sealed for u16 {}
+impl SupportedWordSize for u16 {
+    fn frxth() -> cr2::FRXTHW {
+        cr2::FRXTHW::QUARTER
+    }
+
+    fn ds() -> cr2::DSW {
+        cr2::DSW::EIGHTBIT
+    }
+}
+
 
 mod private {
     /// Prevents code outside of the parent module from implementing traits
