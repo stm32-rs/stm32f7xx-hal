@@ -639,6 +639,19 @@ impl_instance!(
 );
 
 
+/// Placeholder for a pin when no SCK pin is required
+pub struct NoSck;
+impl<I> Sck<I> for NoSck {}
+
+/// Placeholder for a pin when no MISO pin is required
+pub struct NoMiso;
+impl<I> Miso<I> for NoMiso {}
+
+/// Placeholder for a pin when no MOSI pin is required
+pub struct NoMosi;
+impl<I> Mosi<I> for NoMosi {}
+
+
 #[derive(Debug)]
 pub enum Error {
     FrameFormat,
