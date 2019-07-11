@@ -675,8 +675,8 @@ pub struct Tx<I>(PhantomData<I>);
 pub struct Transfer<I, P, Buffer, Rx: dma::Target, Tx: dma::Target, State> {
     buffer: Pin<Buffer>,
     target: Spi<I, P, Enabled<u8>>,
-    rx:     dma::Transfer<Rx, dma::PtrBuffer, State>,
-    tx:     dma::Transfer<Tx, dma::PtrBuffer, State>,
+    rx:     dma::Transfer<Rx, dma::PtrBuffer<u8>, State>,
+    tx:     dma::Transfer<Tx, dma::PtrBuffer<u8>, State>,
     _state: State,
 }
 
