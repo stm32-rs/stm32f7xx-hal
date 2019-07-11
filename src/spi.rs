@@ -154,10 +154,11 @@ impl<I, P> Spi<I, P, state::Disabled>
     }
 }
 
-impl<I, P> Spi<I, P, Enabled<u8>>
+impl<I, P, Word> Spi<I, P, Enabled<Word>>
     where
-        I: Instance,
-        P: Pins<I>,
+        I:    Instance,
+        P:    Pins<I>,
+        Word: SupportedWordSize,
 {
     /// Start an SPI transfer using DMA
     ///
@@ -186,12 +187,12 @@ impl<I, P> Spi<I, P, Enabled<u8>>
         rx:     <Rx<I> as dma::Target>::Stream,
         tx:     <Tx<I> as dma::Target>::Stream,
     )
-        -> Transfer<I, P, B, Rx<I>, Tx<I>, dma::Ready>
+        -> Transfer<Word, I, P, B, Rx<I>, Tx<I>, dma::Ready>
         where
             Rx<I>:     dma::Target,
             Tx<I>:     dma::Target,
             B:         DerefMut + 'static,
-            B::Target: AsMutSlice<Element=u8>,
+            B::Target: AsMutSlice<Element=Word>,
     {
         // Create the RX/TX tokens for the transfer. Those must only exist once,
         // otherwise it would be possible to create multiple transfers trying to
@@ -672,18 +673,20 @@ pub struct Tx<I>(PhantomData<I>);
 /// Since DMA can send and receive at the same time, using two DMA transfers and
 /// two DMA streams, we need this type to represent this operation and wrap the
 /// underlying [`dma::Transfer`] instances.
-pub struct Transfer<I, P, Buffer, Rx: dma::Target, Tx: dma::Target, State> {
+pub struct Transfer<Word: SupportedWordSize, I, P, Buffer, Rx: dma::Target, Tx: dma::Target, State> {
     buffer: Pin<Buffer>,
-    target: Spi<I, P, Enabled<u8>>,
-    rx:     dma::Transfer<Rx, dma::PtrBuffer<u8>, State>,
-    tx:     dma::Transfer<Tx, dma::PtrBuffer<u8>, State>,
+    target: Spi<I, P, Enabled<Word>>,
+    rx:     dma::Transfer<Rx, dma::PtrBuffer<Word>, State>,
+    tx:     dma::Transfer<Tx, dma::PtrBuffer<Word>, State>,
     _state: State,
 }
 
-impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Ready>
+impl<Word, I, P, Buffer, Rx, Tx>
+    Transfer<Word, I, P, Buffer, Rx, Tx, dma::Ready>
     where
-        Rx: dma::Target,
-        Tx: dma::Target,
+        Rx:   dma::Target,
+        Tx:   dma::Target,
+        Word: SupportedWordSize,
 {
     /// Enables the given interrupts for this DMA transfer
     ///
@@ -707,7 +710,7 @@ impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Ready>
         rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
         tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
     )
-        -> Transfer<I, P, Buffer, Rx, Tx, dma::Started>
+        -> Transfer<Word, I, P, Buffer, Rx, Tx, dma::Started>
     {
         Transfer {
             buffer: self.buffer,
@@ -719,10 +722,12 @@ impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Ready>
     }
 }
 
-impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Started>
+impl<Word, I, P, Buffer, Rx, Tx>
+    Transfer<Word, I, P, Buffer, Rx, Tx, dma::Started>
     where
-        Rx: dma::Target,
-        Tx: dma::Target,
+        Rx:   dma::Target,
+        Tx:   dma::Target,
+        Word: SupportedWordSize,
 {
     /// Checks whether the transfer is still ongoing
     pub fn is_active(&self,
@@ -749,8 +754,8 @@ impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Started>
         tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
     )
         -> Result<
-            TransferResources<I, P, Rx, Tx, Buffer>,
-            (TransferResources<I, P, Rx, Tx, Buffer>, dma::Error)
+            TransferResources<Word, I, P, Rx, Tx, Buffer>,
+            (TransferResources<Word, I, P, Rx, Tx, Buffer>, dma::Error)
         >
     {
         let (rx_res, rx_err) = match self.rx.wait(rx_handle) {
@@ -782,18 +787,18 @@ impl<I, P, Buffer, Rx, Tx> Transfer<I, P, Buffer, Rx, Tx, dma::Started>
 
 
 /// The resources that an ongoing transfer needs exclusive access to
-pub struct TransferResources<I, P, Rx: dma::Target, Tx: dma::Target, Buffer> {
+pub struct TransferResources<Word, I, P, Rx: dma::Target, Tx: dma::Target, Buffer> {
     pub rx_stream: Rx::Stream,
     pub tx_stream: Tx::Stream,
-    pub target:    Spi<I, P, Enabled<u8>>,
+    pub target:    Spi<I, P, Enabled<Word>>,
     pub buffer:    Pin<Buffer>,
 }
 
 // As `TransferResources` is used in the error variant of `Result`, it needs a
 // `Debug` implementation to enable stuff like `unwrap` and `expect`. This can't
 // be derived without putting requirements on the type arguments.
-impl<I, P, Rx, Tx, Buffer> fmt::Debug
-    for TransferResources<I, P, Rx, Tx, Buffer>
+impl<Word, I, P, Rx, Tx, Buffer> fmt::Debug
+    for TransferResources<Word, I, P, Rx, Tx, Buffer>
     where
         Rx: dma::Target,
         Tx: dma::Target,
@@ -811,7 +816,7 @@ impl<I, P, Rx, Tx, Buffer> fmt::Debug
 pub struct Enabled<Word>(PhantomData<Word>);
 
 
-pub trait SupportedWordSize: private::Sealed {
+pub trait SupportedWordSize: dma::SupportedWordSize + private::Sealed {
     fn frxth() -> cr2::FRXTHW;
     fn ds() -> cr2::DSW;
 }
