@@ -743,6 +743,17 @@ impl SupportedWordSize for u8 {
     }
 }
 
+impl private::Sealed for u16 {}
+impl SupportedWordSize for u16 {
+    fn msize() -> cr::MSIZEW {
+        cr::MSIZEW::HALFWORD
+    }
+
+    fn psize() -> cr::PSIZEW {
+        cr::MSIZEW::HALFWORD
+    }
+}
+
 
 mod private {
     /// Prevents code outside of the parent module from implementing traits
