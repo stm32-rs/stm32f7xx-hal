@@ -17,7 +17,10 @@ use cortex_m::interrupt::Nr;
 
 use crate::{
     device::{
-        dma2,
+        dma2::{
+            self,
+            st::cr,
+        },
         DMA1,
         DMA2,
         NVIC,
@@ -127,7 +130,7 @@ impl<T, B> Transfer<T, B, Ready>
     ///
     /// If this method is used to prepare a peripheral-to-memory transfer, the
     /// caller must make sure that the buffer can be written to safely.
-    pub(crate) unsafe fn new(
+    pub(crate) unsafe fn new<Word>(
         handle:    &Handle<T::Instance, state::Enabled>,
         stream:    T::Stream,
         buffer:    Pin<B>,
@@ -138,7 +141,8 @@ impl<T, B> Transfer<T, B, Ready>
         -> Self
         where
             B:         Deref,
-            B::Target: Buffer,
+            B::Target: Buffer<Word>,
+            Word:      SupportedWordSize,
     {
         assert!(buffer.len() <= u16::max_value() as usize);
 
@@ -197,9 +201,9 @@ impl<T, B> Transfer<T, B, Ready>
                 // Very high priority
                 .pl().very_high()
                 // Memory data size
-                .msize().byte()
+                .msize().variant(Word::msize())
                 // Peripheral data size
-                .psize().byte()
+                .psize().variant(Word::psize())
                 // Memory increment mode
                 .minc().incremented()
                 // Peripheral increment mode
@@ -676,15 +680,15 @@ pub struct Started;
 
 
 /// Implemented for types that can be used as a buffer for DMA transfers
-pub(crate) trait Buffer {
-    fn as_ptr(&self) -> *const u8;
+pub(crate) trait Buffer<Word> {
+    fn as_ptr(&self) -> *const Word;
     fn len(&self) -> usize;
 }
 
-impl<T> Buffer for T
-    where T: ?Sized + AsSlice<Element=u8>
+impl<T, Word> Buffer<Word> for T
+    where T: ?Sized + AsSlice<Element=Word>
 {
-    fn as_ptr(&self) -> *const u8 {
+    fn as_ptr(&self) -> *const Word {
         self.as_slice().as_ptr()
     }
 
@@ -697,14 +701,14 @@ impl<T> Buffer for T
 /// Can be used as a fallback [`Buffer`], if safer implementations can't be used
 ///
 /// The `ptr` and `len` fields MUST define a valid memory region.
-pub(crate) struct PtrBuffer {
-    pub ptr: *const u8,
+pub(crate) struct PtrBuffer<Word: SupportedWordSize> {
+    pub ptr: *const Word,
     pub len: usize,
 }
 
 // Required to make in possible to put this in a `Pin`, in a way that satisfies
 // the requirements on `Transfer::new`.
-impl Deref for PtrBuffer {
+impl<Word> Deref for PtrBuffer<Word> where Word: SupportedWordSize {
     type Target = Self;
 
     fn deref(&self) -> &Self::Target {
@@ -712,12 +716,39 @@ impl Deref for PtrBuffer {
     }
 }
 
-impl Buffer for PtrBuffer {
-    fn as_ptr(&self) -> *const u8 {
+impl<Word> Buffer<Word> for PtrBuffer<Word> where Word: SupportedWordSize {
+    fn as_ptr(&self) -> *const Word {
         self.ptr
     }
 
     fn len(&self) -> usize {
         self.len
     }
+}
+
+
+pub trait SupportedWordSize: private::Sealed + Unpin + 'static {
+    fn msize() -> cr::MSIZEW;
+    fn psize() -> cr::PSIZEW;
+}
+
+impl private::Sealed for u8 {}
+impl SupportedWordSize for u8 {
+    fn msize() -> cr::MSIZEW {
+        cr::MSIZEW::BYTE
+    }
+
+    fn psize() -> cr::PSIZEW {
+        cr::MSIZEW::BYTE
+    }
+}
+
+
+mod private {
+    /// Prevents code outside of the parent module from implementing traits
+    ///
+    /// This trait is located in a module that is not accessible outside of the
+    /// parent module. This means that any trait that requires `Sealed` cannot
+    /// be implemented only in the parent module.
+    pub trait Sealed {}
 }
