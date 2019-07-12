@@ -55,7 +55,7 @@ fn main() -> ! {
             (data & 0x3fff); // data bits
 
         ncs.set_low().unwrap();
-        spi.write(&[word.to_be()]).unwrap();
+        spi.write(&[word]).unwrap();
         ncs.set_high().unwrap();
     }
 }
