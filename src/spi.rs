@@ -830,11 +830,11 @@ impl SupportedWordSize for u8 {
 impl private::Sealed for u16 {}
 impl SupportedWordSize for u16 {
     fn frxth() -> cr2::FRXTHW {
-        cr2::FRXTHW::QUARTER
+        cr2::FRXTHW::HALF
     }
 
     fn ds() -> cr2::DSW {
-        cr2::DSW::EIGHTBIT
+        cr2::DSW::SIXTEENBIT
     }
 }
 
