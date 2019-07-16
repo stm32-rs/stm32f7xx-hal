@@ -1,9 +1,9 @@
 # `stm32f7xx-hal`
-[![Build Status](https://travis-ci.com/mvertescher/stm32f7xx-hal.svg?branch=master)](https://travis-ci.com/mvertescher/stm32f7xx-hal)
+[![Build Status](https://travis-ci.com/stm32-rs/stm32f7xx-hal.svg?branch=master)](https://travis-ci.com/stm32-rs/stm32f7xx-hal)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-WIP: A Rust embedded-hal HAL for all MCUs in the STM32 F7 family.
+A Rust embedded-hal HAL for all MCUs in the STM32 F7 family.
 
 This crate is largely inspired by the awesome work done here:
 
