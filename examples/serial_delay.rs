@@ -11,16 +11,13 @@ extern crate panic_halt;
 
 use core::fmt::Write;
 
-use stm32f7xx_hal::{
-    prelude::*,
-    device,
-    serial::{
-        self,
-        Serial,
-    },
-    delay::Delay,
-};
 use cortex_m_rt::entry;
+use stm32f7xx_hal::{
+    delay::Delay,
+    device,
+    prelude::*,
+    serial::{self, Serial},
+};
 
 #[entry]
 fn main() -> ! {

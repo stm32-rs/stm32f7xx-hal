@@ -2,163 +2,87 @@
 //!
 //! See chapter 32 in the STM32F746 Reference Manual.
 
-
-pub use embedded_hal::spi::{
-    Mode,
-    Phase,
-    Polarity,
-};
 pub use crate::device::spi1::cr1::BRW as ClockDivider;
+pub use embedded_hal::spi::{Mode, Phase, Polarity};
 
+use core::{fmt, marker::PhantomData, ops::DerefMut, pin::Pin, ptr};
 
-use core::{
-    fmt,
-    marker::PhantomData,
-    ops::DerefMut,
-    pin::Pin,
-    ptr,
-};
-
-use as_slice::{
-    AsMutSlice,
-    AsSlice as _,
-};
+use as_slice::{AsMutSlice, AsSlice as _};
 use embedded_hal::{
-    blocking::spi::{
-        transfer,
-        write,
-        write_iter,
-    },
+    blocking::spi::{transfer, write, write_iter},
     spi::FullDuplex,
 };
 
 use crate::{
-    device::{
-        spi1::cr2,
-        SPI1,
-        SPI2,
-        SPI3,
-        SPI4,
-        SPI5,
-        SPI6,
-    },
+    device::{spi1::cr2, SPI1, SPI2, SPI3, SPI4, SPI5, SPI6},
     dma,
     gpio::{
-        Alternate,
-        AF5,
-        AF6,
-        AF7,
-        gpioa::{
-            PA5,
-            PA6,
-            PA7,
-            PA9,
-        },
-        gpiob::{
-            PB2,
-            PB3,
-            PB4,
-            PB5,
-            PB10,
-            PB13,
-            PB14,
-            PB15,
-        },
-        gpioc::{
-            PC1,
-            PC2,
-            PC3,
-            PC10,
-            PC11,
-            PC12,
-        },
-        gpiod::{
-            PD3,
-            PD6,
-        },
-        gpioe::{
-            PE2,
-            PE5,
-            PE6,
-            PE12,
-            PE13,
-            PE14,
-        },
-        gpiof::{
-            PF7,
-            PF8,
-            PF9,
-            PF11,
-        },
-        gpiog::{
-            PG12,
-            PG13,
-            PG14,
-        },
-        gpioh::{
-            PH6,
-            PH7,
-        },
-        gpioi::{
-            PI1,
-            PI2,
-            PI3,
-        },
+        gpioa::{PA5, PA6, PA7, PA9},
+        gpiob::{PB10, PB13, PB14, PB15, PB2, PB3, PB4, PB5},
+        gpioc::{PC1, PC10, PC11, PC12, PC2, PC3},
+        gpiod::{PD3, PD6},
+        gpioe::{PE12, PE13, PE14, PE2, PE5, PE6},
+        gpiof::{PF11, PF7, PF8, PF9},
+        gpiog::{PG12, PG13, PG14},
+        gpioh::{PH6, PH7},
+        gpioi::{PI1, PI2, PI3},
+        Alternate, AF5, AF6, AF7,
     },
     rcc::Rcc,
     state,
 };
 
-
 /// Entry point to the SPI API
 pub struct Spi<I, P, State> {
-    spi:    I,
-    pins:   P,
+    spi: I,
+    pins: P,
     _state: State,
 }
 
 impl<I, P> Spi<I, P, state::Disabled>
-    where
-        I: Instance,
-        P: Pins<I>,
+where
+    I: Instance,
+    P: Pins<I>,
 {
     /// Create a new instance of the SPI API
-    pub fn new(instance:  I, pins: P) -> Self {
+    pub fn new(instance: I, pins: P) -> Self {
         Self {
-            spi:    instance,
+            spi: instance,
             pins,
             _state: state::Disabled,
         }
     }
 
     /// Initialize the SPI peripheral
-    pub fn enable<Word>(self,
-        rcc:           &mut Rcc,
+    pub fn enable<Word>(
+        self,
+        rcc: &mut Rcc,
         clock_divider: ClockDivider,
-        mode:          Mode,
-    )
-        -> Spi<I, P, Enabled<Word>>
-        where Word: SupportedWordSize
+        mode: Mode,
+    ) -> Spi<I, P, Enabled<Word>>
+    where
+        Word: SupportedWordSize,
     {
         let cpol = mode.polarity == Polarity::IdleHigh;
         let cpha = mode.phase == Phase::CaptureOnSecondTransition;
 
         self.spi.enable_clock(rcc);
-        self.spi.configure::<Word>(clock_divider._bits(), cpol, cpha);
+        self.spi
+            .configure::<Word>(clock_divider._bits(), cpol, cpha);
 
         Spi {
-            spi:    self.spi,
-            pins:   self.pins,
+            spi: self.spi,
+            pins: self.pins,
             _state: Enabled(PhantomData),
         }
     }
 }
 
 impl<I, P, Word> Spi<I, P, Enabled<Word>>
-    where
-        I:    Instance,
-        P:    Pins<I>,
-        Word: SupportedWordSize,
+where
+    I: Instance,
+    P: Pins<I>,
+    Word: SupportedWordSize,
 {
     /// Start an SPI transfer using DMA
     ///
@@ -180,19 +104,19 @@ impl<I, P, Word> Spi<I, P, Enabled<Word>>
     /// would be nice to simplify that, but I believe that requires an equality
     /// constraint in the where clause, which is not supported yet by the
     /// compiler.
-    pub fn transfer_all<B>(self,
+    pub fn transfer_all<B>(
+        self,
         buffer: Pin<B>,
         dma_rx: &dma::Handle<<Rx<I> as dma::Target>::Instance, state::Enabled>,
         dma_tx: &dma::Handle<<Tx<I> as dma::Target>::Instance, state::Enabled>,
-        rx:     <Rx<I> as dma::Target>::Stream,
-        tx:     <Tx<I> as dma::Target>::Stream,
-    )
-        -> Transfer<Word, I, P, B, Rx<I>, Tx<I>, dma::Ready>
-        where
-            Rx<I>:     dma::Target,
-            Tx<I>:     dma::Target,
-            B:         DerefMut + 'static,
-            B::Target: AsMutSlice<Element=Word>,
+        rx: <Rx<I> as dma::Target>::Stream,
+        tx: <Tx<I> as dma::Target>::Stream,
+    ) -> Transfer<Word, I, P, B, Rx<I>, Tx<I>, dma::Ready>
+    where
+        Rx<I>: dma::Target,
+        Tx<I>: dma::Target,
+        B: DerefMut + 'static,
+        B::Target: AsMutSlice<Element = Word>,
     {
         // Create the RX/TX tokens for the transfer. Those must only exist once,
         // otherwise it would be possible to create multiple transfers trying to
@@ -260,10 +184,10 @@ impl<I, P, Word> Spi<I, P, Enabled<Word>>
 }
 
 impl<I, P, Word> FullDuplex<Word> for Spi<I, P, Enabled<Word>>
-    where
-        I:    Instance,
-        P:    Pins<I>,
-        Word: SupportedWordSize,
+where
+    I: Instance,
+    P: Pins<I>,
+    Word: SupportedWordSize,
 {
     type Error = Error;
 
@@ -277,30 +201,33 @@ impl<I, P, Word> FullDuplex<Word> for Spi<I, P, Enabled<Word>>
 }
 
 impl<I, P, Word> transfer::Default<Word> for Spi<I, P, Enabled<Word>>
-    where
-        I:    Instance,
-        P:    Pins<I>,
-        Word: SupportedWordSize,
-{}
+where
+    I: Instance,
+    P: Pins<I>,
+    Word: SupportedWordSize,
+{
+}
 
 impl<I, P, Word> write::Default<Word> for Spi<I, P, Enabled<Word>>
-    where
-        I:    Instance,
-        P:    Pins<I>,
-        Word: SupportedWordSize,
-{}
+where
+    I: Instance,
+    P: Pins<I>,
+    Word: SupportedWordSize,
+{
+}
 
 impl<I, P, Word> write_iter::Default<Word> for Spi<I, P, Enabled<Word>>
-    where
-        I:    Instance,
-        P:    Pins<I>,
-        Word: SupportedWordSize,
-{}
+where
+    I: Instance,
+    P: Pins<I>,
+    Word: SupportedWordSize,
+{
+}
 
 impl<I, P, State> Spi<I, P, State>
-    where
-        I: Instance,
-        P: Pins<I>,
+where
+    I: Instance,
+    P: Pins<I>,
 {
     /// Destroy the peripheral API and return a raw SPI peripheral instance
     pub fn free(self) -> (I, P) {
@@ -308,18 +235,20 @@ impl<I, P, State> Spi<I, P, State>
     }
 }
 
-
 /// Implemented for all instances of the SPI peripheral
 ///
 /// Users of this crate should not implement this trait.
 pub trait Instance {
     fn enable_clock(&self, rcc: &mut Rcc);
     fn configure<Word>(&self, br: u8, cpol: bool, cpha: bool)
-        where Word: SupportedWordSize;
+    where
+        Word: SupportedWordSize;
     fn read<Word>(&self) -> nb::Result<Word, Error>
-        where Word: SupportedWordSize;
+    where
+        Word: SupportedWordSize;
     fn send<Word>(&self, word: Word) -> nb::Result<(), Error>
-        where Word: SupportedWordSize;
+    where
+        Word: SupportedWordSize;
     fn dr_address(&self) -> u32;
 }
 
@@ -327,11 +256,12 @@ pub trait Instance {
 pub trait Pins<I> {}
 
 impl<I, SCK, MISO, MOSI> Pins<I> for (SCK, MISO, MOSI)
-    where
-        SCK:  Sck<I>,
-        MISO: Miso<I>,
-        MOSI: Mosi<I>,
-{}
+where
+    SCK: Sck<I>,
+    MISO: Miso<I>,
+    MOSI: Mosi<I>,
+{
+}
 
 /// Implemented for all pins that can function as the SCK pin
 ///
@@ -639,7 +569,6 @@ impl_instance!(
     }
 );
 
-
 /// Placeholder for a pin when no SCK pin is required
 pub struct NoSck;
 impl<I> Sck<I> for NoSck {}
@@ -652,7 +581,6 @@ impl<I> Miso<I> for NoMiso {}
 pub struct NoMosi;
 impl<I> Mosi<I> for NoMosi {}
 
-
 #[derive(Debug)]
 pub enum Error {
     FrameFormat,
@@ -660,42 +588,41 @@ pub enum Error {
     ModeFault,
 }
 
-
 /// RX token used for DMA transfers
 pub struct Rx<I>(PhantomData<I>);
 
 /// TX token used for DMA transfers
 pub struct Tx<I>(PhantomData<I>);
 
-
 /// A DMA transfer of the SPI peripheral
 ///
 /// Since DMA can send and receive at the same time, using two DMA transfers and
 /// two DMA streams, we need this type to represent this operation and wrap the
 /// underlying [`dma::Transfer`] instances.
-pub struct Transfer<Word: SupportedWordSize, I, P, Buffer, Rx: dma::Target, Tx: dma::Target, State> {
+pub struct Transfer<Word: SupportedWordSize, I, P, Buffer, Rx: dma::Target, Tx: dma::Target, State>
+{
     buffer: Pin<Buffer>,
     target: Spi<I, P, Enabled<Word>>,
-    rx:     dma::Transfer<Rx, dma::PtrBuffer<Word>, State>,
-    tx:     dma::Transfer<Tx, dma::PtrBuffer<Word>, State>,
+    rx: dma::Transfer<Rx, dma::PtrBuffer<Word>, State>,
+    tx: dma::Transfer<Tx, dma::PtrBuffer<Word>, State>,
     _state: State,
 }
 
-impl<Word, I, P, Buffer, Rx, Tx>
-    Transfer<Word, I, P, Buffer, Rx, Tx, dma::Ready>
-    where
-        Rx:   dma::Target,
-        Tx:   dma::Target,
-        Word: SupportedWordSize,
+impl<Word, I, P, Buffer, Rx, Tx> Transfer<Word, I, P, Buffer, Rx, Tx, dma::Ready>
+where
+    Rx: dma::Target,
+    Tx: dma::Target,
+    Word: SupportedWordSize,
 {
     /// Enables the given interrupts for this DMA transfer
     ///
     /// These interrupts are only enabled for this transfer. The settings
     /// doesn't affect other transfers, nor subsequent transfers using the same
     /// DMA streams.
-    pub fn enable_interrupts(&mut self,
-        rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
-        tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
+    pub fn enable_interrupts(
+        &mut self,
+        rx_handle: &dma::Handle<Rx::Instance, state::Enabled>,
+        tx_handle: &dma::Handle<Tx::Instance, state::Enabled>,
         interrupts: dma::Interrupts,
     ) {
         self.rx.enable_interrupts(rx_handle, interrupts);
@@ -706,36 +633,33 @@ impl<Word, I, P, Buffer, Rx, Tx>
     ///
     /// Consumes this instance of `Transfer` and returns another instance with
     /// its type state set to indicate the transfer has been started.
-    pub fn start(self,
-        rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
-        tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
-    )
-        -> Transfer<Word, I, P, Buffer, Rx, Tx, dma::Started>
-    {
+    pub fn start(
+        self,
+        rx_handle: &dma::Handle<Rx::Instance, state::Enabled>,
+        tx_handle: &dma::Handle<Tx::Instance, state::Enabled>,
+    ) -> Transfer<Word, I, P, Buffer, Rx, Tx, dma::Started> {
         Transfer {
             buffer: self.buffer,
             target: self.target,
-            rx:     self.rx.start(rx_handle),
-            tx:     self.tx.start(tx_handle),
+            rx: self.rx.start(rx_handle),
+            tx: self.tx.start(tx_handle),
             _state: dma::Started,
         }
     }
 }
 
-impl<Word, I, P, Buffer, Rx, Tx>
-    Transfer<Word, I, P, Buffer, Rx, Tx, dma::Started>
-    where
-        Rx:   dma::Target,
-        Tx:   dma::Target,
-        Word: SupportedWordSize,
+impl<Word, I, P, Buffer, Rx, Tx> Transfer<Word, I, P, Buffer, Rx, Tx, dma::Started>
+where
+    Rx: dma::Target,
+    Tx: dma::Target,
+    Word: SupportedWordSize,
 {
     /// Checks whether the transfer is still ongoing
-    pub fn is_active(&self,
-        rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
-        tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
-    )
-        -> bool
-    {
+    pub fn is_active(
+        &self,
+        rx_handle: &dma::Handle<Rx::Instance, state::Enabled>,
+        tx_handle: &dma::Handle<Tx::Instance, state::Enabled>,
+    ) -> bool {
         self.rx.is_active(rx_handle) || self.tx.is_active(tx_handle)
     }
 
@@ -749,29 +673,28 @@ impl<Word, I, P, Buffer, Rx, Tx>
     /// data buffer, the DMA stream, and the peripheral. Those have been moved
     /// into the `Transfer` instance to prevent concurrent access to them. This
     /// method returns those resources, so they can be used again.
-    pub fn wait(self,
-        rx_handle:  &dma::Handle<Rx::Instance, state::Enabled>,
-        tx_handle:  &dma::Handle<Tx::Instance, state::Enabled>,
-    )
-        -> Result<
-            TransferResources<Word, I, P, Rx, Tx, Buffer>,
-            (TransferResources<Word, I, P, Rx, Tx, Buffer>, dma::Error)
-        >
-    {
+    pub fn wait(
+        self,
+        rx_handle: &dma::Handle<Rx::Instance, state::Enabled>,
+        tx_handle: &dma::Handle<Tx::Instance, state::Enabled>,
+    ) -> Result<
+        TransferResources<Word, I, P, Rx, Tx, Buffer>,
+        (TransferResources<Word, I, P, Rx, Tx, Buffer>, dma::Error),
+    > {
         let (rx_res, rx_err) = match self.rx.wait(rx_handle) {
-            Ok(res)         => (res, None),
+            Ok(res) => (res, None),
             Err((res, err)) => (res, Some(err)),
         };
         let (tx_res, tx_err) = match self.tx.wait(tx_handle) {
-            Ok(res)         => (res, None),
+            Ok(res) => (res, None),
             Err((res, err)) => (res, Some(err)),
         };
 
         let res = TransferResources {
             rx_stream: rx_res.stream,
             tx_stream: tx_res.stream,
-            target:    self.target,
-            buffer:    self.buffer,
+            target: self.target,
+            buffer: self.buffer,
         };
 
         if let Some(err) = rx_err {
@@ -785,36 +708,32 @@ impl<Word, I, P, Buffer, Rx, Tx>
     }
 }
 
-
 /// The resources that an ongoing transfer needs exclusive access to
 pub struct TransferResources<Word, I, P, Rx: dma::Target, Tx: dma::Target, Buffer> {
     pub rx_stream: Rx::Stream,
     pub tx_stream: Tx::Stream,
-    pub target:    Spi<I, P, Enabled<Word>>,
-    pub buffer:    Pin<Buffer>,
+    pub target: Spi<I, P, Enabled<Word>>,
+    pub buffer: Pin<Buffer>,
 }
 
 // As `TransferResources` is used in the error variant of `Result`, it needs a
 // `Debug` implementation to enable stuff like `unwrap` and `expect`. This can't
 // be derived without putting requirements on the type arguments.
-impl<Word, I, P, Rx, Tx, Buffer> fmt::Debug
-    for TransferResources<Word, I, P, Rx, Tx, Buffer>
-    where
-        Rx: dma::Target,
-        Tx: dma::Target,
+impl<Word, I, P, Rx, Tx, Buffer> fmt::Debug for TransferResources<Word, I, P, Rx, Tx, Buffer>
+where
+    Rx: dma::Target,
+    Tx: dma::Target,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TransferResources {{ .. }}")
     }
 }
 
-
 /// Indicates that the SPI peripheral is enabled
 ///
 /// The `Word` type parameter indicates which word size the peripheral is
 /// configured for.
 pub struct Enabled<Word>(PhantomData<Word>);
-
 
 pub trait SupportedWordSize: dma::SupportedWordSize + private::Sealed {
     fn frxth() -> cr2::FRXTHW;
@@ -842,7 +761,6 @@ impl SupportedWordSize for u16 {
         cr2::DSW::SIXTEENBIT
     }
 }
-
 
 mod private {
     /// Prevents code outside of the parent module from implementing traits

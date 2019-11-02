@@ -11,15 +11,12 @@ extern crate panic_halt;
 
 use nb::block;
 
-use stm32f7xx_hal::{
-    prelude::*,
-    device,
-    serial::{
-        self,
-        Serial,
-    },
-};
 use cortex_m_rt::entry;
+use stm32f7xx_hal::{
+    device,
+    prelude::*,
+    serial::{self, Serial},
+};
 
 #[entry]
 fn main() -> ! {

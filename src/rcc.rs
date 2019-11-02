@@ -1,4 +1,4 @@
-use crate::device::{FLASH, rcc, RCC};
+use crate::device::{rcc, FLASH, RCC};
 
 use crate::time::Hertz;
 
@@ -68,7 +68,6 @@ impl APB1 {
     }
 }
 
-
 /// Advanced Peripheral Bus 2 (APB2) registers
 pub struct APB2 {
     _0: (),
@@ -85,7 +84,6 @@ impl APB2 {
         unsafe { &(*RCC::ptr()).apb2rstr }
     }
 }
-
 
 const HSI: u32 = 16_000_000; // Hz
 

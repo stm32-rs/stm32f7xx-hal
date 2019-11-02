@@ -1,10 +1,10 @@
 //! Timers
 
-use cast::{u16, u32};
 use crate::device::{TIM2, TIM3, TIM4, TIM5};
 use crate::hal::timer::{CountDown, Periodic};
-use crate::rcc::{APB1, Clocks};
+use crate::rcc::{Clocks, APB1};
 use crate::time::Hertz;
+use cast::{u16, u32};
 use nb;
 use void::Void;
 

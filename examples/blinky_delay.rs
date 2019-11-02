@@ -7,12 +7,8 @@
 
 extern crate panic_halt;
 
-use stm32f7xx_hal::{
-    prelude::*,
-    device,
-    delay::Delay,
-};
 use cortex_m_rt::entry;
+use stm32f7xx_hal::{delay::Delay, device, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -32,12 +28,10 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, clocks);
 
     loop {
-        led.set_high()
-            .expect("GPIO can never fail");
+        led.set_high().expect("GPIO can never fail");
         delay.delay_ms(500_u16);
 
-        led.set_low()
-            .expect("GPIO can never fail");
+        led.set_low().expect("GPIO can never fail");
         delay.delay_ms(500_u16);
     }
 }

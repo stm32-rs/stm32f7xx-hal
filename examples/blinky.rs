@@ -9,10 +9,7 @@ extern crate panic_halt;
 
 use stm32f7xx_hal as hal;
 
-use crate::hal::{
-    prelude::*,
-    device,
-};
+use crate::hal::{device, prelude::*};
 use cortex_m_rt::entry;
 
 #[entry]
@@ -24,12 +21,10 @@ fn main() -> ! {
 
     loop {
         for _ in 0..10_000 {
-            led.set_high()
-                .expect("GPIO can never fail");
+            led.set_high().expect("GPIO can never fail");
         }
         for _ in 0..10_000 {
-            led.set_low()
-                .expect("GPIO can never fail");
+            led.set_low().expect("GPIO can never fail");
         }
     }
 }
