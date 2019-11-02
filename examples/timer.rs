@@ -13,10 +13,9 @@ use cortex_m_rt::entry;
 use cortex_m_semihosting::hio;
 
 use stm32f7xx_hal::{
+    device, interrupt,
     prelude::*,
-    device,
-    interrupt,
-    timer::{Timer, Event},
+    timer::{Event, Timer},
 };
 
 #[entry]

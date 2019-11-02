@@ -1,41 +1,29 @@
 use core::fmt;
 use core::marker::PhantomData;
-use core::ops::{
-    Deref,
-    DerefMut,
-};
+use core::ops::{Deref, DerefMut};
 use core::pin::Pin;
 use core::ptr;
 
-use as_slice::{
-    AsMutSlice,
-    AsSlice,
-};
+use as_slice::{AsMutSlice, AsSlice};
 
-use crate::hal::prelude::*;
-use crate::hal::serial;
 use crate::device;
 use crate::dma;
+use crate::hal::prelude::*;
+use crate::hal::serial;
 use crate::state;
 use crate::time::U32Ext;
 use nb::block;
 
-#[cfg(any(
-    feature = "stm32f745",
-    feature = "stm32f746",
-))]
+#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
 use crate::device::{RCC, USART1, USART2, USART3, USART6};
 
-#[cfg(any(
-    feature = "stm32f745",
-    feature = "stm32f746",
-))]
+#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
 use crate::gpio::{
-    gpioa::{PA2, PA3, PA9, PA10},
-    gpiob::{PB6, PB7, PB10, PB11},
-    gpioc::{PC6, PC7, PC10, PC11},
+    gpioa::{PA10, PA2, PA3, PA9},
+    gpiob::{PB10, PB11, PB6, PB7},
+    gpioc::{PC10, PC11, PC6, PC7},
     gpiod::{PD5, PD6, PD8, PD9},
-    gpiog::{PG9, PG14},
+    gpiog::{PG14, PG9},
     Alternate, AF7, AF8,
 };
 
@@ -65,12 +53,10 @@ impl<USART, TX, RX> Pins<USART> for (TX, RX)
 where
     TX: PinTx<USART>,
     RX: PinRx<USART>,
-{}
+{
+}
 
-#[cfg(any(
-    feature = "stm32f745",
-    feature = "stm32f746",
-))]
+#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
 impl PinTx<USART1> for PA9<Alternate<AF7>> {}
 impl PinTx<USART1> for PB6<Alternate<AF7>> {}
 impl PinTx<USART2> for PA2<Alternate<AF7>> {}
@@ -81,10 +67,7 @@ impl PinTx<USART3> for PD8<Alternate<AF7>> {}
 impl PinTx<USART6> for PC6<Alternate<AF8>> {}
 impl PinTx<USART6> for PG14<Alternate<AF8>> {}
 
-#[cfg(any(
-    feature = "stm32f745",
-    feature = "stm32f746",
-))]
+#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
 impl PinRx<USART1> for PA10<Alternate<AF7>> {}
 impl PinRx<USART1> for PB7<Alternate<AF7>> {}
 impl PinRx<USART2> for PA3<Alternate<AF7>> {}
@@ -95,7 +78,6 @@ impl PinRx<USART3> for PD9<Alternate<AF7>> {}
 impl PinRx<USART6> for PC7<Alternate<AF8>> {}
 impl PinRx<USART6> for PG9<Alternate<AF8>> {}
 
-
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
     usart: USART,
@@ -103,16 +85,11 @@ pub struct Serial<USART, PINS> {
 }
 
 impl<USART, PINS> Serial<USART, PINS>
-    where
-        PINS: Pins<USART>,
-        USART: Instance,
+where
+    PINS: Pins<USART>,
+    USART: Instance,
 {
-    pub fn new(
-        usart: USART,
-        pins: PINS,
-        clocks: Clocks,
-        config: Config) -> Self
-    {
+    pub fn new(usart: USART, pins: PINS, clocks: Clocks, config: Config) -> Self {
         // NOTE(unsafe) This executes only during initialisation
         let rcc = unsafe { &(*RCC::ptr()) };
 
@@ -127,12 +104,9 @@ impl<USART, PINS> Serial<USART, PINS>
             Oversampling::By8 => {
                 usart.cr1.modify(|_, w| w.over8().set_bit());
 
-                let usart_div =
-                    2 * clocks.sysclk().0 / config.baud_rate.0;
+                let usart_div = 2 * clocks.sysclk().0 / config.baud_rate.0;
 
-                0xfff0 & usart_div
-                    | 0x0008 & 0
-                    | 0x0007 & ((usart_div & 0x000f) >> 1)
+                0xfff0 & usart_div | 0x0008 & 0 | 0x0007 & ((usart_div & 0x000f) >> 1)
             }
             Oversampling::By16 => {
                 usart.cr1.modify(|_, w| w.over8().clear_bit());
@@ -147,19 +121,12 @@ impl<USART, PINS> Serial<USART, PINS>
         usart.cr2.reset();
 
         // Enable transmission and receiving
-        usart.cr1.modify(|_, w|
-            w
-                .te().enabled()
-                .re().enabled()
-                .ue().enabled()
-        );
+        usart
+            .cr1
+            .modify(|_, w| w.te().enabled().re().enabled().ue().enabled());
 
         // Enable DMA
-        usart.cr3.write(|w|
-            w
-                .dmat().enabled()
-                .dmar().enabled()
-        );
+        usart.cr3.write(|w| w.dmat().enabled().dmar().enabled());
 
         Serial { usart, pins }
     }
@@ -167,24 +134,16 @@ impl<USART, PINS> Serial<USART, PINS>
     /// Starts listening for an interrupt event
     pub fn listen(&mut self, event: Event) {
         match event {
-            Event::Rxne => {
-                self.usart.cr1.modify(|_, w| w.rxneie().set_bit())
-            },
-            Event::Txe => {
-                self.usart.cr1.modify(|_, w| w.txeie().set_bit())
-            },
+            Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
+            Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().set_bit()),
         }
     }
 
     /// End listening for an interrupt event
     pub fn unlisten(&mut self, event: Event) {
         match event {
-            Event::Rxne => {
-                self.usart.cr1.modify(|_, w| w.rxneie().clear_bit())
-            },
-            Event::Txe => {
-                self.usart.cr1.modify(|_, w| w.txeie().clear_bit())
-            },
+            Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
+            Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().clear_bit()),
         }
     }
 
@@ -205,7 +164,8 @@ impl<USART, PINS> Serial<USART, PINS>
 }
 
 impl<USART, PINS> serial::Read<u8> for Serial<USART, PINS>
-    where USART: Instance
+where
+    USART: Instance,
 {
     type Error = Error;
 
@@ -218,7 +178,8 @@ impl<USART, PINS> serial::Read<u8> for Serial<USART, PINS>
 }
 
 impl<USART, PINS> serial::Write<u8> for Serial<USART, PINS>
-    where USART: Instance
+where
+    USART: Instance,
 {
     type Error = Error;
 
@@ -237,30 +198,29 @@ impl<USART, PINS> serial::Write<u8> for Serial<USART, PINS>
     }
 }
 
-
 /// Serial receiver
 pub struct Rx<USART> {
     _usart: PhantomData<USART>,
 }
 
 impl<USART> Rx<USART>
-    where
-        USART: Instance,
-        Self:  dma::Target,
+where
+    USART: Instance,
+    Self: dma::Target,
 {
     /// Reads data using DMA until `buffer` is full
     ///
     /// DMA supports transfers up to 65535 bytes. If `buffer` is longer, this
     /// method will panic.
-    pub fn read_all<B>(self,
+    pub fn read_all<B>(
+        self,
         buffer: Pin<B>,
-        dma:    &dma::Handle<<Self as dma::Target>::Instance, state::Enabled>,
+        dma: &dma::Handle<<Self as dma::Target>::Instance, state::Enabled>,
         stream: <Self as dma::Target>::Stream,
-    )
-        -> dma::Transfer<Self, B, dma::Ready>
-        where
-            B: DerefMut + 'static,
-            B::Target: AsMutSlice<Element=u8>,
+    ) -> dma::Transfer<Self, B, dma::Ready>
+    where
+        B: DerefMut + 'static,
+        B::Target: AsMutSlice<Element = u8>,
     {
         // This is safe, as we're only using the USART instance to access the
         // address of one register.
@@ -282,7 +242,8 @@ impl<USART> Rx<USART>
 }
 
 impl<USART> serial::Read<u8> for Rx<USART>
-    where USART: Instance
+where
+    USART: Instance,
 {
     type Error = Error;
 
@@ -323,30 +284,29 @@ impl<USART> serial::Read<u8> for Rx<USART>
     }
 }
 
-
 /// Serial transmitter
 pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
 impl<USART> Tx<USART>
-    where
-        Self:  dma::Target,
-        USART: Instance,
+where
+    Self: dma::Target,
+    USART: Instance,
 {
     /// Writes data using DMA
     ///
     /// DMA supports transfers up to 65535 bytes. If `data` is longer, this
     /// method will panic.
-    pub fn write_all<B>(self,
-        data:   Pin<B>,
-        dma:    &dma::Handle<<Self as dma::Target>::Instance, state::Enabled>,
+    pub fn write_all<B>(
+        self,
+        data: Pin<B>,
+        dma: &dma::Handle<<Self as dma::Target>::Instance, state::Enabled>,
         stream: <Self as dma::Target>::Stream,
-    )
-        -> dma::Transfer<Self, B, dma::Ready>
-        where
-            B: Deref + 'static,
-            B::Target: AsSlice<Element=u8>,
+    ) -> dma::Transfer<Self, B, dma::Ready>
+    where
+        B: Deref + 'static,
+        B::Target: AsSlice<Element = u8>,
     {
         // Prepare USART for DMA. See reference manual for STM32F75xxx and
         // STM32F74xxx, section 31.5.15.
@@ -371,7 +331,8 @@ impl<USART> Tx<USART>
 }
 
 impl<USART> serial::Write<u8> for Tx<USART>
-    where USART: Instance
+where
+    USART: Instance,
 {
     type Error = Error;
 
@@ -393,16 +354,13 @@ impl<USART> serial::Write<u8> for Tx<USART>
         if isr.txe().bit_is_set() {
             // NOTE(unsafe) atomic write to stateless register
             // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-            unsafe {
-                ptr::write_volatile(&(*USART::ptr()).tdr as *const _ as *mut _, byte)
-            }
+            unsafe { ptr::write_volatile(&(*USART::ptr()).tdr as *const _ as *mut _, byte) }
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
         }
     }
 }
-
 
 /// USART configuration
 pub struct Config {
@@ -424,7 +382,6 @@ impl Default for Config {
     }
 }
 
-
 /// Interrupt event
 #[derive(Debug)]
 pub enum Event {
@@ -433,7 +390,6 @@ pub enum Event {
     /// New data can be sent
     Txe,
 }
-
 
 /// Implemented by all USART instances
 pub trait Instance: Deref<Target = device::usart1::RegisterBlock> {
@@ -464,10 +420,7 @@ macro_rules! impl_instance {
     }
 }
 
-#[cfg(any(
-    feature = "stm32f745",
-    feature = "stm32f746",
-))]
+#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
 impl_instance! {
     USART1: (apb2enr, usart1sel, usart1en),
     USART2: (apb1enr, usart2sel, usart2en),

@@ -5,36 +5,22 @@
 //!
 //! Note: This example is for the STM32F746
 
-
 #![deny(warnings)]
-
 #![no_main]
 #![no_std]
 
-
 extern crate panic_halt;
-
 
 use core::pin::Pin;
 
-use cortex_m::{
-    asm,
-    interrupt,
-};
+use cortex_m::{asm, interrupt};
 use cortex_m_rt::entry;
 use stm32f7xx_hal::{
+    device,
+    dma::{self, DMA},
     prelude::*,
-    device::self,
-    dma::{
-        self,
-        DMA,
-    },
-    serial::{
-        self,
-        Serial,
-    },
+    serial::{self, Serial},
 };
-
 
 #[entry]
 fn main() -> ! {
@@ -76,43 +62,47 @@ fn main() -> ! {
         // Read using DMA
         let mut transfer = rx.read_all(buffer, &dma, rx_stream);
         let res = interrupt::free(|_| {
-            transfer.enable_interrupts(&dma, dma::Interrupts {
-                transfer_complete: true,
-                transfer_error:    true,
-                direct_mode_error: true,
-                .. dma::Interrupts::default()
-            });
+            transfer.enable_interrupts(
+                &dma,
+                dma::Interrupts {
+                    transfer_complete: true,
+                    transfer_error: true,
+                    direct_mode_error: true,
+                    ..dma::Interrupts::default()
+                },
+            );
 
             let transfer = transfer.start(&dma);
 
             asm::wfi();
 
-            transfer.wait(&dma)
-                .unwrap()
+            transfer.wait(&dma).unwrap()
         });
-        buffer    = res.buffer;
-        rx        = res.target;
+        buffer = res.buffer;
+        rx = res.target;
         rx_stream = res.stream;
 
         // Write using DMA
         let mut transfer = tx.write_all(buffer, &dma, tx_stream);
         let res = interrupt::free(|_| {
-            transfer.enable_interrupts(&dma, dma::Interrupts {
-                transfer_complete: true,
-                transfer_error:    true,
-                direct_mode_error: true,
-                .. dma::Interrupts::default()
-            });
+            transfer.enable_interrupts(
+                &dma,
+                dma::Interrupts {
+                    transfer_complete: true,
+                    transfer_error: true,
+                    direct_mode_error: true,
+                    ..dma::Interrupts::default()
+                },
+            );
 
             let transfer = transfer.start(&dma);
 
             asm::wfi();
 
-            transfer.wait(&dma)
-                .unwrap()
+            transfer.wait(&dma).unwrap()
         });
-        buffer    = res.buffer;
-        tx        = res.target;
+        buffer = res.buffer;
+        tx = res.target;
         tx_stream = res.stream;
     }
 }

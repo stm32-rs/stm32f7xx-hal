@@ -1,15 +1,11 @@
 //! Interface the the DMA peripheral
 
-
 use core::{
     fmt,
     marker::PhantomData,
     ops::Deref,
     pin::Pin,
-    sync::atomic::{
-        self,
-        Ordering,
-    },
+    sync::atomic::{self, Ordering},
 };
 
 use as_slice::AsSlice;
@@ -17,35 +13,13 @@ use cortex_m::interrupt::Nr;
 
 use crate::{
     device::{
-        dma2::{
-            self,
-            st::cr,
-        },
-        DMA1,
-        DMA2,
-        NVIC,
-        SPI1,
-        SPI2,
-        SPI3,
-        SPI4,
-        SPI5,
-        SPI6,
-        USART1,
-        USART2,
-        USART3,
-        UART4,
-        UART5,
-        USART6,
-        UART7,
-        UART8,
-        Interrupt,
+        dma2::{self, st::cr},
+        Interrupt, DMA1, DMA2, NVIC, SPI1, SPI2, SPI3, SPI4, SPI5, SPI6, UART4, UART5, UART7,
+        UART8, USART1, USART2, USART3, USART6,
     },
     rcc::Rcc,
-    serial,
-    spi,
-    state,
+    serial, spi, state,
 };
-
 
 /// Entry point to the DMA API
 pub struct DMA<I> {
@@ -57,37 +31,36 @@ pub struct DMA<I> {
 }
 
 impl<I> DMA<I>
-    where
-        I: Instance,
+where
+    I: Instance,
 {
     /// Creates a new instance of `DMA`
     ///
     /// This just wraps the PAC API, but does no initialization.
     pub fn new(instance: I) -> Self {
         DMA {
-            handle:  Handle::new(instance),
+            handle: Handle::new(instance),
             streams: Streams::new(),
         }
     }
 }
-
 
 /// Handle to the DMA instance
 ///
 /// Controls access to the DMA registers and makes sure that access from
 /// multiple streams can not conflict.
 pub struct Handle<I, State> {
-    dma:    I,
+    dma: I,
     _state: State,
 }
 
 impl<I> Handle<I, state::Disabled>
-    where
-        I: Instance,
+where
+    I: Instance,
 {
     fn new(instance: I) -> Self {
         Self {
-            dma:    instance,
+            dma: instance,
             _state: state::Disabled,
         }
     }
@@ -97,26 +70,25 @@ impl<I> Handle<I, state::Disabled>
         I::enable(rcc);
 
         Handle {
-            dma:    self.dma,
+            dma: self.dma,
             _state: state::Enabled,
         }
     }
 }
-
 
 /// Represents an ongoing DMA transfer
 ///
 /// Peripheral APIs that support DMA have methods like `write_all` and
 /// `read_all`, which return instances of this struct.
 pub struct Transfer<T: Target, B, State> {
-    res:    TransferResources<T, B>,
+    res: TransferResources<T, B>,
     _state: State,
 }
 
 impl<T, B> Transfer<T, B, Ready>
-    where
-        T: Target,
-        B: 'static,
+where
+    T: Target,
+    B: 'static,
 {
     /// Internal constructor to create a new `Transfer`
     ///
@@ -131,18 +103,17 @@ impl<T, B> Transfer<T, B, Ready>
     /// If this method is used to prepare a peripheral-to-memory transfer, the
     /// caller must make sure that the buffer can be written to safely.
     pub(crate) unsafe fn new<Word>(
-        handle:    &Handle<T::Instance, state::Enabled>,
-        stream:    T::Stream,
-        buffer:    Pin<B>,
-        target:    T,
-        address:   u32,
+        handle: &Handle<T::Instance, state::Enabled>,
+        stream: T::Stream,
+        buffer: Pin<B>,
+        target: T,
+        address: u32,
         direction: Direction,
-    )
-        -> Self
-        where
-            B:         Deref,
-            B::Target: Buffer<Word>,
-            Word:      SupportedWordSize,
+    ) -> Self
+    where
+        B: Deref,
+        B::Target: Buffer<Word>,
+        Word: SupportedWordSize,
     {
         assert!(buffer.len() <= u16::max_value() as usize);
 
@@ -162,61 +133,77 @@ impl<T, B> Transfer<T, B, Ready>
 
         // Set memory address
         let memory_address = buffer.as_ptr() as u32;
-        handle.dma.st[nr].m0ar.write(|w| w.m0a().bits(memory_address));
+        handle.dma.st[nr]
+            .m0ar
+            .write(|w| w.m0a().bits(memory_address));
 
         // Write number of data items to transfer
         //
         // We've asserted that `data.len()` fits into a `u16`, so the cast
         // should be fine.
-        handle.dma.st[nr].ndtr.write(|w|
-            w.ndt().bits(buffer.len() as u16)
-        );
+        handle.dma.st[nr]
+            .ndtr
+            .write(|w| w.ndt().bits(buffer.len() as u16));
 
         // Configure FIFO
-        handle.dma.st[nr].fcr.modify(|_, w|
+        handle.dma.st[nr].fcr.modify(|_, w| {
             w
                 // Interrupt disabled
-                .feie().disabled()
+                .feie()
+                .disabled()
                 // Direct mode enabled (FIFO disabled)
-                .dmdis().enabled()
-        );
+                .dmdis()
+                .enabled()
+        });
 
         // Select channel
         handle.dma.st[nr].cr.write(|w| {
             let w = T::Channel::select(w);
 
             let w = match direction {
-                Direction::MemoryToPeripheral =>
-                    w.dir().memory_to_peripheral(),
-                Direction::PeripheralToMemory =>
-                    w.dir().peripheral_to_memory(),
+                Direction::MemoryToPeripheral => w.dir().memory_to_peripheral(),
+                Direction::PeripheralToMemory => w.dir().peripheral_to_memory(),
             };
 
             w
                 // Single transfer
-                .mburst().single()
-                .pburst().single()
+                .mburst()
+                .single()
+                .pburst()
+                .single()
                 // Double-buffer mode disabled
-                .dbm().disabled()
+                .dbm()
+                .disabled()
                 // Very high priority
-                .pl().very_high()
+                .pl()
+                .very_high()
                 // Memory data size
-                .msize().variant(Word::msize())
+                .msize()
+                .variant(Word::msize())
                 // Peripheral data size
-                .psize().variant(Word::psize())
+                .psize()
+                .variant(Word::psize())
                 // Memory increment mode
-                .minc().incremented()
+                .minc()
+                .incremented()
                 // Peripheral increment mode
-                .pinc().fixed()
+                .pinc()
+                .fixed()
                 // Circular mode disabled
-                .circ().disabled()
+                .circ()
+                .disabled()
                 // DMA is the flow controller
-                .pfctrl().dma()
+                .pfctrl()
+                .dma()
                 // All interrupts disabled
-                .tcie().disabled()
-                .htie().disabled()
-                .teie().disabled()
-                .dmeie().disabled()
+                .tcie()
+                .disabled()
+                .htie()
+                .disabled()
+                .teie()
+                .disabled()
+                .dmeie()
+                .disabled()
         });
 
         Transfer {
@@ -234,67 +221,73 @@ impl<T, B> Transfer<T, B, Ready>
     /// These interrupts are only enabled for this transfer. The settings
     /// doesn't affect other transfers, nor subsequent transfers using the same
     /// DMA stream.
-    pub fn enable_interrupts(&mut self,
-        handle:     &Handle<T::Instance, state::Enabled>,
+    pub fn enable_interrupts(
+        &mut self,
+        handle: &Handle<T::Instance, state::Enabled>,
         interrupts: Interrupts,
     ) {
         handle.dma.st[T::Stream::number()].cr.modify(|_, w| {
             let w = if interrupts.transfer_complete {
                 w.tcie().enabled()
-            }
-            else { w };
+            } else {
+                w
+            };
 
             let w = if interrupts.half_transfer {
                 w.htie().enabled()
-            }
-            else { w };
+            } else {
+                w
+            };
 
             let w = if interrupts.transfer_error {
                 w.teie().enabled()
-            }
-            else { w };
+            } else {
+                w
+            };
 
             let w = if interrupts.direct_mode_error {
                 w.dmeie().enabled()
-            }
-            else { w };
+            } else {
+                w
+            };
 
             w
         });
 
         // Enable interrupt. Safe, because we're only doing an atomic write.
         let nr = T::INTERRUPT.nr();
-        unsafe {
-            (&*NVIC::ptr()).iser[nr as usize / 32].write(0x1 << (nr % 32))
-        }
+        unsafe { (&*NVIC::ptr()).iser[nr as usize / 32].write(0x1 << (nr % 32)) }
     }
 
     /// Start the DMA transfer
     ///
     /// Consumes this instance of `Transfer` and returns another instance with
     /// its type state set to indicate the transfer has been started.
-    pub fn start(self, handle: &Handle<T::Instance, state::Enabled>)
-        -> Transfer<T, B, Started>
-    {
+    pub fn start(self, handle: &Handle<T::Instance, state::Enabled>) -> Transfer<T, B, Started> {
         atomic::fence(Ordering::SeqCst);
 
-        handle.dma.st[T::Stream::number()].cr.modify(|_, w| {
-            w.en().enabled()
-        });
+        handle.dma.st[T::Stream::number()]
+            .cr
+            .modify(|_, w| w.en().enabled());
 
         Transfer {
-            res:    self.res,
+            res: self.res,
             _state: Started,
         }
     }
 }
 
-impl<T, B> Transfer<T, B, Started> where T: Target {
+impl<T, B> Transfer<T, B, Started>
+where
+    T: Target,
+{
     /// Checks whether the transfer is still ongoing
-    pub fn is_active(&self, handle: &Handle<T::Instance, state::Enabled>)
-        -> bool
-    {
-        handle.dma.st[T::Stream::number()].cr.read().en().is_enabled()
+    pub fn is_active(&self, handle: &Handle<T::Instance, state::Enabled>) -> bool {
+        handle.dma.st[T::Stream::number()]
+            .cr
+            .read()
+            .en()
+            .is_enabled()
     }
 
     /// Waits for the transfer to end
@@ -307,14 +300,13 @@ impl<T, B> Transfer<T, B, Started> where T: Target {
     /// data buffer, the DMA stream, and the peripheral. Those have been moved
     /// into the `Transfer` instance to prevent concurrent access to them. This
     /// method returns those resources, so they can be used again.
-    pub fn wait(self, handle: &Handle<T::Instance, state::Enabled>)
-        -> Result<TransferResources<T, B>, (TransferResources<T, B>, Error)>
-    {
+    pub fn wait(
+        self,
+        handle: &Handle<T::Instance, state::Enabled>,
+    ) -> Result<TransferResources<T, B>, (TransferResources<T, B>, Error)> {
         // Disable interrupt. Safe, because we're only doing an atomic write.
         let nr = T::INTERRUPT.nr();
-        unsafe {
-            (&*NVIC::ptr()).icer[nr as usize / 32].write(0x1 << (nr % 32))
-        }
+        unsafe { (&*NVIC::ptr()).icer[nr as usize / 32].write(0x1 << (nr % 32)) }
 
         // Wait for transfer to finish
         while self.is_active(handle) {
@@ -333,7 +325,6 @@ impl<T, B> Transfer<T, B, Started> where T: Target {
     }
 }
 
-
 /// The resources that an ongoing transfer needs exclusive access to
 pub struct TransferResources<T: Target, B> {
     pub stream: T::Stream,
@@ -344,18 +335,19 @@ pub struct TransferResources<T: Target, B> {
 // As `TransferResources` is used in the error variant of `Result`, it needs a
 // `Debug` implementation to enable stuff like `unwrap` and `expect`. This can't
 // be derived without putting requirements on the type arguments.
-impl<T, B> fmt::Debug for TransferResources<T, B> where T: Target {
+impl<T, B> fmt::Debug for TransferResources<T, B>
+where
+    T: Target,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TransferResources {{ .. }}")
     }
 }
 
-
 pub(crate) enum Direction {
     MemoryToPeripheral,
     PeripheralToMemory,
 }
-
 
 /// Implemented for all peripheral APIs that support DMA transfers
 ///
@@ -449,7 +441,6 @@ impl_target!(
     serial::Tx<UART7>,  DMA1, Stream1, Channel5, DMA1_STREAM1;
     serial::Tx<UART8>,  DMA1, Stream0, Channel5, DMA1_STREAM0;
 );
-
 
 /// Implemented for all types that represent DMA streams
 ///
@@ -556,14 +547,12 @@ impl_stream!(
         hifcr, (cfeif7, cdmeif7, cteif7, chtif7, ctcif7,);
 );
 
-
 /// Implemented for all types that represent DMA channels
 ///
 /// This is an internal trait. End users neither need to implement it, nor use
 /// it directly.
 pub trait Channel {
-    fn select<'r>(w: &'r mut dma2::st::cr::W)
-        -> &'r mut dma2::st::cr::W;
+    fn select<'r>(w: &'r mut dma2::st::cr::W) -> &'r mut dma2::st::cr::W;
 }
 
 macro_rules! impl_channel {
@@ -595,7 +584,6 @@ impl_channel!(
     Channel7, 7;
 );
 
-
 /// Implemented for all DMA instances
 ///
 /// This is an internal trait. End users neither need to implement it, nor use
@@ -622,13 +610,12 @@ impl_instance!(
     DMA2, dma2rst, dma2en;
 );
 
-
 /// Used by [`Transfer::enable_interrupts`] to identify DMA interrupts
 #[derive(Clone, Copy)]
 pub struct Interrupts {
     pub transfer_complete: bool,
-    pub half_transfer:     bool,
-    pub transfer_error:    bool,
+    pub half_transfer: bool,
+    pub transfer_error: bool,
     pub direct_mode_error: bool,
 }
 
@@ -636,13 +623,12 @@ impl Default for Interrupts {
     fn default() -> Self {
         Self {
             transfer_complete: false,
-            half_transfer:     false,
-            transfer_error:    false,
+            half_transfer: false,
+            transfer_error: false,
             direct_mode_error: false,
         }
     }
 }
-
 
 /// A DMA error
 #[derive(Debug)]
@@ -652,10 +638,9 @@ pub enum Error {
 }
 
 impl Error {
-    pub(crate) fn check<S>(dma: &dma2::RegisterBlock)
-        -> Result<(), Self>
-        where
-            S: Stream,
+    pub(crate) fn check<S>(dma: &dma2::RegisterBlock) -> Result<(), Self>
+    where
+        S: Stream,
     {
         if S::is_transfer_error(dma) {
             return Err(Error::Transfer);
@@ -671,13 +656,11 @@ impl Error {
     }
 }
 
-
 /// Indicates that a DMA transfer is ready to be started
 pub struct Ready;
 
 /// Indicates that a DMA transfer has been started
 pub struct Started;
-
 
 /// Implemented for types that can be used as a buffer for DMA transfers
 pub(crate) trait Buffer<Word> {
@@ -686,7 +669,8 @@ pub(crate) trait Buffer<Word> {
 }
 
 impl<T, Word> Buffer<Word> for T
-    where T: ?Sized + AsSlice<Element=Word>
+where
+    T: ?Sized + AsSlice<Element = Word>,
 {
     fn as_ptr(&self) -> *const Word {
         self.as_slice().as_ptr()
@@ -696,7 +680,6 @@ impl<T, Word> Buffer<Word> for T
         self.as_slice().len()
     }
 }
-
 
 /// Can be used as a fallback [`Buffer`], if safer implementations can't be used
 ///
@@ -708,7 +691,10 @@ pub(crate) struct PtrBuffer<Word: SupportedWordSize> {
 
 // Required to make in possible to put this in a `Pin`, in a way that satisfies
 // the requirements on `Transfer::new`.
-impl<Word> Deref for PtrBuffer<Word> where Word: SupportedWordSize {
+impl<Word> Deref for PtrBuffer<Word>
+where
+    Word: SupportedWordSize,
+{
     type Target = Self;
 
     fn deref(&self) -> &Self::Target {
@@ -716,7 +702,10 @@ impl<Word> Deref for PtrBuffer<Word> where Word: SupportedWordSize {
     }
 }
 
-impl<Word> Buffer<Word> for PtrBuffer<Word> where Word: SupportedWordSize {
+impl<Word> Buffer<Word> for PtrBuffer<Word>
+where
+    Word: SupportedWordSize,
+{
     fn as_ptr(&self) -> *const Word {
         self.ptr
     }
@@ -725,7 +714,6 @@ impl<Word> Buffer<Word> for PtrBuffer<Word> where Word: SupportedWordSize {
         self.len
     }
 }
-
 
 pub trait SupportedWordSize: private::Sealed + Unpin + 'static {
     fn msize() -> cr::MSIZEW;
@@ -753,7 +741,6 @@ impl SupportedWordSize for u16 {
         cr::MSIZEW::BITS16
     }
 }
-
 
 mod private {
     /// Prevents code outside of the parent module from implementing traits

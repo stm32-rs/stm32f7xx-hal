@@ -17,8 +17,9 @@
     feature = "stm32f777",
     feature = "stm32f778",
     feature = "stm32f779",
-    )))]
-compile_error!("This crate requires one of the following device features enabled:
+)))]
+compile_error!(
+    "This crate requires one of the following device features enabled:
         stm32f722
         stm32f723
         stm32f732
@@ -32,7 +33,8 @@ compile_error!("This crate requires one of the following device features enabled
         stm32f777
         stm32f778
         stm32f779
-                ");
+                "
+);
 
 pub(crate) use embedded_hal as hal;
 
@@ -82,8 +84,9 @@ pub use crate::device::interrupt;
 #[cfg(feature = "stm32f746")]
 pub mod delay;
 
-#[cfg(feature = "doc")]
-pub mod examples;
+// Remove unexpected module
+// #[cfg(feature = "doc")]
+// pub mod examples;
 
 #[cfg(feature = "stm32f746")]
 pub mod dma;
@@ -108,7 +111,6 @@ pub mod time;
 
 #[cfg(feature = "stm32f746")]
 pub mod timer;
-
 
 pub mod state {
     /// Indicates that a peripheral is enabled
