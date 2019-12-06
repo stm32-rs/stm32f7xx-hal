@@ -414,7 +414,7 @@ macro_rules! gpio {
                         let offset = $i;
                         unsafe {
                             &(*$GPIOX::ptr()).otyper.modify(|r, w| {
-                                w.bits(r.bits() & (1 << offset))
+                                w.bits(r.bits() | (1 << offset))
                          })};
 
                         self
