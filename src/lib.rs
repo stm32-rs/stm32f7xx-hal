@@ -51,7 +51,7 @@ pub use stm32f7::stm32f7x2 as device;
 pub use stm32f7::stm32f7x3 as device;
 
 #[cfg(feature = "stm32f745")]
-pub use stm32f7::stm32f7x5 as device;
+pub use stm32f7::stm32f745 as device;
 
 #[cfg(feature = "stm32f746")]
 pub use stm32f7::stm32f7x6 as device;
@@ -60,7 +60,7 @@ pub use stm32f7::stm32f7x6 as device;
 pub use stm32f7::stm32f7x6 as device;
 
 #[cfg(feature = "stm32f765")]
-pub use stm32f7::stm32f7x5 as device;
+pub use stm32f7::stm32f765 as device;
 
 #[cfg(feature = "stm32f767")]
 pub use stm32f7::stm32f7x7 as device;

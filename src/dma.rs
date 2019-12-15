@@ -716,29 +716,29 @@ where
 }
 
 pub trait SupportedWordSize: private::Sealed + Unpin + 'static {
-    fn msize() -> cr::MSIZEW;
-    fn psize() -> cr::PSIZEW;
+    fn msize() -> cr::MSIZE_A;
+    fn psize() -> cr::PSIZE_A;
 }
 
 impl private::Sealed for u8 {}
 impl SupportedWordSize for u8 {
-    fn msize() -> cr::MSIZEW {
-        cr::MSIZEW::BITS8
+    fn msize() -> cr::MSIZE_A {
+        cr::MSIZE_A::BITS8
     }
 
-    fn psize() -> cr::PSIZEW {
-        cr::MSIZEW::BITS8
+    fn psize() -> cr::PSIZE_A {
+        cr::MSIZE_A::BITS8
     }
 }
 
 impl private::Sealed for u16 {}
 impl SupportedWordSize for u16 {
-    fn msize() -> cr::MSIZEW {
-        cr::MSIZEW::BITS16
+    fn msize() -> cr::MSIZE_A {
+        cr::MSIZE_A::BITS16
     }
 
-    fn psize() -> cr::PSIZEW {
-        cr::MSIZEW::BITS16
+    fn psize() -> cr::PSIZE_A {
+        cr::MSIZE_A::BITS16
     }
 }
 
