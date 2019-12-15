@@ -2,7 +2,7 @@
 //!
 //! See chapter 32 in the STM32F746 Reference Manual.
 
-pub use crate::device::spi1::cr1::BRW as ClockDivider;
+pub use crate::device::spi1::cr1::BR_A as ClockDivider;
 pub use embedded_hal::spi::{Mode, Phase, Polarity};
 
 use core::{fmt, marker::PhantomData, ops::DerefMut, pin::Pin, ptr};
@@ -68,7 +68,7 @@ where
 
         self.spi.enable_clock(rcc);
         self.spi
-            .configure::<Word>(clock_divider._bits(), cpol, cpha);
+            .configure::<Word>(clock_divider.into(), cpol, cpha);
 
         Spi {
             spi: self.spi,
@@ -316,11 +316,11 @@ macro_rules! impl_instance {
                         //
                         // This is safe, as `Word::ds` returns an enum which can
                         // only encode valid variants for this field.
-                        let w = unsafe { w.ds().bits(Word::ds()._bits()) };
+                        let w = unsafe { w.ds().bits(Word::ds().into()) };
 
                         w
                             // FIFO reception threshold.
-                            .frxth().bit(Word::frxth()._bits())
+                            .frxth().bit(Word::frxth().into())
                             // Disable TX buffer empty interrupt
                             .txeie().masked()
                             // Disable RX buffer not empty interrupt
@@ -736,29 +736,29 @@ where
 pub struct Enabled<Word>(PhantomData<Word>);
 
 pub trait SupportedWordSize: dma::SupportedWordSize + private::Sealed {
-    fn frxth() -> cr2::FRXTHW;
-    fn ds() -> cr2::DSW;
+    fn frxth() -> cr2::FRXTH_A;
+    fn ds() -> cr2::DS_A;
 }
 
 impl private::Sealed for u8 {}
 impl SupportedWordSize for u8 {
-    fn frxth() -> cr2::FRXTHW {
-        cr2::FRXTHW::QUARTER
+    fn frxth() -> cr2::FRXTH_A {
+        cr2::FRXTH_A::QUARTER
     }
 
-    fn ds() -> cr2::DSW {
-        cr2::DSW::EIGHTBIT
+    fn ds() -> cr2::DS_A {
+        cr2::DS_A::EIGHTBIT
     }
 }
 
 impl private::Sealed for u16 {}
 impl SupportedWordSize for u16 {
-    fn frxth() -> cr2::FRXTHW {
-        cr2::FRXTHW::HALF
+    fn frxth() -> cr2::FRXTH_A {
+        cr2::FRXTH_A::HALF
     }
 
-    fn ds() -> cr2::DSW {
-        cr2::DSW::SIXTEENBIT
+    fn ds() -> cr2::DS_A {
+        cr2::DS_A::SIXTEENBIT
     }
 }
 
