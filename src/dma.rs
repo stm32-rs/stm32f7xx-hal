@@ -9,7 +9,6 @@ use core::{
 };
 
 use as_slice::AsSlice;
-use cortex_m::interrupt::Nr;
 
 use crate::{
     device::{
@@ -254,9 +253,8 @@ where
             w
         });
 
-        // Enable interrupt. Safe, because we're only doing an atomic write.
-        let nr = T::INTERRUPT.nr();
-        unsafe { (&*NVIC::ptr()).iser[nr as usize / 32].write(0x1 << (nr % 32)) }
+        // Enable interrupt.
+        unsafe { NVIC::unmask(T::INTERRUPT) };
     }
 
     /// Start the DMA transfer
@@ -304,9 +302,8 @@ where
         self,
         handle: &Handle<T::Instance, state::Enabled>,
     ) -> Result<TransferResources<T, B>, (TransferResources<T, B>, Error)> {
-        // Disable interrupt. Safe, because we're only doing an atomic write.
-        let nr = T::INTERRUPT.nr();
-        unsafe { (&*NVIC::ptr()).icer[nr as usize / 32].write(0x1 << (nr % 32)) }
+        // Disable interrupt.
+        NVIC::mask(T::INTERRUPT);
 
         // Wait for transfer to finish
         while self.is_active(handle) {
