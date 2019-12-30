@@ -128,8 +128,9 @@ where
 
         usart.brr.write(|w| unsafe { w.bits(brr) });
 
-        // Reset other registers to disable advanced USART features
-        usart.cr2.reset();
+        // Set character match and reset other registers to disable advanced USART features
+        let ch = config.character_match.unwrap_or(0);
+        usart.cr2.write(|w| w.add().bits(ch));
 
         // Enable transmission and receiving
         usart
@@ -147,6 +148,8 @@ where
         match event {
             Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
             Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().set_bit()),
+            Event::CharacterMatch => self.usart.cr1.modify(|_, w| w.cmie().set_bit()),
+            Event::Error => self.usart.cr3.modify(|_, w| w.eie().set_bit()),
         }
     }
 
@@ -155,6 +158,8 @@ where
         match event {
             Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
             Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().clear_bit()),
+            Event::CharacterMatch => self.usart.cr1.modify(|_, w| w.cmie().clear_bit()),
+            Event::Error => self.usart.cr3.modify(|_, w| w.eie().clear_bit()),
         }
     }
 
@@ -377,6 +382,7 @@ where
 pub struct Config {
     pub baud_rate: Bps,
     pub oversampling: Oversampling,
+    pub character_match: Option<u8>,
 }
 
 pub enum Oversampling {
@@ -389,6 +395,7 @@ impl Default for Config {
         Self {
             baud_rate: 115_200.bps(),
             oversampling: Oversampling::By16,
+            character_match: None,
         }
     }
 }
@@ -400,6 +407,10 @@ pub enum Event {
     Rxne,
     /// New data can be sent
     Txe,
+    /// Character match interrupt
+    CharacterMatch,
+    /// Error interrupt
+    Error,
 }
 
 /// Implemented by all USART instances
