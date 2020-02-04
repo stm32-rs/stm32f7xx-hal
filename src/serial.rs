@@ -14,10 +14,10 @@ use crate::state;
 use crate::time::U32Ext;
 use nb::block;
 
-#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
+#[cfg(any(feature = "device-selected",))]
 use crate::stm32::{RCC, USART1, USART2, UART4, USART3, USART6, UART7};
 
-#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
+#[cfg(any(feature = "device-selected",))]
 use crate::gpio::{
     gpioa::{PA0, PA1, PA10, PA2, PA3, PA9},
     gpiob::{PB10, PB11, PB6, PB7},
@@ -58,7 +58,7 @@ where
 {
 }
 
-#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
+#[cfg(any(feature = "device-selected",))]
 impl PinTx<USART1> for PA9<Alternate<AF7>> {}
 impl PinTx<USART1> for PB6<Alternate<AF7>> {}
 impl PinTx<USART2> for PA2<Alternate<AF7>> {}
@@ -73,7 +73,7 @@ impl PinTx<USART6> for PG14<Alternate<AF8>> {}
 impl PinTx<UART7> for PE8<Alternate<AF8>> {}
 impl PinTx<UART7> for PF7<Alternate<AF8>> {}
 
-#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
+#[cfg(any(feature = "device-selected",))]
 impl PinRx<USART1> for PA10<Alternate<AF7>> {}
 impl PinRx<USART1> for PB7<Alternate<AF7>> {}
 impl PinRx<USART2> for PA3<Alternate<AF7>> {}
