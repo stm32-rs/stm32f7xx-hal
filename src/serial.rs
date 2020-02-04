@@ -430,7 +430,7 @@ macro_rules! impl_instance {
     }
 }
 
-#[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
+#[cfg(any(feature = "device-selected",))]
 impl_instance! {
     USART1: (apb2enr, usart1sel, usart1en),
     USART2: (apb1enr, usart2sel, usart2en),
