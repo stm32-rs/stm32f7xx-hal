@@ -8,11 +8,11 @@
 extern crate panic_halt;
 
 use cortex_m_rt::entry;
-use stm32f7xx_hal::{delay::Delay, device, prelude::*};
+use stm32f7xx_hal::{delay::Delay, stm32, prelude::*};
 
 #[entry]
 fn main() -> ! {
-    let p = device::Peripherals::take().unwrap();
+    let p = stm32::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
 
     let gpioi = p.GPIOI.split();

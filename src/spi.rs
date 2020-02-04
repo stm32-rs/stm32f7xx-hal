@@ -2,7 +2,7 @@
 //!
 //! See chapter 32 in the STM32F746 Reference Manual.
 
-pub use crate::device::spi1::cr1::BR_A as ClockDivider;
+pub use crate::stm32::spi1::cr1::BR_A as ClockDivider;
 pub use embedded_hal::spi::{Mode, Phase, Polarity};
 
 use core::{fmt, marker::PhantomData, ops::DerefMut, pin::Pin, ptr};
@@ -14,7 +14,7 @@ use embedded_hal::{
 };
 
 use crate::{
-    device::{spi1::cr2, SPI1, SPI2, SPI3, SPI4, SPI5, SPI6},
+    stm32::{spi1::cr2, SPI1, SPI2, SPI3, SPI4, SPI5, SPI6},
     dma,
     gpio::{
         gpioa::{PA5, PA6, PA7, PA9},

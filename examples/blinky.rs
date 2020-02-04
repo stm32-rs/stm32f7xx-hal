@@ -9,12 +9,12 @@ extern crate panic_halt;
 
 use stm32f7xx_hal as hal;
 
-use crate::hal::{device, prelude::*};
+use crate::hal::{stm32, prelude::*};
 use cortex_m_rt::entry;
 
 #[entry]
 fn main() -> ! {
-    let p = device::Peripherals::take().unwrap();
+    let p = stm32::Peripherals::take().unwrap();
 
     let gpioi = p.GPIOI.split();
     let mut led = gpioi.pi1.into_push_pull_output();

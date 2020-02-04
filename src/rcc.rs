@@ -1,4 +1,4 @@
-use crate::device::{rcc, FLASH, RCC};
+use crate::stm32::{rcc, FLASH, RCC};
 
 use crate::time::Hertz;
 

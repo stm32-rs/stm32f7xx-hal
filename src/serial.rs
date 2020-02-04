@@ -6,7 +6,7 @@ use core::ptr;
 
 use as_slice::{AsMutSlice, AsSlice};
 
-use crate::device;
+use crate::stm32;
 use crate::dma;
 use crate::hal::prelude::*;
 use crate::hal::serial;
@@ -15,7 +15,7 @@ use crate::time::U32Ext;
 use nb::block;
 
 #[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
-use crate::device::{RCC, USART1, USART2, UART4, USART3, USART6, UART7};
+use crate::stm32::{RCC, USART1, USART2, UART4, USART3, USART6, UART7};
 
 #[cfg(any(feature = "stm32f745", feature = "stm32f746",))]
 use crate::gpio::{
@@ -402,10 +402,10 @@ pub enum Event {
 }
 
 /// Implemented by all USART instances
-pub trait Instance: Deref<Target = device::usart1::RegisterBlock> {
-    fn ptr() -> *const device::usart1::RegisterBlock;
-    fn select_sysclock(rcc: &device::rcc::RegisterBlock);
-    fn enable_clock(rcc: &device::rcc::RegisterBlock);
+pub trait Instance: Deref<Target = stm32::usart1::RegisterBlock> {
+    fn ptr() -> *const stm32::usart1::RegisterBlock;
+    fn select_sysclock(rcc: &stm32::rcc::RegisterBlock);
+    fn enable_clock(rcc: &stm32::rcc::RegisterBlock);
 }
 
 macro_rules! impl_instance {
@@ -414,15 +414,15 @@ macro_rules! impl_instance {
     )+) => {
         $(
             impl Instance for $USARTX {
-                fn ptr() -> *const device::usart1::RegisterBlock {
+                fn ptr() -> *const stm32::usart1::RegisterBlock {
                     $USARTX::ptr()
                 }
 
-                fn select_sysclock(rcc: &device::rcc::RegisterBlock) {
+                fn select_sysclock(rcc: &stm32::rcc::RegisterBlock) {
                     rcc.dckcfgr2.modify(|_, w| w.$usartXsel().bits(1));
                 }
 
-                fn enable_clock(rcc: &device::rcc::RegisterBlock) {
+                fn enable_clock(rcc: &stm32::rcc::RegisterBlock) {
                     rcc.$apbXenr.modify(|_, w| w.$usartXen().set_bit());
                 }
             }
