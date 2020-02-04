@@ -8,7 +8,7 @@ use core::pin::Pin;
 use cortex_m::{asm, interrupt};
 use cortex_m_rt::entry;
 use stm32f7xx_hal::{
-    device,
+    stm32,
     dma::{self, DMA},
     prelude::*,
     spi::{self, Spi},
@@ -16,7 +16,7 @@ use stm32f7xx_hal::{
 
 #[entry]
 fn main() -> ! {
-    let p = device::Peripherals::take().unwrap();
+    let p = stm32::Peripherals::take().unwrap();
 
     let mut rcc = p.RCC.constrain();
 

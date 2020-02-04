@@ -11,7 +11,7 @@ use core::{
 use as_slice::AsSlice;
 
 use crate::{
-    device::{
+    stm32::{
         dma2::{self, st::cr},
         Interrupt, DMA1, DMA2, NVIC, SPI1, SPI2, SPI3, SPI4, SPI5, SPI6, UART4, UART5, UART7,
         UART8, USART1, USART2, USART3, USART6,
