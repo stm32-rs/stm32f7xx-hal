@@ -22,7 +22,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $timXen:ident, $timXrst:ident, $apb:ident),)+) => {
+    ($($TIM:ident: ($tim:ident, $timXen:ident, $timXrst:ident, $apb:ident, $timclk:ident),)+) => {
         $(
             impl Periodic for Timer<$TIM> {}
 
@@ -39,7 +39,7 @@ macro_rules! hal {
 
                     self.timeout = timeout.into();
                     let frequency = self.timeout.0;
-                    let ticks = self.clocks.pclk1().0 / frequency;
+                    let ticks = self.clocks.$timclk().0 / frequency;
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
                     self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
@@ -123,8 +123,8 @@ macro_rules! hal {
 
 // TODO: Add support for missing timers
 hal! {
-    TIM2: (tim2, tim2en, tim2rst, APB1),
-    TIM3: (tim3, tim3en, tim3rst, APB1),
-    TIM4: (tim4, tim4en, tim4rst, APB1),
-    TIM5: (tim5, tim5en, tim5rst, APB1),
+    TIM2: (tim2, tim2en, tim2rst, APB1, timclk1),
+    TIM3: (tim3, tim3en, tim3rst, APB1, timclk1),
+    TIM4: (tim4, tim4en, tim4rst, APB1, timclk1),
+    TIM5: (tim5, tim5en, tim5rst, APB1, timclk1),
 }
