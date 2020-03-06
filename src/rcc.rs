@@ -19,6 +19,8 @@ impl RccExt for RCC {
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
+                timclk1: None,
+                timclk2: None,
             },
         }
     }
@@ -92,6 +94,8 @@ pub struct CFGR {
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
+    timclk1: Option<u32>,
+    timclk2: Option<u32>,
 }
 
 impl CFGR {
@@ -127,6 +131,22 @@ impl CFGR {
         self
     }
 
+    pub fn timclk1<F>(mut self, freq: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        self.timclk1 = Some(freq.into().0);
+        self
+    }
+
+    pub fn timclk2<F>(mut self, freq: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        self.timclk2 = Some(freq.into().0);
+        self
+    }
+
     pub fn freeze(self) -> Clocks {
         let flash = unsafe { &(*FLASH::ptr()) };
         let rcc = unsafe { &*RCC::ptr() };
@@ -148,6 +168,8 @@ impl CFGR {
                 pclk1: Hertz(hclk),
                 pclk2: Hertz(hclk),
                 sysclk: Hertz(sysclk),
+                timclk1: Hertz(hclk),
+                timclk2: Hertz(hclk),
             }
         } else if sysclk == HSI && hclk < sysclk {
             let hpre_bits = match sysclk / hclk {
@@ -180,6 +202,8 @@ impl CFGR {
                 pclk1: Hertz(hclk),
                 pclk2: Hertz(hclk),
                 sysclk: Hertz(sysclk),
+                timclk1: Hertz(hclk),
+                timclk2: Hertz(hclk),
             }
         } else {
             assert!(sysclk <= 216_000_000 && sysclk >= 24_000_000);
@@ -242,6 +266,11 @@ impl CFGR {
             let pclk1 = hclk / ppre1;
             let pclk2 = hclk / ppre2;
 
+
+            //Assumes TIMPRE bit of RCC_DCKCFGR1 is reset (0)
+            let timclk1 = if ppre1 == 1 {pclk1} else {2 * pclk1};
+            let timclk2 = if ppre2 == 1 {pclk2} else {2 * pclk2};
+
             // Adjust flash wait states
             flash.acr.write(|w| {
                 w.latency().bits(if sysclk <= 30_000_000 {
@@ -296,6 +325,8 @@ impl CFGR {
                 pclk1: Hertz(pclk1),
                 pclk2: Hertz(pclk2),
                 sysclk: Hertz(sysclk),
+                timclk1: Hertz(timclk1),
+                timclk2: Hertz(timclk2),
             }
         }
     }
@@ -310,6 +341,8 @@ pub struct Clocks {
     pclk1: Hertz,
     pclk2: Hertz,
     sysclk: Hertz,
+    timclk1: Hertz,
+    timclk2: Hertz,
 }
 
 impl Clocks {
@@ -331,5 +364,15 @@ impl Clocks {
     /// Returns the system (core) frequency
     pub fn sysclk(&self) -> Hertz {
         self.sysclk
+    }
+
+    /// Returns the frequency for timers on APB1
+    pub fn timclk1(&self) -> Hertz {
+        self.timclk1
+    }
+
+    /// Returns the frequency for timers on APB1
+    pub fn timclk2(&self) -> Hertz {
+        self.timclk2
     }
 }
