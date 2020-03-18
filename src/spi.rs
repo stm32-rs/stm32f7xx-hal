@@ -14,23 +14,17 @@ use embedded_hal::{
 };
 
 use crate::{
-    device::{spi1::cr2, SPI1, SPI2, SPI3, SPI4, SPI5, SPI6},
-    dma,
+    device::{self, spi1::cr2},
     gpio::{
-        gpioa::{PA5, PA6, PA7, PA9},
-        gpiob::{PB10, PB13, PB14, PB15, PB2, PB3, PB4, PB5},
-        gpioc::{PC1, PC10, PC11, PC12, PC2, PC3},
-        gpiod::{PD3, PD6},
-        gpioe::{PE12, PE13, PE14, PE2, PE5, PE6},
-        gpiof::{PF11, PF7, PF8, PF9},
-        gpiog::{PG12, PG13, PG14},
-        gpioh::{PH6, PH7},
-        gpioi::{PI1, PI2, PI3},
+        self,
         Alternate, AF5, AF6, AF7,
     },
     rcc::Rcc,
     state,
 };
+
+#[cfg(feature="dma-support")]
+use crate::dma;
 
 /// Entry point to the SPI API
 pub struct Spi<I, P, State> {
@@ -78,6 +72,7 @@ where
     }
 }
 
+#[cfg(feature="dma-support")]
 impl<I, P, Word> Spi<I, P, Enabled<Word>>
 where
     I: Instance,
@@ -459,111 +454,143 @@ macro_rules! impl_instance {
     }
 }
 
+#[cfg(any(
+    feature = "stm32f722",
+    feature = "stm32f723",
+    feature = "stm32f732",
+    feature = "stm32f733",
+    feature = "stm32f745",
+    feature = "stm32f746",
+    feature = "stm32f756",
+    feature = "stm32f765",
+    feature = "stm32f767",
+    feature = "stm32f769",
+    feature = "stm32f777",
+    feature = "stm32f778",
+    feature = "stm32f779",
+))]
 impl_instance!(
-    SPI1 {
+    device::SPI1 {
         regs: (apb2, spi1rst, spi1en),
         pins: {
             SCK: [
-                PA5<Alternate<AF5>>,
-                PB3<Alternate<AF5>>,
+                gpio::gpioa::PA5<Alternate<AF5>>,
+                gpio::gpiob::PB3<Alternate<AF5>>,
             ],
             MISO: [
-                PA6<Alternate<AF5>>,
-                PB4<Alternate<AF5>>,
+                gpio::gpioa::PA6<Alternate<AF5>>,
+                gpio::gpiob::PB4<Alternate<AF5>>,
             ],
             MOSI: [
-                PA7<Alternate<AF5>>,
-                PB5<Alternate<AF5>>,
+                gpio::gpioa::PA7<Alternate<AF5>>,
+                gpio::gpiob::PB5<Alternate<AF5>>,
             ],
         }
     }
-    SPI2 {
+    device::SPI2 {
         regs: (apb1, spi2rst, spi2en),
         pins: {
             SCK: [
-                PA9<Alternate<AF5>>,
-                PB10<Alternate<AF5>>,
-                PB13<Alternate<AF5>>,
-                PD3<Alternate<AF5>>,
-                PI1<Alternate<AF5>>,
+                gpio::gpioa::PA9<Alternate<AF5>>,
+                gpio::gpiob::PB10<Alternate<AF5>>,
+                gpio::gpiob::PB13<Alternate<AF5>>,
+                gpio::gpiod::PD3<Alternate<AF5>>,
+                gpio::gpioi::PI1<Alternate<AF5>>,
             ],
             MISO: [
-                PB14<Alternate<AF5>>,
-                PC2<Alternate<AF5>>,
-                PI2<Alternate<AF5>>,
+                gpio::gpiob::PB14<Alternate<AF5>>,
+                gpio::gpioc::PC2<Alternate<AF5>>,
+                gpio::gpioi::PI2<Alternate<AF5>>,
             ],
             MOSI: [
-                PB15<Alternate<AF5>>,
-                PC1<Alternate<AF5>>,
-                PC3<Alternate<AF5>>,
-                PI3<Alternate<AF5>>,
+                gpio::gpiob::PB15<Alternate<AF5>>,
+                gpio::gpioc::PC1<Alternate<AF5>>,
+                gpio::gpioc::PC3<Alternate<AF5>>,
+                gpio::gpioi::PI3<Alternate<AF5>>,
             ],
         }
     }
-    SPI3 {
+    device::SPI3 {
         regs: (apb1, spi3rst, spi3en),
         pins: {
             SCK: [
-                PB3<Alternate<AF6>>,
-                PC10<Alternate<AF6>>,
+                gpio::gpiob::PB3<Alternate<AF6>>,
+                gpio::gpioc::PC10<Alternate<AF6>>,
             ],
             MISO: [
-                PB4<Alternate<AF6>>,
-                PC11<Alternate<AF6>>,
+                gpio::gpiob::PB4<Alternate<AF6>>,
+                gpio::gpioc::PC11<Alternate<AF6>>,
             ],
             MOSI: [
-                PB2<Alternate<AF7>>,
-                PB5<Alternate<AF6>>,
-                PC12<Alternate<AF6>>,
-                PD6<Alternate<AF5>>,
+                gpio::gpiob::PB2<Alternate<AF7>>,
+                gpio::gpiob::PB5<Alternate<AF6>>,
+                gpio::gpioc::PC12<Alternate<AF6>>,
+                gpio::gpiod::PD6<Alternate<AF5>>,
             ],
         }
     }
-    SPI4 {
+    device::SPI4 {
         regs: (apb2, spi4rst, spi4en),
         pins: {
             SCK: [
-                PE2<Alternate<AF5>>,
-                PE12<Alternate<AF5>>,
+                gpio::gpioe::PE2<Alternate<AF5>>,
+                gpio::gpioe::PE12<Alternate<AF5>>,
             ],
             MISO: [
-                PE5<Alternate<AF5>>,
-                PE13<Alternate<AF5>>,
+                gpio::gpioe::PE5<Alternate<AF5>>,
+                gpio::gpioe::PE13<Alternate<AF5>>,
             ],
             MOSI: [
-                PE6<Alternate<AF5>>,
-                PE14<Alternate<AF5>>,
+                gpio::gpioe::PE6<Alternate<AF5>>,
+                gpio::gpioe::PE14<Alternate<AF5>>,
             ],
         }
     }
-    SPI5 {
+    device::SPI5 {
         regs: (apb2, spi5rst, spi5en),
         pins: {
             SCK: [
-                PF7<Alternate<AF5>>,
-                PH6<Alternate<AF5>>,
+                gpio::gpiof::PF7<Alternate<AF5>>,
+                gpio::gpioh::PH6<Alternate<AF5>>,
             ],
             MISO: [
-                PF8<Alternate<AF5>>,
-                PH7<Alternate<AF5>>,
+                gpio::gpiof::PF8<Alternate<AF5>>,
+                gpio::gpioh::PH7<Alternate<AF5>>,
             ],
             MOSI: [
-                PF9<Alternate<AF5>>,
-                PF11<Alternate<AF5>>,
+                gpio::gpiof::PF9<Alternate<AF5>>,
+                gpio::gpiof::PF11<Alternate<AF5>>,
             ],
         }
     }
-    SPI6 {
+);
+
+#[cfg(any(
+    feature = "stm32f723",
+    feature = "stm32f732",
+    feature = "stm32f733",
+    feature = "stm32f745",
+    feature = "stm32f746",
+    feature = "stm32f756",
+    feature = "stm32f765",
+    feature = "stm32f767",
+    feature = "stm32f769",
+    feature = "stm32f777",
+    feature = "stm32f778",
+    feature = "stm32f779",
+))]
+impl_instance!(
+    device::SPI6 {
         regs: (apb2, spi6rst, spi6en),
         pins: {
             SCK: [
-                PG13<Alternate<AF5>>,
+                gpio::gpiog::PG13<Alternate<AF5>>,
             ],
             MISO: [
-                PG12<Alternate<AF5>>,
+                gpio::gpiog::PG12<Alternate<AF5>>,
             ],
             MOSI: [
-                PG14<Alternate<AF5>>,
+                gpio::gpiog::PG14<Alternate<AF5>>,
             ],
         }
     }
@@ -709,6 +736,7 @@ where
 }
 
 /// The resources that an ongoing transfer needs exclusive access to
+#[cfg(feature="dma-support")]
 pub struct TransferResources<Word, I, P, Rx: dma::Target, Tx: dma::Target, Buffer> {
     pub rx_stream: Rx::Stream,
     pub tx_stream: Tx::Stream,
@@ -719,6 +747,7 @@ pub struct TransferResources<Word, I, P, Rx: dma::Target, Tx: dma::Target, Buffe
 // As `TransferResources` is used in the error variant of `Result`, it needs a
 // `Debug` implementation to enable stuff like `unwrap` and `expect`. This can't
 // be derived without putting requirements on the type arguments.
+#[cfg(feature="dma-support")]
 impl<Word, I, P, Rx, Tx, Buffer> fmt::Debug for TransferResources<Word, I, P, Rx, Tx, Buffer>
 where
     Rx: dma::Target,
