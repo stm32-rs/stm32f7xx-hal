@@ -5,14 +5,14 @@ extern crate panic_semihosting;
 
 use cortex_m_rt::entry;
 use stm32f7xx_hal::{
-    stm32,
+    device,
     prelude::*,
     spi::{self, Spi},
 };
 
 #[entry]
 fn main() -> ! {
-    let p = stm32::Peripherals::take().unwrap();
+    let p = device::Peripherals::take().unwrap();
 
     let mut rcc = p.RCC.constrain();
 
