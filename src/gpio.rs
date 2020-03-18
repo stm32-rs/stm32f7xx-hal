@@ -2,7 +2,7 @@
 
 use core::marker::PhantomData;
 
-use crate::stm32::{EXTI, SYSCFG};
+use crate::device::{EXTI, SYSCFG};
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
@@ -97,9 +97,9 @@ macro_rules! gpio {
             use core::convert::Infallible;
 
             use embedded_hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, toggleable};
-            use crate::stm32::$GPIOX;
+            use crate::device::$GPIOX;
 
-            use crate::stm32::{RCC, EXTI, SYSCFG};
+            use crate::device::{RCC, EXTI, SYSCFG};
             use super::{
                 Alternate, Floating, GpioExt, Input, OpenDrain, Output, Speed,
                 PullDown, PullUp, PushPull, AF0, AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10,
