@@ -1,15 +1,21 @@
 use core::fmt;
 use core::marker::PhantomData;
-use core::ops::{Deref, DerefMut};
+use core::ops::Deref;
+#[cfg(feature="dma-support")]
+use core::ops::DerefMut;
+#[cfg(feature="dma-support")]
 use core::pin::Pin;
 use core::ptr;
 
+#[cfg(feature="dma-support")]
 use as_slice::{AsMutSlice, AsSlice};
 
 use crate::device;
+#[cfg(feature="dma-support")]
 use crate::dma;
 use crate::hal::prelude::*;
 use crate::hal::serial;
+#[cfg(feature="dma-support")]
 use crate::state;
 use crate::time::U32Ext;
 use nb::block;
@@ -213,6 +219,7 @@ pub struct Rx<USART> {
     _usart: PhantomData<USART>,
 }
 
+#[cfg(feature="dma-support")]
 impl<USART> Rx<USART>
 where
     USART: Instance,
@@ -299,6 +306,7 @@ pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
+#[cfg(feature="dma-support")]
 impl<USART> Tx<USART>
 where
     Self: dma::Target,
