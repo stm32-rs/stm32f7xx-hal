@@ -1,6 +1,5 @@
 use core::cmp::min;
 
-use cortex_m_semihosting::hprintln;
 use micromath::F32Ext;
 
 use crate::device::{rcc, FLASH, RCC};
