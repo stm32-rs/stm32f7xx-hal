@@ -1,5 +1,8 @@
 use core::cmp::min;
 
+use cortex_m_semihosting::hprintln;
+use micromath::F32Ext;
+
 use crate::device::{rcc, FLASH, RCC};
 use crate::time::Hertz;
 
@@ -106,15 +109,17 @@ pub struct HSEClock {
 
 impl HSEClock {
     /// Provide HSE frequence. Must be between 4 and 26 MHz
-    pub fn freq<F>(mut self, freq: F) -> Self
+    pub fn new<F>(freq: F, mode: HSEClockMode) -> Self
     where
         F: Into<Hertz>,
     {
         let f: u32 = freq.into().0;
 
         assert!(4_000_000 <= f && f <= 26_000_000);
-        self.freq = f;
-        self
+        HSEClock{
+            freq: f,
+            mode: mode
+        }
     }
 }
 
@@ -228,7 +233,6 @@ impl CFGR {
             0 => HSI,
             _ => hse_freq
         };
-        assert!(sysclk <= base_clk);
 
         if sysclk <= base_clk { // We can use the base clock directly
             match &self.hse {
@@ -243,62 +247,39 @@ impl CFGR {
             // must be between 2 and 63. In this case, the condition is always
             // respected. We set it at 2MHz as recommanded by the user manual. 
             let pllm = base_clk / 2_000_000;
+            let pllp_val: u32;
             let vco_clkin = base_clk / pllm;
 
+            // Sysclk output divisor, must result in >= 24MHz and <= 216MHz
+            // needs to be the equivalent of 2, 4, 6 or 8
             // We can calculate that:
             //  * PLLP = 2 => SYSCLK \in [25*vco_clkin   ; 216*vco_clkin]
             //  * PLLP = 4 => SYSCLK \in [12,5*vco_clkin ; 108*vco_clkin]
             //  * PLLP = 6 => SYSCLK \in [8,33*vco_clkin ; 72*vco_clkin ]
             //  * PLLP = 8 => SYSCLK \in [6,25*vco_clkin ; 54*vco_clkin ] 
-            let (plln, pllp) = if sysclk >= 25*vco_clkin {
-                // Main scaler, must result in >= 192MHz and <= 432MHz, min 50, max 432
-                let plln = (sysclk / vco_clkin) * 2;
-
-                // Sysclk output divisor, must result in >= 24MHz and <= 216MHz
-                // needs to be the equivalent of 2, 4, 6 or 8
-                let pllp = 0b00;
-
-                // Update sysclk with the real value
-                sysclk = (vco_clkin * plln) / 2;
-
-                (plln, pllp)
+            let pllp = if sysclk >= 25*vco_clkin {
+                pllp_val = 2;
+                0b00
             } else if sysclk >= 13*vco_clkin {
-                // Main scaler, must result in >= 192MHz and <= 432MHz, min 50, max 432
-                let plln = (sysclk / vco_clkin) * 4;
-
-                // Sysclk output divisor, must result in >= 24MHz and <= 216MHz
-                // needs to be the equivalent of 2, 4, 6 or 8
-                let pllp = 0b01;
-
-                // Update sysclk with the real value
-                sysclk = (vco_clkin * plln) / 4;
-
-                (plln, pllp)
+                pllp_val = 4;
+                0b01
             } else if sysclk >= 9*vco_clkin {
-                // Main scaler, must result in >= 192MHz and <= 432MHz, min 50, max 432
-                let plln = (sysclk / vco_clkin) * 6;
-
-                // Sysclk output divisor, must result in >= 24MHz and <= 216MHz
-                // needs to be the equivalent of 2, 4, 6 or 8
-                let pllp = 0b10;
-
-                // Update sysclk with the real value
-                sysclk = (vco_clkin * plln) / 6;
-
-                (plln, pllp)
+                pllp_val = 6;
+                0b10
             } else {
-                // Main scaler, must result in >= 192MHz and <= 432MHz, min 50, max 432
-                let plln = (sysclk / vco_clkin) * 8;
-
-                // Sysclk output divisor, must result in >= 24MHz and <= 216MHz
-                // needs to be the equivalent of 2, 4, 6 or 8
-                let pllp = 0b11;
-
-                // Update sysclk with the real value
-                sysclk = (vco_clkin * plln) / 8;
-
-                (plln, pllp)
+                pllp_val = 8;
+                0b11
             };
+
+            // PLLN, main scaler, must result in >= 192MHz and <= 432MHz, min
+            // 50, max 432, this constraint is allways respected when vco_clkin
+            // = 2 MHz
+            let plln = (sysclk / vco_clkin) * pllp_val;
+            // Check that the desired SYSCLK is physically feasible. /1000 is to
+            // avoid u32 overflow 
+            assert!((base_clk / 1_000) * plln >= sysclk / 1_000);
+            // Update sysclk with the real value
+            sysclk = (vco_clkin * plln) / pllp_val;
 
             match &self.hse {
                 // If HSE is provided
@@ -332,29 +313,27 @@ impl CFGR {
                             .plln().bits(plln as u16)
                             .pllp().bits(pllp)
                     });
+                    
                 },
             };
 
             // Enable PLL
             rcc.cr.modify(|_, w| w.pllon().set_bit());
             // Wait for PLL to stabilise
-            while rcc.cr.read().pllrdy().is_not_ready() {}
+            while rcc.cr.read().pllrdy().bit_is_set() {}
 
             // Use PLL as SYSCLK
+            // rcc.cfgr.modify(|_, w| unsafe { w.sw().bits(0b10 as u8) });
             rcc.cfgr.modify(|_, w| w.sw().pll() );
         }
 
-        // HCLK. By default, SYSCLK frequence is chosen
-        let mut hclk: u32 = self.hclk.unwrap_or(sysclk);
-        assert!(hclk <= sysclk);  
-        // PCLK1 (APB1). Must be <= 54 Mhz. By default, min(hclk, 54Mhz) is
-        // chosen
-        let mut pclk1: u32 = self.pclk1.unwrap_or(min(54_000_000, hclk));
-        // PCLK2 (APB2). Must be <= 108 Mhz. By default, min(hclk, 108Mhz) is
-        // chosen
-        let mut pclk2: u32 = self.pclk1.unwrap_or(min(108_000_000, hclk));
+        // HCLK. By default, SYSCLK frequence is chosen. Because of the method
+        // of clock multiplication and division, even if `sysclk` is set to be
+        // the same as `hclk`, it can be slighly inferior to `sysclk` after
+        // pllm, pllp...  calculations
+        let mut hclk: u32 = min(sysclk, self.hclk.unwrap_or(sysclk));
 
-        // Configure HPRE
+        // Configure HPRE.
         let mut hpre_val: u32 = sysclk / hclk;
         
         // The real value of hpre is computed to be as near as possible to the
@@ -374,8 +353,15 @@ impl CFGR {
         // update hclk with the real value
         hclk = sysclk / hpre_val;
 
+        // PCLK1 (APB1). Must be <= 54 Mhz. By default, min(hclk, 54Mhz) is
+        // chosen
+        let mut pclk1: u32 = self.pclk1.unwrap_or(min(54_000_000, hclk));
+        // PCLK2 (APB2). Must be <= 108 Mhz. By default, min(hclk, 108Mhz) is
+        // chosen
+        let mut pclk2: u32 = self.pclk2.unwrap_or(min(108_000_000, hclk));
+
         // Configure PPRE1
-        let mut ppre1_val: u32 = hclk / pclk1;
+        let mut ppre1_val: u32 = (hclk as f32 / pclk1 as f32).ceil() as u32;
         let ppre1: u32 = match ppre1_val {
             0       => unreachable!(),
             1       => { ppre1_val = 1; 0b000},
@@ -384,11 +370,11 @@ impl CFGR {
             7..=12  => { ppre1_val = 8; 0b110},
             _       => { ppre1_val = 16; 0b111},
         };
-        // update pclk1 withe the real value
+        // update pclk1 with the real value
         pclk1 = hclk / ppre1_val;
 
         // Configure PPRE2
-        let mut ppre2_val: u32 = hclk / pclk2;
+        let mut ppre2_val: u32 = (hclk as f32 / pclk2 as f32).ceil() as u32;
         let ppre2: u32 = match ppre2_val {
             0       => unreachable!(),
             1       => { ppre2_val = 1; 0b000},
@@ -397,7 +383,7 @@ impl CFGR {
             7..=12  => { ppre2_val = 8; 0b110},
             _       => { ppre2_val = 16; 0b111},
         };
-        // update pclk2 withe the real value
+        // update pclk2 with the real value
         pclk2 = hclk / ppre2_val;
         
         // Configure HCLK, PCLK1, PCLK2
@@ -409,8 +395,8 @@ impl CFGR {
         });
 
         // Assumes TIMPRE bit of RCC_DCKCFGR1 is reset (0)
-        let timclk1 = if ppre1 == 1 {pclk1} else {2 * pclk1};
-        let timclk2 = if ppre2 == 1 {pclk2} else {2 * pclk2};
+        let timclk1 = if ppre1_val == 1 {pclk1} else {2 * pclk1};
+        let timclk2 = if ppre2_val == 1 {pclk2} else {2 * pclk2};
 
         // Adjust flash wait states
         flash.acr.write(|w| {
