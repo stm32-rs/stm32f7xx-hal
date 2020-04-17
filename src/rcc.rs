@@ -222,7 +222,7 @@ impl CFGR {
     /// wherever it is possible.
     pub fn freeze(self) -> Clocks {
         let flash = unsafe { &(*FLASH::ptr()) };
-        let rcc = unsafe { &*RCC::ptr() };
+        let rcc = unsafe { &(*RCC::ptr()) };
 
         // If HSE is provided by the user
         let hse_freq: u32 = self.hse.as_ref().map_or(0, |c| c.freq);
@@ -233,131 +233,130 @@ impl CFGR {
             _ => hse_freq
         };
 
-        if sysclk <= base_clk { // We can use the base clock directly
-            match &self.hse {
-                // If HSE clock is provided, we use it
-                Some(_) => rcc.cfgr.modify(|_, w| w.sw().hse() ),
-                // If HSE is not provided, we use HSI
-                None => rcc.cfgr.modify(|_, w| w.sw().hsi() )
-            };
+        // Configure HSE if provided
+        if self.hse.is_some() {
+            // Configure the HSE mode
+            match self.hse.as_ref().unwrap().mode {
+                HSEClockMode::Bypass => { rcc.cr.modify(
+                    |_, w| w.hsebyp().bypassed() 
+                )},
+                HSEClockMode::Oscillator => { rcc.cr.modify(
+                    |_, w| w.hsebyp().not_bypassed()
+                )}
+            }
+            // Start HSE
+            rcc.cr.modify(|_, w| w.hseon().on());
+            while rcc.cr.read().hserdy().is_not_ready() {}
+        }
 
-        } else { // A PLL is needed to multiply the frequence
+        let mut use_pll = false;
+
+        if sysclk != base_clk { // A PLL is needed to multiply / divide the frequence
             // Input divisor from HSI/HSE clock, must result in less than 2MHz, and
             // must be between 2 and 63. In this case, the condition is always
             // respected. We set it at 2MHz as recommanded by the user manual. 
-            let pllm = base_clk / 2_000_000;
-            let pllp_val: u32;
-            let vco_clkin = base_clk / pllm;
-
-            // Sysclk output divisor, must result in >= 24MHz and <= 216MHz
-            // needs to be the equivalent of 2, 4, 6 or 8
-            // We can calculate that:
-            //  * PLLP = 2 => SYSCLK \in [25*vco_clkin   ; 216*vco_clkin]
-            //  * PLLP = 4 => SYSCLK \in [12,5*vco_clkin ; 108*vco_clkin]
-            //  * PLLP = 6 => SYSCLK \in [8,33*vco_clkin ; 72*vco_clkin ]
-            //  * PLLP = 8 => SYSCLK \in [6,25*vco_clkin ; 54*vco_clkin ] 
-            let pllp = if sysclk >= 25*vco_clkin {
-                pllp_val = 2;
-                0b00
-            } else if sysclk >= 13*vco_clkin {
-                pllp_val = 4;
-                0b01
-            } else if sysclk >= 9*vco_clkin {
-                pllp_val = 6;
-                0b10
-            } else {
-                pllp_val = 8;
-                0b11
-            };
+            let pllm = ((base_clk as f32) / (2_000_000 as f32)).ceil() as u8;
+            let vco_clkin_mhz = (base_clk as f32 / pllm as f32) / 1_000_000.0;
+            let mut sysclk_mhz: f32 = sysclk as f32 / 1_000_000.0;
 
             // PLLN, main scaler, must result in >= 192MHz and <= 432MHz, min
             // 50, max 432, this constraint is allways respected when vco_clkin
-            // = 2 MHz
-            let plln = (sysclk / vco_clkin) * pllp_val;
-            // Check that the desired SYSCLK is physically feasible. /1000 is to
-            // avoid u32 overflow 
-            assert!((base_clk / 1_000) * plln >= sysclk / 1_000);
-            // Update sysclk with the real value
-            sysclk = (vco_clkin * plln) / pllp_val;
+            // <= 2 MHz
+            let mut plln: f32 = 100.0;
+            let allowed_pllp: [u8; 4] = [2, 4, 6, 8];
+            let pllp_val = *allowed_pllp.iter().min_by_key(|&pllp| {
+                plln = ((sysclk_mhz * (*pllp as f32)) / vco_clkin_mhz).floor();
+                let error = sysclk_mhz - ((plln/(*pllp as f32)) * vco_clkin_mhz);
 
-            match &self.hse {
-                // If HSE is provided
-                Some(hse) => {
-                    // Configure the HSE mode
-                    match hse.mode {
-                        HSEClockMode::Bypass => { rcc.cr.modify(
-                            |_, w| w.hsebyp().bypassed() 
-                        )},
-                        HSEClockMode::Oscillator => { rcc.cr.modify(
-                            |_, w| w.hsebyp().not_bypassed()
-                        )}
-                    }
-    
-                    // Configure PLL from HSI
-                    rcc.pllcfgr.write(|w| unsafe {
-                        w   
-                            .pllsrc().hse()
-                            .pllm().bits(pllm as u8)
-                            .plln().bits(plln as u16)
-                            .pllp().bits(pllp)
-                    });
-                },
-                // If HSE is not provided
-                None => {
-                    // configure PLL from HSI
-                    rcc.pllcfgr.write(|w| unsafe {
-                        w   
-                            .pllsrc().hsi()
-                            .pllm().bits(pllm as u8)
-                            .plln().bits(plln as u16)
-                            .pllp().bits(pllp)
-                    });
-                    
-                },
+                if error < 0.0
+                    || plln * vco_clkin_mhz > 432.0 
+                    || plln > 432.0 || plln < 100.0 { core::u32::MAX }
+                else { (error*1_000.0) as u32 }
+            }).unwrap();
+
+            // PLLN coresponding to the best pllp_val
+            plln = ((sysclk_mhz * (pllp_val as f32)) / vco_clkin_mhz).floor();
+
+            // Pllp bits to be written in the register
+            let pllp = match pllp_val {
+                2 => 0b00,
+                4 => 0b01,
+                6 => 0b10,
+                8 => 0b11,
+                _ => unreachable!()
             };
 
-            // Enable PLL
-            rcc.cr.modify(|_, w| w.pllon().set_bit());
-            // Wait for PLL to stabilise
-            while rcc.cr.read().pllrdy().bit_is_set() {}
+            // Update the real sysclk value
+            sysclk_mhz = (vco_clkin_mhz * plln) / (pllp_val as f32);
+            sysclk = (sysclk_mhz * 1_000_000.0) as u32;
 
-            // Use PLL as SYSCLK
-            // rcc.cfgr.modify(|_, w| unsafe { w.sw().bits(0b10 as u8) });
-            rcc.cfgr.modify(|_, w| w.sw().pll() );
+
+            // Turn PLL off
+            rcc.cr.modify(|_, w| w.pllon().off());            
+            // Wait till PLL is disabled 
+            while ! rcc.cr.read().pllrdy().is_not_ready() {}
+
+            if self.hse.is_some() {  // If HSE is provided  
+                // Configure PLL from HSE
+                rcc.pllcfgr.write(|w| unsafe {
+                    w   
+                        .pllsrc().hse()
+                        .pllm().bits(pllm as u8)
+                        .plln().bits(plln as u16)
+                        .pllp().bits(pllp)
+                        .pllq().bits(9)
+                });
+            } else { // If HSE is not provided
+                // configure PLL from HSI
+                rcc.pllcfgr.modify(|_, w| unsafe {
+                    w   
+                        .pllsrc().hsi()
+                        .pllm().bits(pllm as u8)
+                        .plln().bits(plln as u16)
+                        .pllp().bits(pllp)
+                });
+            }
+
+            // Enable PLL
+            rcc.cr.modify(|_, w| w.pllon().on());
+            // // Wait for PLL to stabilise
+            while rcc.cr.read().pllrdy().is_not_ready() {}
+
+            use_pll = true;
         }
 
         // HCLK. By default, SYSCLK frequence is chosen. Because of the method
         // of clock multiplication and division, even if `sysclk` is set to be
         // the same as `hclk`, it can be slighly inferior to `sysclk` after
-        // pllm, pllp...  calculations
-        let mut hclk: u32 = min(sysclk, self.hclk.unwrap_or(sysclk));
+        // pllm, pllp... calculations
+        let mut hclk: u32 = sysclk; // min(sysclk, self.hclk.unwrap_or(sysclk));
 
         // Configure HPRE.
-        let mut hpre_val: u32 = sysclk / hclk;
+        let hpre_val: f32 = (sysclk as f32/ hclk as f32).ceil();
         
         // The real value of hpre is computed to be as near as possible to the
         // desired value, this leads to a quantization error
-        let hpre = match hpre_val {
+        let (hpre_val, hpre): (f32, u8) = match hpre_val as u32 {
             0           => unreachable!(),
-            1           => { hpre_val = 1;   0b000},
-            2           => { hpre_val = 2;   0b1000},
-            3..=5       => { hpre_val = 4;   0b1001},
-            6..=11      => { hpre_val = 8;   0b1010},
-            12..=39     => { hpre_val = 16;  0b1011},
-            40..=95     => { hpre_val = 64;  0b1100},
-            96..=191    => { hpre_val = 128; 0b1101},
-            192..=383   => { hpre_val = 256; 0b1110},
-            _           => { hpre_val = 256; 0b1111},
+            1           => (1.0, 0b000),
+            2           => (2.0, 0b1000),
+            3..=5       => (4.0, 0b1001),
+            6..=11      => (8.0, 0b1010),
+            12..=39     => (16.0, 0b1011),
+            40..=95     => (64.0, 0b1100),
+            96..=191    => (128.0, 0b1101),
+            192..=383   => (256.0, 0b1110),
+            _           => (512.0, 0b1111)
         };
         // update hclk with the real value
-        hclk = sysclk / hpre_val;
+        hclk = (sysclk as f32 / hpre_val).floor() as u32;
 
         // PCLK1 (APB1). Must be <= 54 Mhz. By default, min(hclk, 54Mhz) is
         // chosen
-        let mut pclk1: u32 = self.pclk1.unwrap_or(min(54_000_000, hclk));
+        let mut pclk1: u32 = min(54_000_000, self.pclk1.unwrap_or(hclk));
         // PCLK2 (APB2). Must be <= 108 Mhz. By default, min(hclk, 108Mhz) is
         // chosen
-        let mut pclk2: u32 = self.pclk2.unwrap_or(min(108_000_000, hclk));
+        let mut pclk2: u32 = min(108_000_000, self.pclk2.unwrap_or(hclk));
 
         // Configure PPRE1
         let mut ppre1_val: u32 = (hclk as f32 / pclk1 as f32).ceil() as u32;
@@ -385,14 +384,6 @@ impl CFGR {
         // update pclk2 with the real value
         pclk2 = hclk / ppre2_val;
         
-        // Configure HCLK, PCLK1, PCLK2
-        rcc.cfgr.modify(|_, w| unsafe {
-            w
-                .ppre1().bits(ppre1 as u8)
-                .ppre2().bits(ppre2 as u8)
-                .hpre().bits(hpre as u8)
-        });
-
         // Assumes TIMPRE bit of RCC_DCKCFGR1 is reset (0)
         let timclk1 = if ppre1_val == 1 {pclk1} else {2 * pclk1};
         let timclk2 = if ppre2_val == 1 {pclk2} else {2 * pclk2};
@@ -417,6 +408,32 @@ impl CFGR {
                 0b0111
             })
         });
+
+        // Select SYSCLK source
+        if use_pll {
+            rcc.cfgr.modify(|_, w| w.sw().pll());
+            while ! rcc.cfgr.read().sws().is_pll() {}
+           
+        } else if self.hse.is_some() {
+            rcc.cfgr.modify(|_, w| w.sw().hse());
+            while ! rcc.cfgr.read().sws().is_hse() {}
+
+        } else {
+            rcc.cfgr.modify(|_, w| w.sw().hsi());
+            while ! rcc.cfgr.read().sws().is_hsi() {}
+        }
+
+        // Configure HCLK, PCLK1, PCLK2
+        rcc.cfgr.modify(|_, w| unsafe {
+            w
+                .ppre1().bits(ppre1 as u8)
+                .ppre2().bits(ppre2 as u8)
+                .hpre().bits(hpre as u8)
+        });
+
+        // As requested by user manual we need to wit 16 ticks before the right
+        // predivision is applied
+        cortex_m::asm::delay(16);
 
         Clocks {
             hclk: Hertz(hclk),
