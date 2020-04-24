@@ -14,7 +14,9 @@ pub trait RccExt {
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
-            ahb1: AHB1(()),
+            ahb1: AHB1 { _0: () },
+            ahb2: AHB2 { _0: () },
+            ahb3: AHB3 { _0: () },
             apb1: APB1 { _0: () },
             apb2: APB2 { _0: () },
             cfgr: CFGR {
@@ -34,27 +36,16 @@ impl RccExt for RCC {
 pub struct Rcc {
     /// Advanced High-Performance Bus 1 (AHB1) registers
     pub ahb1: AHB1,
+    /// Advanced High-Performance Bus 1 (AHB1) registers
+    pub ahb2: AHB2,
+    /// Advanced High-Performance Bus 1 (AHB1) registers
+    pub ahb3: AHB3,
 
     /// Advanced Peripheral Bus 1 (APB1) registers
     pub apb1: APB1,
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
     pub cfgr: CFGR,
-}
-
-/// Advanced High-Performance Bus 1 (AHB1) registers
-pub struct AHB1(());
-
-impl AHB1 {
-    pub fn enr(&mut self) -> &rcc::AHB1ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1enr }
-    }
-
-    pub fn rstr(&mut self) -> &rcc::AHB1RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1rstr }
-    }
 }
 
 /// Advanced Peripheral Bus 1 (APB1) registers
@@ -90,6 +81,58 @@ impl APB2 {
         unsafe { &(*RCC::ptr()).apb2rstr }
     }
 }
+
+/// Advanced High-performance Bus 1 (AHB1) registers
+pub struct AHB1 {
+    _0: (),
+}
+
+impl AHB1 {
+    pub(crate) fn enr(&mut self) -> &rcc::AHB1ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb1enr }
+    }
+
+    pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb1rstr }
+    }
+}
+
+/// Advanced High-performance Bus 1 (AHB1) registers
+pub struct AHB2 {
+    _0: (),
+}
+
+impl AHB2 {
+    pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb2enr }
+    }
+
+    pub(crate) fn rstr(&mut self) -> &rcc::AHB2RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb2rstr }
+    }
+}
+
+/// Advanced High-performance Bus 1 (AHB1) registers
+pub struct AHB3 {
+    _0: (),
+}
+
+impl AHB3 {
+    pub(crate) fn enr(&mut self) -> &rcc::AHB3ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb3enr }
+    }
+
+    pub(crate) fn rstr(&mut self) -> &rcc::AHB3RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb3rstr }
+    }
+}
+
 
 
 /// HSE Clock modes
@@ -489,4 +532,150 @@ impl Clocks {
     pub fn timclk2(&self) -> Hertz {
         self.timclk2
     }
+}
+
+pub trait GetBusFreq {
+    fn get_frequency(clocks: &Clocks) -> Hertz;
+    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+        Self::get_frequency(clocks)
+    }
+}
+
+impl GetBusFreq for AHB1 {
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        clocks.hclk
+    }
+}
+
+impl GetBusFreq for AHB2 {
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        clocks.hclk
+    }
+}
+
+impl GetBusFreq for AHB3 {
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        clocks.hclk
+    }
+}
+
+impl GetBusFreq for APB1 {
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        clocks.pclk1
+    }
+    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+        clocks.timclk1()
+    }
+}
+
+impl GetBusFreq for APB2 {
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        clocks.pclk2
+    }
+    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+        clocks.timclk2()
+    }
+}
+
+pub(crate) mod sealed {
+    /// Bus associated to peripheral
+    pub trait RccBus {
+        /// Bus type;
+        type Bus;
+    }
+}
+use sealed::RccBus;
+
+/// Enable/disable peripheral
+pub trait Enable: RccBus {
+    fn enable(apb: &mut Self::Bus);
+    fn disable(apb: &mut Self::Bus);
+}
+
+/// Reset peripheral
+pub trait Reset: RccBus {
+    fn reset(apb: &mut Self::Bus);
+}
+
+macro_rules! bus {
+    ($($PER:ident => ($apbX:ty, $peren:ident, $perrst:ident),)+) => {
+        $(
+            impl RccBus for crate::device::$PER {
+                type Bus = $apbX;
+            }
+            impl Enable for crate::device::$PER {
+                #[inline(always)]
+                fn enable(apb: &mut Self::Bus) {
+                    apb.enr().modify(|_, w| w.$peren().set_bit());
+                }
+                #[inline(always)]
+                fn disable(apb: &mut Self::Bus) {
+                    apb.enr().modify(|_, w| w.$peren().clear_bit());
+                }
+            }
+            impl Reset for crate::device::$PER {
+                #[inline(always)]
+                fn reset(apb: &mut Self::Bus) {
+                    apb.rstr().modify(|_, w| w.$perrst().set_bit());
+                    apb.rstr().modify(|_, w| w.$perrst().clear_bit());
+                }
+            }
+        )+
+    }
+}
+
+// Peripherals respective buses
+// TODO: check which processor has which peripheral and add them
+bus! {
+    I2C1 => (APB1, i2c1en, i2c1rst),
+    I2C2 => (APB1, i2c2en, i2c2rst),
+    I2C3 => (APB1, i2c3en, i2c3rst),
+    I2C4 => (APB1, i2c4en, i2c4rst),
+
+    SPI1 => (APB2, spi1en, spi1rst),
+    SPI2 => (APB1, spi2en, spi2rst),
+    SPI3 => (APB1, spi3en, spi3rst),
+    
+    USART1 => (APB2, usart1en, usart1rst),
+    USART2 => (APB1, usart2en, uart2rst),
+    USART3 => (APB1, usart3en, uart3rst),
+    UART4 => (APB1, uart4en, uart4rst),
+    UART5 => (APB1, uart5en, uart5rst),
+    USART6 => (APB2, usart6en, usart6rst),
+    UART7 => (APB1, uart7en, uart7rst),
+    UART8 => (APB1, uart8en, uart8rst),
+
+    WWDG => (APB1, wwdgen, wwdgrst),
+
+    DMA1 => (AHB1, dma1en, dma1rst),
+    DMA2 => (AHB1, dma2en, dma2rst),
+
+    DMA2D => (AHB1, dma2den, dma2drst),
+
+    GPIOA => (AHB1, gpioaen, gpioarst),
+    GPIOB => (AHB1, gpioben, gpiobrst),
+    GPIOC => (AHB1, gpiocen, gpiocrst),
+    GPIOD => (AHB1, gpioden, gpiodrst),
+    GPIOE => (AHB1, gpioeen, gpioerst),
+    GPIOF => (AHB1, gpiofen, gpiofrst),
+    GPIOG => (AHB1, gpiogen, gpiogrst),
+    GPIOH => (AHB1, gpiohen, gpiohrst),
+    GPIOI => (AHB1, gpioien, gpioirst),
+    GPIOJ => (AHB1, gpiojen, gpiojrst),
+    GPIOK => (AHB1, gpioken, gpiokrst),
+
+    TIM1 => (APB2, tim1en, tim1rst),
+    TIM2 => (APB1, tim2en, tim2rst),
+    TIM3 => (APB1, tim3en, tim3rst),
+    TIM4 => (APB1, tim4en, tim4rst),
+    TIM5 => (APB1, tim5en, tim5rst),
+    TIM6 => (APB1, tim6en, tim6rst),
+    TIM7 => (APB1, tim7en, tim7rst),
+    TIM8 => (APB2, tim8en, tim8rst),
+    TIM9 => (APB2, tim9en, tim9rst),
+    TIM10 => (APB2, tim10en, tim10rst),
+    TIM11 => (APB2, tim11en, tim11rst),
+    TIM12 => (APB1, tim12en, tim12rst),
+    TIM13 => (APB1, tim13en, tim13rst),
+    TIM14 => (APB1, tim14en, tim14rst),
 }
