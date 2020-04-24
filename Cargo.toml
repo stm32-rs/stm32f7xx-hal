@@ -42,6 +42,7 @@ version = "1.0.2"
 cortex-m-semihosting = "0.3.3"
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.2"
+embedded-graphics = "0.6.1"
 
 [features]
 device-selected = []
@@ -93,4 +94,8 @@ required-features = ["stm32f746", "rt"]
 
 [[example]]
 name = "timer"
+required-features = ["stm32f746", "rt"]
+
+[[example]]
+name = "stm32f7disco-screen"
 required-features = ["stm32f746", "rt"]
