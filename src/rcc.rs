@@ -479,6 +479,10 @@ impl CFGR {
         cortex_m::asm::delay(16);
 
         Clocks {
+            hse: match self.hse {
+                Some(hse) => Some(Hertz(hse.freq)),
+                None => None,
+            },
             hclk: Hertz(hclk),
             pclk1: Hertz(pclk1),
             pclk2: Hertz(pclk2),
@@ -494,6 +498,7 @@ impl CFGR {
 /// The existence of this value indicates that the clock configuration can no longer be changed
 #[derive(Clone, Copy)]
 pub struct Clocks {
+    hse: Option<Hertz>,
     hclk: Hertz,
     pclk1: Hertz,
     pclk2: Hertz,
