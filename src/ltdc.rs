@@ -390,7 +390,9 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         );
 
         // Line offset
-        self._dma2d.oor.write(|w| w.lo().bits(top_left.0 as u16));
+        self._dma2d.oor.write(|w| w.lo().bits(
+            top_left.0 as u16 + self.config.active_width - bottom_right.0 as u16
+        ));
 
         // Start transfert: register to memory mode
         self._dma2d.cr.modify(|_, w|  w.mode().bits(0b11).start().set_bit());
