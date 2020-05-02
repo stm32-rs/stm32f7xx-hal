@@ -635,7 +635,6 @@ bus! {
     I2C1 => (APB1, i2c1en, i2c1rst),
     I2C2 => (APB1, i2c2en, i2c2rst),
     I2C3 => (APB1, i2c3en, i2c3rst),
-    I2C4 => (APB1, i2c4en, i2c4rst),
 
     SPI1 => (APB2, spi1en, spi1rst),
     SPI2 => (APB1, spi2en, spi2rst),
@@ -655,8 +654,6 @@ bus! {
     DMA1 => (AHB1, dma1en, dma1rst),
     DMA2 => (AHB1, dma2en, dma2rst),
 
-    DMA2D => (AHB1, dma2den, dma2drst),
-
     GPIOA => (AHB1, gpioaen, gpioarst),
     GPIOB => (AHB1, gpioben, gpiobrst),
     GPIOC => (AHB1, gpiocen, gpiocrst),
@@ -666,9 +663,7 @@ bus! {
     GPIOG => (AHB1, gpiogen, gpiogrst),
     GPIOH => (AHB1, gpiohen, gpiohrst),
     GPIOI => (AHB1, gpioien, gpioirst),
-    GPIOJ => (AHB1, gpiojen, gpiojrst),
-    GPIOK => (AHB1, gpioken, gpiokrst),
-
+   
     TIM1 => (APB2, tim1en, tim1rst),
     TIM2 => (APB1, tim2en, tim2rst),
     TIM3 => (APB1, tim3en, tim3rst),
@@ -683,4 +678,19 @@ bus! {
     TIM12 => (APB1, tim12en, tim12rst),
     TIM13 => (APB1, tim13en, tim13rst),
     TIM14 => (APB1, tim14en, tim14rst),
+}
+
+#[cfg(not(any(
+    feature = "stm32f722", 
+    feature = "stm32f723", 
+    feature = "stm32f732",
+    feature = "stm32f733"
+)))]
+bus! { 
+    I2C4 => (APB1, i2c4en, i2c4rst), 
+
+    GPIOJ => (AHB1, gpiojen, gpiojrst),
+    GPIOK => (AHB1, gpioken, gpiokrst),
+
+    DMA2D => (AHB1, dma2den, dma2drst),
 }
