@@ -683,6 +683,7 @@ bus! {
 #[cfg(not(any(
     feature = "stm32f722", 
     feature = "stm32f723", 
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733"
 )))]

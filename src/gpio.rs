@@ -674,6 +674,7 @@ macro_rules! gpio {
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",
@@ -708,6 +709,7 @@ gpio!(GPIOA, gpioa, gpioaen, PA, 0, [
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",
@@ -742,6 +744,7 @@ gpio!(GPIOB, gpiob, gpioben, PB, 1, [
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",
@@ -776,6 +779,7 @@ gpio!(GPIOC, gpioc, gpiocen, PC, 2, [
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",
@@ -810,6 +814,7 @@ gpio!(GPIOD, gpiod, gpioden, pd, 3, [
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",
@@ -844,6 +849,7 @@ gpio!(GPIOE, gpioe, gpioeen, PE, 4, [
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",
@@ -878,6 +884,7 @@ gpio!(GPIOF, gpiof, gpiofen, PF, 5, [
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",
@@ -912,6 +919,7 @@ gpio!(GPIOG, gpiog, gpiogen, PG, 6,[
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",
@@ -946,6 +954,7 @@ gpio!(GPIOH, gpioh, gpiohen, PH, 7, [
 #[cfg(any(
     feature = "stm32f722",
     feature = "stm32f723",
+    feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733",
     feature = "stm32f745",

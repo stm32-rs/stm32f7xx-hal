@@ -8,6 +8,7 @@ compile_error!(
     "This crate requires one of the following device features enabled:
         stm32f722
         stm32f723
+        stm32f730
         stm32f732
         stm32f733
         stm32f745
@@ -29,6 +30,9 @@ pub use stm32f7::stm32f7x2 as device;
 
 #[cfg(feature = "stm32f723")]
 pub use stm32f7::stm32f7x3 as device;
+
+#[cfg(feature = "stm32f730")]
+pub use stm32f7::stm32f730 as device;
 
 #[cfg(feature = "stm32f732")]
 pub use stm32f7::stm32f7x2 as device;
