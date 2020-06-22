@@ -77,26 +77,26 @@ impl Mode {
 }
 
 /// Marker trait to define SCL pins for an I2C interface.
-pub trait SclPin<I2C> {}
+pub trait PinScl<I2C> {}
 
 /// Marker trait to define SDA pins for an I2C interface.
-pub trait SdaPin<I2C> {}
+pub trait PinSda<I2C> {}
 
-impl SclPin<I2C1> for PB6<Alternate<AF4>> {}
-impl SclPin<I2C1> for PB8<Alternate<AF4>> {}
-impl SclPin<I2C2> for PB10<Alternate<AF4>> {}
-impl SclPin<I2C2> for PF1<Alternate<AF4>> {}
-impl SclPin<I2C2> for PH4<Alternate<AF4>> {}
-impl SclPin<I2C3> for PA8<Alternate<AF4>> {}
-impl SclPin<I2C3> for PH7<Alternate<AF4>> {}
+impl PinScl<I2C1> for PB6<Alternate<AF4>> {}
+impl PinScl<I2C1> for PB8<Alternate<AF4>> {}
+impl PinScl<I2C2> for PB10<Alternate<AF4>> {}
+impl PinScl<I2C2> for PF1<Alternate<AF4>> {}
+impl PinScl<I2C2> for PH4<Alternate<AF4>> {}
+impl PinScl<I2C3> for PA8<Alternate<AF4>> {}
+impl PinScl<I2C3> for PH7<Alternate<AF4>> {}
 
-impl SdaPin<I2C1> for PB7<Alternate<AF4>> {}
-impl SdaPin<I2C1> for PB9<Alternate<AF4>> {}
-impl SdaPin<I2C2> for PB11<Alternate<AF4>> {}
-impl SdaPin<I2C2> for PF0<Alternate<AF4>> {}
-impl SdaPin<I2C2> for PH5<Alternate<AF4>> {}
-impl SdaPin<I2C3> for PC9<Alternate<AF4>> {}
-impl SdaPin<I2C3> for PH8<Alternate<AF4>> {}
+impl PinSda<I2C1> for PB7<Alternate<AF4>> {}
+impl PinSda<I2C1> for PB9<Alternate<AF4>> {}
+impl PinSda<I2C2> for PB11<Alternate<AF4>> {}
+impl PinSda<I2C2> for PF0<Alternate<AF4>> {}
+impl PinSda<I2C2> for PH5<Alternate<AF4>> {}
+impl PinSda<I2C3> for PC9<Alternate<AF4>> {}
+impl PinSda<I2C3> for PH8<Alternate<AF4>> {}
 
 /// I2C peripheral operating in master mode
 pub struct I2c<I2C, SCL, SDA> {
@@ -122,8 +122,8 @@ impl<SCL, SDA> I2c<I2C1, SCL, SDA> {
         apb: &mut <I2C1 as RccBus>::Bus,
     ) -> Self
     where
-        SCL: SclPin<I2C1>,
-        SDA: SdaPin<I2C1>,
+        SCL: PinScl<I2C1>,
+        SDA: PinSda<I2C1>,
     {
         I2c::_i2c1(i2c, pins, mode, clocks, apb)
     }
@@ -140,8 +140,8 @@ impl<SCL, SDA> BlockingI2c<I2C1, SCL, SDA> {
         data_timeout_us: u32,
     ) -> Self
     where
-        SCL: SclPin<I2C1>,
-        SDA: SdaPin<I2C1>,
+        SCL: PinScl<I2C1>,
+        SDA: PinSda<I2C1>,
     {
         BlockingI2c::_i2c1(i2c, pins, mode, clocks, apb, data_timeout_us)
     }
@@ -157,8 +157,8 @@ impl<SCL, SDA> I2c<I2C2, SCL, SDA> {
         apb: &mut <I2C2 as RccBus>::Bus,
     ) -> Self
     where
-        SCL: SclPin<I2C2>,
-        SDA: SdaPin<I2C2>,
+        SCL: PinScl<I2C2>,
+        SDA: PinSda<I2C2>,
     {
         I2c::_i2c2(i2c, pins, mode, clocks, apb)
     }
@@ -175,8 +175,8 @@ impl<SCL, SDA> BlockingI2c<I2C2, SCL, SDA> {
         data_timeout_us: u32,
     ) -> Self
     where
-        SCL: SclPin<I2C2>,
-        SDA: SdaPin<I2C2>,
+        SCL: PinScl<I2C2>,
+        SDA: PinSda<I2C2>,
     {
         BlockingI2c::_i2c2(i2c, pins, mode, clocks, apb, data_timeout_us)
     }
@@ -192,8 +192,8 @@ impl<SCL, SDA> I2c<I2C3, SCL, SDA> {
         apb: &mut <I2C3 as RccBus>::Bus,
     ) -> Self
     where
-        SCL: SclPin<I2C3>,
-        SDA: SdaPin<I2C3>,
+        SCL: PinScl<I2C3>,
+        SDA: PinSda<I2C3>,
     {
         I2c::_i2c3(i2c, pins, mode, clocks, apb)
     }
@@ -210,8 +210,8 @@ impl<SCL, SDA> BlockingI2c<I2C3, SCL, SDA> {
         data_timeout_us: u32,
     ) -> Self
     where
-        SCL: SclPin<I2C3>,
-        SDA: SdaPin<I2C3>,
+        SCL: PinScl<I2C3>,
+        SDA: PinSda<I2C3>,
     {
         BlockingI2c::_i2c3(i2c, pins, mode, clocks, apb, data_timeout_us)
     }
