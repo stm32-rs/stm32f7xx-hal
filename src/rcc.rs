@@ -36,9 +36,9 @@ impl RccExt for RCC {
 pub struct Rcc {
     /// Advanced High-Performance Bus 1 (AHB1) registers
     pub ahb1: AHB1,
-    /// Advanced High-Performance Bus 1 (AHB1) registers
+    /// Advanced High-Performance Bus 2 (AHB2) registers
     pub ahb2: AHB2,
-    /// Advanced High-Performance Bus 1 (AHB1) registers
+    /// Advanced High-Performance Bus 3 (AHB3) registers
     pub ahb3: AHB3,
 
     /// Advanced Peripheral Bus 1 (APB1) registers
@@ -99,11 +99,12 @@ impl AHB1 {
     }
 }
 
-/// Advanced High-performance Bus 1 (AHB1) registers
+/// Advanced High-performance Bus 2 (AHB2) registers
 pub struct AHB2 {
     _0: (),
 }
 
+#[allow(dead_code)]
 impl AHB2 {
     pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
@@ -116,11 +117,12 @@ impl AHB2 {
     }
 }
 
-/// Advanced High-performance Bus 1 (AHB1) registers
+/// Advanced High-performance Bus 3 (AHB3) registers
 pub struct AHB3 {
     _0: (),
 }
 
+#[allow(dead_code)]
 impl AHB3 {
     pub(crate) fn enr(&mut self) -> &rcc::AHB3ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
@@ -133,24 +135,22 @@ impl AHB3 {
     }
 }
 
-
-
 /// HSE Clock modes
 ///     * `Oscillator`: Use of an external crystal/ceramic resonator
 ///     * `Bypass`: Use of an external user clock
 pub enum HSEClockMode {
     Oscillator,
-    Bypass
+    Bypass,
 }
 
 /// HSE Clock
 pub struct HSEClock {
     pub freq: u32,
-    pub mode: HSEClockMode
+    pub mode: HSEClockMode,
 }
 
 impl HSEClock {
-    /// Provide HSE frequence. Must be between 4 and 26 MHz
+    /// Provide HSE frequency. Must be between 4 and 26 MHz
     pub fn new<F>(freq: F, mode: HSEClockMode) -> Self
     where
         F: Into<Hertz>,
@@ -158,10 +158,7 @@ impl HSEClock {
         let f: u32 = freq.into().0;
 
         assert!(4_000_000 <= f && f <= 26_000_000);
-        HSEClock{
-            freq: f,
-            mode: mode
-        }
+        HSEClock { freq: f, mode }
     }
 }
 
@@ -179,14 +176,13 @@ pub struct CFGR {
 
 impl CFGR {
     /// Declare an HSE clock if available.
-    pub fn hse(mut self, hse: HSEClock) -> Self
-    {
+    pub fn hse(mut self, hse: HSEClock) -> Self {
         self.hse = Some(hse);
         self
     }
 
     /// Set HCLK Clock (AHB bus, core, memory and DMA.
-    /// Specified frequence must be <= 216 MHz
+    /// Specified frequency must be <= 216 MHz
     pub fn hclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -206,7 +202,7 @@ impl CFGR {
     {
         let f: u32 = freq.into().0;
         assert!(12_500_000 <= f && f <= 54_000_000);
-       
+
         self.pclk1 = Some(f);
         self
     }
@@ -224,8 +220,8 @@ impl CFGR {
         self
     }
 
-    /// Set SYSCLK Clock. It must be between 12,5 Mhz and 216 Mhz.
-    /// If the ethernet peripheral is on, the user should set a 
+    /// Set SYSCLK Clock. It must be between 12.5 Mhz and 216 Mhz.
+    /// If the ethernet peripheral is on, the user should set a
     /// frequency higher than 25 Mhz
     pub fn sysclk<F>(mut self, freq: F) -> Self
     where
@@ -254,7 +250,7 @@ impl CFGR {
         self
     }
 
-    /// Configure the "mandatory" clocks (`sysclk`, `hclk`, `pclk1` and `pclk2)
+    /// Configure the "mandatory" clocks (`sysclk`, `hclk`, `pclk1` and `pclk2')
     /// and return them via the `Clocks` struct.
     ///
     /// The user shouldn't call freeze more than once as the clocks parameters
@@ -269,23 +265,19 @@ impl CFGR {
 
         // If HSE is provided by the user
         let hse_freq: u32 = self.hse.as_ref().map_or(0, |c| c.freq);
-        // SYSCLOCK, must be <= 216 Mhz. By default, HSI frequence is chosen
+        // SYSCLK, must be <= 216 Mhz. By default, HSI frequency is chosen
         let mut sysclk = self.sysclk.unwrap_or(HSI);
         let base_clk = match hse_freq {
             0 => HSI,
-            _ => hse_freq
+            _ => hse_freq,
         };
 
         // Configure HSE if provided
         if self.hse.is_some() {
             // Configure the HSE mode
             match self.hse.as_ref().unwrap().mode {
-                HSEClockMode::Bypass => { rcc.cr.modify(
-                    |_, w| w.hsebyp().bypassed() 
-                )},
-                HSEClockMode::Oscillator => { rcc.cr.modify(
-                    |_, w| w.hsebyp().not_bypassed()
-                )}
+                HSEClockMode::Bypass => rcc.cr.modify(|_, w| w.hsebyp().bypassed()),
+                HSEClockMode::Oscillator => rcc.cr.modify(|_, w| w.hsebyp().not_bypassed()),
             }
             // Start HSE
             rcc.cr.modify(|_, w| w.hseon().on());
@@ -294,10 +286,11 @@ impl CFGR {
 
         let mut use_pll = false;
 
-        if sysclk != base_clk { // A PLL is needed to multiply / divide the frequence
+        if sysclk != base_clk {
+            // A PLL is needed to multiply / divide the frequency
             // Input divisor from HSI/HSE clock, must result in less than 2MHz, and
             // must be between 2 and 63. In this case, the condition is always
-            // respected. We set it at 2MHz as recommanded by the user manual. 
+            // respected. We set it at 2MHz as recommended by the user manual.
             let pllm = ((base_clk as f32) / (2_000_000 as f32)).ceil() as u8;
             let vco_clkin_mhz = (base_clk as f32 / pllm as f32) / 1_000_000.0;
             let mut sysclk_mhz: f32 = sysclk as f32 / 1_000_000.0;
@@ -307,17 +300,21 @@ impl CFGR {
             // <= 2 MHz
             let mut plln: f32 = 100.0;
             let allowed_pllp: [u8; 4] = [2, 4, 6, 8];
-            let pllp_val = *allowed_pllp.iter().min_by_key(|&pllp| {
-                plln = ((sysclk_mhz * (*pllp as f32)) / vco_clkin_mhz).floor();
-                let error = sysclk_mhz - ((plln/(*pllp as f32)) * vco_clkin_mhz);
+            let pllp_val = *allowed_pllp
+                .iter()
+                .min_by_key(|&pllp| {
+                    plln = ((sysclk_mhz * (*pllp as f32)) / vco_clkin_mhz).floor();
+                    let error = sysclk_mhz - ((plln / (*pllp as f32)) * vco_clkin_mhz);
 
-                if error < 0.0
-                    || plln * vco_clkin_mhz > 432.0 
-                    || plln > 432.0 || plln < 100.0 { core::u32::MAX }
-                else { (error*1_000.0) as u32 }
-            }).unwrap();
+                    if error < 0.0 || plln * vco_clkin_mhz > 432.0 || plln > 432.0 || plln < 100.0 {
+                        core::u32::MAX
+                    } else {
+                        (error * 1_000.0) as u32
+                    }
+                })
+                .unwrap();
 
-            // PLLN coresponding to the best pllp_val
+            // PLLN corresponding to the best pllp_val
             plln = ((sysclk_mhz * (pllp_val as f32)) / vco_clkin_mhz).floor();
 
             // Pllp bits to be written in the register
@@ -326,37 +323,45 @@ impl CFGR {
                 4 => 0b01,
                 6 => 0b10,
                 8 => 0b11,
-                _ => unreachable!()
+                _ => unreachable!(),
             };
 
             // Update the real sysclk value
             sysclk_mhz = (vco_clkin_mhz * plln) / (pllp_val as f32);
             sysclk = (sysclk_mhz * 1_000_000.0) as u32;
 
-
             // Turn PLL off
-            rcc.cr.modify(|_, w| w.pllon().off());            
-            // Wait till PLL is disabled 
-            while ! rcc.cr.read().pllrdy().is_not_ready() {}
+            rcc.cr.modify(|_, w| w.pllon().off());
+            // Wait till PLL is disabled
+            while !rcc.cr.read().pllrdy().is_not_ready() {}
 
-            if self.hse.is_some() {  // If HSE is provided  
+            if self.hse.is_some() {
+                // If HSE is provided
                 // Configure PLL from HSE
                 rcc.pllcfgr.write(|w| unsafe {
-                    w   
-                        .pllsrc().hse()
-                        .pllm().bits(pllm as u8)
-                        .plln().bits(plln as u16)
-                        .pllp().bits(pllp)
-                        .pllq().bits(9)
+                    w.pllsrc()
+                        .hse()
+                        .pllm()
+                        .bits(pllm as u8)
+                        .plln()
+                        .bits(plln as u16)
+                        .pllp()
+                        .bits(pllp)
+                        .pllq()
+                        .bits(9)
                 });
-            } else { // If HSE is not provided
+            } else {
+                // If HSE is not provided
                 // configure PLL from HSI
                 rcc.pllcfgr.modify(|_, w| unsafe {
-                    w   
-                        .pllsrc().hsi()
-                        .pllm().bits(pllm as u8)
-                        .plln().bits(plln as u16)
-                        .pllp().bits(pllp)
+                    w.pllsrc()
+                        .hsi()
+                        .pllm()
+                        .bits(pllm as u8)
+                        .plln()
+                        .bits(plln as u16)
+                        .pllp()
+                        .bits(pllp)
                 });
             }
 
@@ -368,28 +373,28 @@ impl CFGR {
             use_pll = true;
         }
 
-        // HCLK. By default, SYSCLK frequence is chosen. Because of the method
+        // HCLK. By default, SYSCLK frequency is chosen. Because of the method
         // of clock multiplication and division, even if `sysclk` is set to be
-        // the same as `hclk`, it can be slighly inferior to `sysclk` after
+        // the same as `hclk`, it can be slightly inferior to `sysclk` after
         // pllm, pllp... calculations
         let mut hclk: u32 = sysclk; // min(sysclk, self.hclk.unwrap_or(sysclk));
 
         // Configure HPRE.
-        let hpre_val: f32 = (sysclk as f32/ hclk as f32).ceil();
-        
+        let hpre_val: f32 = (sysclk as f32 / hclk as f32).ceil();
+
         // The real value of hpre is computed to be as near as possible to the
         // desired value, this leads to a quantization error
         let (hpre_val, hpre): (f32, u8) = match hpre_val as u32 {
-            0           => unreachable!(),
-            1           => (1.0, 0b000),
-            2           => (2.0, 0b1000),
-            3..=5       => (4.0, 0b1001),
-            6..=11      => (8.0, 0b1010),
-            12..=39     => (16.0, 0b1011),
-            40..=95     => (64.0, 0b1100),
-            96..=191    => (128.0, 0b1101),
-            192..=383   => (256.0, 0b1110),
-            _           => (512.0, 0b1111)
+            0 => unreachable!(),
+            1 => (1.0, 0b000),
+            2 => (2.0, 0b1000),
+            3..=5 => (4.0, 0b1001),
+            6..=11 => (8.0, 0b1010),
+            12..=39 => (16.0, 0b1011),
+            40..=95 => (64.0, 0b1100),
+            96..=191 => (128.0, 0b1101),
+            192..=383 => (256.0, 0b1110),
+            _ => (512.0, 0b1111),
         };
         // update hclk with the real value
         hclk = (sysclk as f32 / hpre_val).floor() as u32;
@@ -404,12 +409,27 @@ impl CFGR {
         // Configure PPRE1
         let mut ppre1_val: u32 = (hclk as f32 / pclk1 as f32).ceil() as u32;
         let ppre1: u32 = match ppre1_val {
-            0       => unreachable!(),
-            1       => { ppre1_val = 1; 0b000},
-            2       => { ppre1_val = 2; 0b100},
-            3..=6   => { ppre1_val = 4; 0b101},
-            7..=12  => { ppre1_val = 8; 0b110},
-            _       => { ppre1_val = 16; 0b111},
+            0 => unreachable!(),
+            1 => {
+                ppre1_val = 1;
+                0b000
+            }
+            2 => {
+                ppre1_val = 2;
+                0b100
+            }
+            3..=6 => {
+                ppre1_val = 4;
+                0b101
+            }
+            7..=12 => {
+                ppre1_val = 8;
+                0b110
+            }
+            _ => {
+                ppre1_val = 16;
+                0b111
+            }
         };
         // update pclk1 with the real value
         pclk1 = hclk / ppre1_val;
@@ -417,19 +437,34 @@ impl CFGR {
         // Configure PPRE2
         let mut ppre2_val: u32 = (hclk as f32 / pclk2 as f32).ceil() as u32;
         let ppre2: u32 = match ppre2_val {
-            0       => unreachable!(),
-            1       => { ppre2_val = 1; 0b000},
-            2       => { ppre2_val = 2; 0b100},
-            3..=6   => { ppre2_val = 4; 0b101},
-            7..=12  => { ppre2_val = 8; 0b110},
-            _       => { ppre2_val = 16; 0b111},
+            0 => unreachable!(),
+            1 => {
+                ppre2_val = 1;
+                0b000
+            }
+            2 => {
+                ppre2_val = 2;
+                0b100
+            }
+            3..=6 => {
+                ppre2_val = 4;
+                0b101
+            }
+            7..=12 => {
+                ppre2_val = 8;
+                0b110
+            }
+            _ => {
+                ppre2_val = 16;
+                0b111
+            }
         };
         // update pclk2 with the real value
         pclk2 = hclk / ppre2_val;
-        
+
         // Assumes TIMPRE bit of RCC_DCKCFGR1 is reset (0)
-        let timclk1 = if ppre1_val == 1 {pclk1} else {2 * pclk1};
-        let timclk2 = if ppre2_val == 1 {pclk2} else {2 * pclk2};
+        let timclk1 = if ppre1_val == 1 { pclk1 } else { 2 * pclk1 };
+        let timclk2 = if ppre2_val == 1 { pclk2 } else { 2 * pclk2 };
 
         // Adjust flash wait states
         flash.acr.write(|w| {
@@ -455,34 +490,30 @@ impl CFGR {
         // Select SYSCLK source
         if use_pll {
             rcc.cfgr.modify(|_, w| w.sw().pll());
-            while ! rcc.cfgr.read().sws().is_pll() {}
-           
+            while !rcc.cfgr.read().sws().is_pll() {}
         } else if self.hse.is_some() {
             rcc.cfgr.modify(|_, w| w.sw().hse());
-            while ! rcc.cfgr.read().sws().is_hse() {}
-
+            while !rcc.cfgr.read().sws().is_hse() {}
         } else {
             rcc.cfgr.modify(|_, w| w.sw().hsi());
-            while ! rcc.cfgr.read().sws().is_hsi() {}
+            while !rcc.cfgr.read().sws().is_hsi() {}
         }
 
         // Configure HCLK, PCLK1, PCLK2
         rcc.cfgr.modify(|_, w| unsafe {
-            w
-                .ppre1().bits(ppre1 as u8)
-                .ppre2().bits(ppre2 as u8)
-                .hpre().bits(hpre as u8)
+            w.ppre1()
+                .bits(ppre1 as u8)
+                .ppre2()
+                .bits(ppre2 as u8)
+                .hpre()
+                .bits(hpre as u8)
         });
 
-        // As requested by user manual we need to wit 16 ticks before the right
+        // As requested by user manual we need to wait 16 ticks before the right
         // predivision is applied
         cortex_m::asm::delay(16);
 
         Clocks {
-            hse: match self.hse {
-                Some(hse) => Some(Hertz(hse.freq)),
-                None => None,
-            },
             hclk: Hertz(hclk),
             pclk1: Hertz(pclk1),
             pclk2: Hertz(pclk2),
@@ -498,7 +529,6 @@ impl CFGR {
 /// The existence of this value indicates that the clock configuration can no longer be changed
 #[derive(Clone, Copy)]
 pub struct Clocks {
-    hse: Option<Hertz>,
     hclk: Hertz,
     pclk1: Hertz,
     pclk2: Hertz,
@@ -639,7 +669,7 @@ bus! {
     SPI1 => (APB2, spi1en, spi1rst),
     SPI2 => (APB1, spi2en, spi2rst),
     SPI3 => (APB1, spi3en, spi3rst),
-    
+
     USART1 => (APB2, usart1en, usart1rst),
     USART2 => (APB1, usart2en, uart2rst),
     USART3 => (APB1, usart3en, uart3rst),
@@ -663,7 +693,7 @@ bus! {
     GPIOG => (AHB1, gpiogen, gpiogrst),
     GPIOH => (AHB1, gpiohen, gpiohrst),
     GPIOI => (AHB1, gpioien, gpioirst),
-   
+
     TIM1 => (APB2, tim1en, tim1rst),
     TIM2 => (APB1, tim2en, tim2rst),
     TIM3 => (APB1, tim3en, tim3rst),
@@ -681,14 +711,14 @@ bus! {
 }
 
 #[cfg(not(any(
-    feature = "stm32f722", 
-    feature = "stm32f723", 
+    feature = "stm32f722",
+    feature = "stm32f723",
     feature = "stm32f730",
     feature = "stm32f732",
     feature = "stm32f733"
 )))]
-bus! { 
-    I2C4 => (APB1, i2c4en, i2c4rst), 
+bus! {
+    I2C4 => (APB1, i2c4en, i2c4rst),
 
     GPIOJ => (AHB1, gpiojen, gpiojrst),
     GPIOK => (AHB1, gpioken, gpiokrst),
