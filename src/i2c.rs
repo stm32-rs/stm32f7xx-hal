@@ -2,26 +2,23 @@
 //! For now, only master mode is implemented
 
 // NB : this implementation started as a modified copy of https://github.com/stm32-rs/stm32f1xx-hal/blob/master/src/i2c.rs
-#![allow(dead_code)]
-#![allow(unused_macros)]
-#![allow(unused_imports)]
 
 use micromath::F32Ext;
 
-use crate::time::Hertz;
+use crate::device::{DWT, I2C1, I2C2, I2C3};
+use crate::gpio::gpioa::PA8;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
+use crate::gpio::gpioc::PC9;
+use crate::gpio::gpiof::{PF0, PF1};
+use crate::gpio::gpioh::{PH4, PH5, PH7, PH8};
 use crate::gpio::{Alternate, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
+use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
+use crate::time::Hertz;
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
-use crate::rcc::{Clocks, Enable, Reset, sealed::RccBus, GetBusFreq};
-use crate::device::{DWT, I2C1, I2C2};
 
-use cast::{u16, u8};
-
-// FOR DEBUG
-static mut ACTIONS: [u8; 255] = [0; 255];
-static mut I_ACTION: usize = 0;
+use cast::u16;
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
@@ -46,28 +43,28 @@ pub enum Error {
 /// generated considering the buses clocks.
 #[derive(Debug, PartialEq)]
 pub enum Mode {
-    Standard {
-        frequency: Hertz,
-    },
-    Fast {
-        frequency: Hertz,
-    },
-    FastPlus  {
-        frequency: Hertz,
-    },
+    Standard { frequency: Hertz },
+    Fast { frequency: Hertz },
+    FastPlus { frequency: Hertz },
 }
 
 impl Mode {
     pub fn standard<F: Into<Hertz>>(frequency: F) -> Self {
-        Mode::Standard{frequency: frequency.into()}
+        Mode::Standard {
+            frequency: frequency.into(),
+        }
     }
 
     pub fn fast<F: Into<Hertz>>(frequency: F) -> Self {
-        Mode::Fast{frequency: frequency.into()}
+        Mode::Fast {
+            frequency: frequency.into(),
+        }
     }
 
     pub fn fast_plus<F: Into<Hertz>>(frequency: F) -> Self {
-        Mode::FastPlus{frequency: frequency.into()}
+        Mode::FastPlus {
+            frequency: frequency.into(),
+        }
     }
 
     pub fn get_frequency(&self) -> Hertz {
@@ -79,130 +76,159 @@ impl Mode {
     }
 }
 
-/// Helper trait to ensure that the correct I2C pins are used for the corresponding interface
-pub trait Pins<I2C> {
-    const REMAP: bool;
-}
+/// Marker trait to define SCL pins for an I2C interface.
+pub trait SclPin<I2C> {}
 
-impl Pins<I2C1> for (PB8<Alternate<AF4>>, PB7<Alternate<AF4>>) {
-    const REMAP: bool = false;
-}
+/// Marker trait to define SDA pins for an I2C interface.
+pub trait SdaPin<I2C> {}
 
-impl Pins<I2C1> for (PB8<Alternate<AF4>>, PB9<Alternate<AF4>>) {
-    const REMAP: bool = true;
-}
+impl SclPin<I2C1> for PB6<Alternate<AF4>> {}
+impl SclPin<I2C1> for PB8<Alternate<AF4>> {}
+impl SclPin<I2C2> for PB10<Alternate<AF4>> {}
+impl SclPin<I2C2> for PF1<Alternate<AF4>> {}
+impl SclPin<I2C2> for PH4<Alternate<AF4>> {}
+impl SclPin<I2C3> for PA8<Alternate<AF4>> {}
+impl SclPin<I2C3> for PH7<Alternate<AF4>> {}
 
-impl Pins<I2C2> for (PB10<Alternate<AF4>>, PB11<Alternate<AF4>>) {
-    const REMAP: bool = false;
-}
+impl SdaPin<I2C1> for PB7<Alternate<AF4>> {}
+impl SdaPin<I2C1> for PB9<Alternate<AF4>> {}
+impl SdaPin<I2C2> for PB11<Alternate<AF4>> {}
+impl SdaPin<I2C2> for PF0<Alternate<AF4>> {}
+impl SdaPin<I2C2> for PH5<Alternate<AF4>> {}
+impl SdaPin<I2C3> for PC9<Alternate<AF4>> {}
+impl SdaPin<I2C3> for PH8<Alternate<AF4>> {}
 
 /// I2C peripheral operating in master mode
-pub struct I2c<I2C, PINS> {
+pub struct I2c<I2C, SCL, SDA> {
     i2c: I2C,
-    pins: PINS,
+    pins: (SCL, SDA),
     mode: Mode,
     pclk: u32,
 }
 
 /// embedded-hal compatible blocking I2C implementation
-pub struct BlockingI2c<I2C, PINS> {
-    nb: I2c<I2C, PINS>,
+pub struct BlockingI2c<I2C, SCL, SDA> {
+    nb: I2c<I2C, SCL, SDA>,
     data_timeout: u32,
 }
 
-impl<PINS> I2c<I2C1, PINS> {
-    /// Creates a generic I2C1 object on pins PB6 and PB7 or PB8 and PB9 (if remapped)
+impl<SCL, SDA> I2c<I2C1, SCL, SDA> {
+    /// Creates a generic I2C1 object.
     pub fn i2c1(
         i2c: I2C1,
-        pins: PINS,
+        pins: (SCL, SDA),
         mode: Mode,
         clocks: Clocks,
         apb: &mut <I2C1 as RccBus>::Bus,
     ) -> Self
     where
-        PINS: Pins<I2C1>,
+        SCL: SclPin<I2C1>,
+        SDA: SdaPin<I2C1>,
     {
         I2c::_i2c1(i2c, pins, mode, clocks, apb)
     }
 }
 
-impl<PINS> BlockingI2c<I2C1, PINS> {
-    /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 using the embedded-hal `BlockingI2c` trait.
+impl<SCL, SDA> BlockingI2c<I2C1, SCL, SDA> {
+    /// Creates a blocking I2C1 object using the embedded-hal `BlockingI2c` trait.
     pub fn i2c1(
         i2c: I2C1,
-        pins: PINS,
+        pins: (SCL, SDA),
         mode: Mode,
         clocks: Clocks,
         apb: &mut <I2C1 as RccBus>::Bus,
         data_timeout_us: u32,
     ) -> Self
     where
-        PINS: Pins<I2C1>,
+        SCL: SclPin<I2C1>,
+        SDA: SdaPin<I2C1>,
     {
-        BlockingI2c::_i2c1(
-            i2c,
-            pins,
-            mode,
-            clocks,
-            apb,
-            data_timeout_us,
-        )
+        BlockingI2c::_i2c1(i2c, pins, mode, clocks, apb, data_timeout_us)
     }
 }
 
-impl<PINS> I2c<I2C2, PINS> {
-    /// Creates a generic I2C2 object on pins PB10 and PB11 using the embedded-hal `BlockingI2c` trait.
+impl<SCL, SDA> I2c<I2C2, SCL, SDA> {
+    /// Creates a generic I2C2 object.
     pub fn i2c2(
         i2c: I2C2,
-        pins: PINS,
+        pins: (SCL, SDA),
         mode: Mode,
         clocks: Clocks,
-        apb: &mut <I2C2 as RccBus>::Bus
+        apb: &mut <I2C2 as RccBus>::Bus,
     ) -> Self
     where
-        PINS: Pins<I2C2>,
+        SCL: SclPin<I2C2>,
+        SDA: SdaPin<I2C2>,
     {
         I2c::_i2c2(i2c, pins, mode, clocks, apb)
     }
 }
 
-impl<PINS> BlockingI2c<I2C2, PINS> {
-    /// Creates a blocking I2C2 object on pins PB10 and PB1
+impl<SCL, SDA> BlockingI2c<I2C2, SCL, SDA> {
+    /// Creates a blocking I2C2 object using the embedded-hal `BlockingI2c` trait.
     pub fn i2c2(
         i2c: I2C2,
-        pins: PINS,
+        pins: (SCL, SDA),
         mode: Mode,
         clocks: Clocks,
         apb: &mut <I2C2 as RccBus>::Bus,
         data_timeout_us: u32,
     ) -> Self
     where
-        PINS: Pins<I2C2>,
+        SCL: SclPin<I2C2>,
+        SDA: SdaPin<I2C2>,
     {
-        BlockingI2c::_i2c2(
-            i2c,
-            pins,
-            mode,
-            clocks,
-            apb,
-            data_timeout_us,
-        )
+        BlockingI2c::_i2c2(i2c, pins, mode, clocks, apb, data_timeout_us)
+    }
+}
+
+impl<SCL, SDA> I2c<I2C3, SCL, SDA> {
+    /// Creates a generic I2C3 object.
+    pub fn i2c3(
+        i2c: I2C3,
+        pins: (SCL, SDA),
+        mode: Mode,
+        clocks: Clocks,
+        apb: &mut <I2C3 as RccBus>::Bus,
+    ) -> Self
+    where
+        SCL: SclPin<I2C3>,
+        SDA: SdaPin<I2C3>,
+    {
+        I2c::_i2c3(i2c, pins, mode, clocks, apb)
+    }
+}
+
+impl<SCL, SDA> BlockingI2c<I2C3, SCL, SDA> {
+    /// Creates a blocking I2C3 object using the embedded-hal `BlockingI2c` trait.
+    pub fn i2c3(
+        i2c: I2C3,
+        pins: (SCL, SDA),
+        mode: Mode,
+        clocks: Clocks,
+        apb: &mut <I2C3 as RccBus>::Bus,
+        data_timeout_us: u32,
+    ) -> Self
+    where
+        SCL: SclPin<I2C3>,
+        SDA: SdaPin<I2C3>,
+    {
+        BlockingI2c::_i2c3(i2c, pins, mode, clocks, apb, data_timeout_us)
     }
 }
 
 /// Generates a blocking I2C instance from a universal I2C object
-fn blocking_i2c<I2C, PINS>(
-    i2c: I2c<I2C, PINS>,
+fn blocking_i2c<I2C, SCL, SDA>(
+    i2c: I2c<I2C, SCL, SDA>,
     clocks: Clocks,
     data_timeout_us: u32,
-) -> BlockingI2c<I2C, PINS> {
+) -> BlockingI2c<I2C, SCL, SDA> {
     let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
     return BlockingI2c {
         nb: i2c,
         data_timeout: data_timeout_us * sysclk_mhz,
     };
 }
-
 
 macro_rules! check_status_flag {
     ($i2c:expr, $flag:ident, $status:ident) => {{
@@ -222,7 +248,7 @@ macro_rules! check_status_flag {
             Err(Other(Error::Overrun))
         } else if isr.$flag().$status() {
             Ok(())
-        } else  {
+        } else {
             Err(WouldBlock)
         }
     }};
@@ -257,11 +283,11 @@ macro_rules! busy_wait_cycles {
 macro_rules! hal {
     ($($I2CX:ident: ($i2cX:ident),)+) => {
         $(
-            impl<PINS> I2c<$I2CX, PINS> {
+            impl<SCL, SDA> I2c<$I2CX, SCL, SDA> {
                 /// Configures the I2C peripheral to work in master mode
                 fn $i2cX(
                     i2c: $I2CX,
-                    pins: PINS,
+                    pins: (SCL, SDA),
                     mode: Mode,
                     clocks: Clocks,
                     apb: &mut <I2C1 as RccBus>::Bus
@@ -281,13 +307,13 @@ macro_rules! hal {
                 /// Initializes I2C as master. Configures I2C_PRESC, I2C_SCLDEL,
                 /// I2C_SDAEL, I2C_SCLH, I2C_SCLL
                 ///
-                /// For now, only standart mode is implemented
+                /// For now, only standard mode is implemented
                 fn init(&mut self) {
                     // NOTE : operations are in float for better precision,
                     // STM32F7 usually have FPU and this runs only at
-                    // initialisation so the footprint of such heavy calculation
+                    // initialization so the footprint of such heavy calculation
                     // occurs only once
-                    
+
                     // Disable I2C during configuration
                     self.i2c.cr1.write(|w| w.pe().disabled());
                     let target_freq_mhz: f32 = self.mode.get_frequency().0 as f32 / 1_000_000.0;
@@ -298,7 +324,7 @@ macro_rules! hal {
 
                     match self.mode {
                         Mode::Standard { .. } => {
-                            // In standart mode, t_{SCL High} = t_{SCL Low}
+                            // In standard mode, t_{SCL High} = t_{SCL Low}
                             // Delays
                             // let sdadel = 2;
                             // let scldel = 4;
@@ -308,28 +334,16 @@ macro_rules! hal {
 
                             // SCL Low time
                             let scll = (base_clk_mhz / (2.0 * (target_freq_mhz))).ceil();
-                            let scll: u8 = match scll  {
-                                0.0..=256.0 => scll as u8 - 1,
-                                _ => 255,
-                            };
+                            let scll: u8 = if scll <= 256.0 { scll as u8 - 1 } else { 255 };
                             let fscll_mhz: f32 = base_clk_mhz / (scll as f32 + 1.0);
-                            
+
                             let sclh: u8 = scll;
-                            let fsclh_mhz: f32 = base_clk_mhz / (sclh as f32 + 1.0);
 
                             // Prescaler
                             let presc = base_clk_mhz / fscll_mhz;
-                            let presc: u8 = match presc  {
-                                0.0..=16.0 => sclh as u8 - 1,
-                                _ => 15,
-                            };
-                            let fpresc_mhz = base_clk_mhz / (presc as f32 + 1.0);
+                            let presc: u8 = if presc <= 16.0 { sclh as u8 - 1 } else { 15 };
 
-                            // Update with the real values
-                            let fscll_mhz: f32 = fpresc_mhz / (scll as f32 + 1.0);
-                            let fsclh_mhz: f32 = fpresc_mhz / (sclh as f32 + 1.0);
-
-                            self.i2c.timingr.write(|w| 
+                            self.i2c.timingr.write(|w|
                                 w.presc()
                                     .bits(presc)
                                     .scll()
@@ -349,6 +363,7 @@ macro_rules! hal {
                 }
 
                 /// Perform an I2C software reset
+                #[allow(dead_code)]
                 fn reset(&mut self) {
                     self.i2c.cr1.write(|w| w.pe().disabled());
                     // wait for disabled
@@ -365,9 +380,9 @@ macro_rules! hal {
                 /// read. The peripheral automatically waits for the bus to be
                 /// free before sending the START and address
                 ///
-                /// Data transferts of more than 255 bytes are not yet
+                /// Data transfers of more than 255 bytes are not yet
                 /// supported, 10-bit slave address are not yet supported
-                fn start(&self, addr: u8, n_bytes: u8, read: bool, auto_stop: bool) { 
+                fn start(&self, addr: u8, n_bytes: u8, read: bool, auto_stop: bool) {
                     self.i2c.cr2.write(|mut w| {
                         // Setup data
                         w = w.sadd()
@@ -377,8 +392,8 @@ macro_rules! hal {
                             .bits(n_bytes as u8)
                             .start()
                             .set_bit();
-                        
-                        // Setup transfert direction
+
+                        // Setup transfer direction
                         w = match read {
                             true => w.rd_wrn().read(),
                             false => w.rd_wrn().write()
@@ -393,15 +408,15 @@ macro_rules! hal {
                 }
 
                 /// Releases the I2C peripheral and associated pins
-                pub fn free(self) -> ($I2CX, PINS) {
+                pub fn free(self) -> ($I2CX, (SCL, SDA)) {
                     (self.i2c, self.pins)
                 }
             }
 
-            impl<PINS> BlockingI2c<$I2CX, PINS> {
+            impl<SCL, SDA> BlockingI2c<$I2CX, SCL, SDA> {
                 fn $i2cX(
                     i2c: $I2CX,
-                    pins: PINS,
+                    pins: (SCL, SDA),
                     mode: Mode,
                     clocks: Clocks,
                     apb: &mut <$I2CX as RccBus>::Bus,
@@ -412,7 +427,7 @@ macro_rules! hal {
                 }
 
                 /// Wait for a byte to be read and return it (ie for RXNE flag
-                /// to be set) 
+                /// to be set)
                 fn wait_byte_read(&self) -> NbResult<u8, Error> {
                     // Wait until we have received something
                     busy_wait_cycles!(
@@ -438,14 +453,14 @@ macro_rules! hal {
 
                     Ok(())
                 }
-                
+
                 /// Wait for any previous address sequence to end automatically.
                 fn wait_start(&self) {
                     while self.nb.i2c.cr2.read().start().bit_is_set() {};
                 }
             }
 
-            impl<PINS> Write for BlockingI2c<$I2CX, PINS> {
+            impl<SCL, SDA> Write for BlockingI2c<$I2CX, SCL, SDA> {
                 type Error = NbError<Error>;
 
                 /// Write bytes to I2C. Currently, `bytes.len()` must be less or
@@ -465,7 +480,7 @@ macro_rules! hal {
                     self.nb.start(addr, bytes.len() as u8, false, true);
 
                     for byte in bytes {
-                        self.wait_byte_write(*byte)?;                       
+                        self.wait_byte_write(*byte)?;
                     }
                     // automatic STOP
 
@@ -473,7 +488,7 @@ macro_rules! hal {
                 }
             }
 
-            impl<PINS> Read for BlockingI2c<$I2CX, PINS> {
+            impl<SCL, SDA> Read for BlockingI2c<$I2CX, SCL, SDA> {
                 type Error = NbError<Error>;
 
                 /// Reads enough bytes from slave with `address` to fill `buffer`
@@ -501,7 +516,7 @@ macro_rules! hal {
                 }
             }
 
-            impl<PINS> WriteRead for BlockingI2c<$I2CX, PINS> {
+            impl<SCL, SDA> WriteRead for BlockingI2c<$I2CX, SCL, SDA> {
                 type Error = NbError<Error>;
 
                 fn write_read(
@@ -519,7 +534,7 @@ macro_rules! hal {
                     self.nb.start(addr, bytes.len() as u8, false, false);
 
                     for byte in bytes {
-                        self.wait_byte_write(*byte)?;                       
+                        self.wait_byte_write(*byte)?;
                     }
 
                     // Wait until the write finishes before beginning to read.
@@ -531,7 +546,7 @@ macro_rules! hal {
 
                     // reSTART and prepare to receive bytes into `buffer`
                     self.nb.start(addr, buffer.len() as u8, true, true);
-                    
+
                     for byte in buffer {
                         *byte = self.wait_byte_read()?;
                     }
@@ -547,4 +562,5 @@ macro_rules! hal {
 hal! {
     I2C1: (_i2c1),
     I2C2: (_i2c2),
+    I2C3: (_i2c3),
 }
