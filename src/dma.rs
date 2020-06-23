@@ -389,21 +389,6 @@ macro_rules! impl_target {
 //
 // There's probably a smart way to achieve this, but I decided to declare
 // victory and leave this problem to someone who actually needs this capability.
-#[cfg(any(
-    feature = "stm32f722",
-    feature = "stm32f723",
-    feature = "stm32f732",
-    feature = "stm32f733",
-    feature = "stm32f745",
-    feature = "stm32f746",
-    feature = "stm32f756",
-    feature = "stm32f765",
-    feature = "stm32f767",
-    feature = "stm32f769",
-    feature = "stm32f777",
-    feature = "stm32f778",
-    feature = "stm32f779",
-))]
 impl_target!(
     // SPI receive
     spi::Rx<device::SPI1>, DMA2, Stream0, Channel3, DMA2_STREAM0;
@@ -415,7 +400,6 @@ impl_target!(
     // SPI4 for DMA2, stream 3, channel 5 is unsupported
     spi::Rx<device::SPI5>, DMA2, Stream3, Channel2, DMA2_STREAM3;
     // SPI5 for DMA2, stream 5, channel 7 is unsupported
-    spi::Rx<device::SPI6>, DMA2, Stream6, Channel1, DMA2_STREAM6;
 
     // SPI transmit
     spi::Tx<device::SPI1>, DMA2, Stream3, Channel3, DMA2_STREAM3;
@@ -427,7 +411,6 @@ impl_target!(
     // SPI4 for DMA2, stream 4, channel 5 is unsupported
     spi::Tx<device::SPI5>, DMA2, Stream4, Channel2, DMA2_STREAM4;
     // SPI5 for DMA2, stream 6, channel 7 is unsupported
-    spi::Tx<device::SPI6>, DMA2, Stream5, Channel1, DMA2_STREAM5;
 
     // USART receive
     serial::Rx<device::USART1>, DMA2, Stream2, Channel4, DMA2_STREAM2;
@@ -452,6 +435,22 @@ impl_target!(
     // USART6 for DMA2, stream 7, channel 5 is unsupported
     serial::Tx<device::UART7>,  DMA1, Stream1, Channel5, DMA1_STREAM1;
     serial::Tx<device::UART8>,  DMA1, Stream0, Channel5, DMA1_STREAM0;
+);
+
+#[cfg(any(
+    feature = "stm32f745",
+    feature = "stm32f746",
+    feature = "stm32f756",
+    feature = "stm32f765",
+    feature = "stm32f767",
+    feature = "stm32f769",
+    feature = "stm32f777",
+    feature = "stm32f778",
+    feature = "stm32f779",
+))]
+impl_target!(
+    spi::Rx<device::SPI6>, DMA2, Stream6, Channel1, DMA2_STREAM6;
+    spi::Tx<device::SPI6>, DMA2, Stream5, Channel1, DMA2_STREAM5;
 );
 
 /// Implemented for all types that represent DMA streams
@@ -578,7 +577,7 @@ macro_rules! impl_channel {
                 {
                     // This is safe, as long as the macro caller passes in valid
                     // channel numbers.
-                    unsafe { w.chsel().bits($number) }
+                    w.chsel().bits($number)
                 }
             }
         )*

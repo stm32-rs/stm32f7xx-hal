@@ -23,7 +23,6 @@ use crate::{
     state,
 };
 
-#[cfg(feature="dma-support")]
 use crate::dma;
 
 /// Entry point to the SPI API
@@ -72,7 +71,6 @@ where
     }
 }
 
-#[cfg(feature="dma-support")]
 impl<I, P, Word> Spi<I, P, Enabled<Word>>
 where
     I: Instance,
@@ -454,21 +452,6 @@ macro_rules! impl_instance {
     }
 }
 
-#[cfg(any(
-    feature = "stm32f722",
-    feature = "stm32f723",
-    feature = "stm32f732",
-    feature = "stm32f733",
-    feature = "stm32f745",
-    feature = "stm32f746",
-    feature = "stm32f756",
-    feature = "stm32f765",
-    feature = "stm32f767",
-    feature = "stm32f769",
-    feature = "stm32f777",
-    feature = "stm32f778",
-    feature = "stm32f779",
-))]
 impl_instance!(
     device::SPI1 {
         regs: (apb2, spi1rst, spi1en),
@@ -566,9 +549,6 @@ impl_instance!(
 );
 
 #[cfg(any(
-    feature = "stm32f723",
-    feature = "stm32f732",
-    feature = "stm32f733",
     feature = "stm32f745",
     feature = "stm32f746",
     feature = "stm32f756",
@@ -736,7 +716,6 @@ where
 }
 
 /// The resources that an ongoing transfer needs exclusive access to
-#[cfg(feature="dma-support")]
 pub struct TransferResources<Word, I, P, Rx: dma::Target, Tx: dma::Target, Buffer> {
     pub rx_stream: Rx::Stream,
     pub tx_stream: Tx::Stream,
@@ -747,7 +726,6 @@ pub struct TransferResources<Word, I, P, Rx: dma::Target, Tx: dma::Target, Buffe
 // As `TransferResources` is used in the error variant of `Result`, it needs a
 // `Debug` implementation to enable stuff like `unwrap` and `expect`. This can't
 // be derived without putting requirements on the type arguments.
-#[cfg(feature="dma-support")]
 impl<Word, I, P, Rx, Tx, Buffer> fmt::Debug for TransferResources<Word, I, P, Rx, Tx, Buffer>
 where
     Rx: dma::Target,
