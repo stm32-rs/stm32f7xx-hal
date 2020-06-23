@@ -1,8 +1,10 @@
 //! Timers
 
-use crate::device::{TIM2, TIM3, TIM4, TIM5};
-use crate::hal::timer::{CountDown, Periodic};
-use crate::rcc::{Clocks, APB1};
+use crate::device::{
+    TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8, TIM9,
+};
+use crate::hal::timer::{Cancel, CountDown, Periodic};
+use crate::rcc::{Clocks, APB1, APB2};
 use crate::time::Hertz;
 use cast::{u16, u32};
 use nb;
@@ -10,15 +12,23 @@ use void::Void;
 
 /// Hardware timers
 pub struct Timer<TIM> {
-    clocks: Clocks,
+    clock: Hertz,
     tim: TIM,
     timeout: Hertz,
 }
 
 /// Interrupt events
+#[derive(Debug, PartialEq)]
 pub enum Event {
     /// Timer timed out / count down ended
     TimeOut,
+}
+
+/// Timer errors
+#[derive(Debug, PartialEq)]
+pub enum Error {
+    /// Timer is disabled.
+    Disabled,
 }
 
 macro_rules! hal {
@@ -34,12 +44,11 @@ macro_rules! hal {
                 where
                     T: Into<Hertz>,
                 {
-                    // pause
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                    self.disable();
 
                     self.timeout = timeout.into();
                     let frequency = self.timeout.0;
-                    let ticks = self.clocks.$timclk().0 / frequency;
+                    let ticks = self.clock.0 / frequency;
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
                     self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
@@ -55,8 +64,7 @@ macro_rules! hal {
                     // it should be cleared
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
 
-                    // start counter
-                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                    self.enable();
                 }
 
                 fn wait(&mut self) -> nb::Result<(), Void> {
@@ -66,6 +74,20 @@ macro_rules! hal {
                         self.tim.sr.modify(|_, w| w.uif().clear_bit());
                         Ok(())
                     }
+                }
+            }
+
+            impl Cancel for Timer<$TIM> {
+                type Error = Error;
+
+                fn cancel(&mut self) -> Result<(), Self::Error> {
+                    if !self.tim.cr1.read().cen().is_enabled() {
+                        return Err(Error::Disabled);
+                    }
+
+                    self.disable();
+
+                    Ok(())
                 }
             }
 
@@ -80,8 +102,10 @@ macro_rules! hal {
                     apb.rstr().modify(|_, w| w.$timXrst().set_bit());
                     apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
+                    let clock = clocks.$timclk();
+
                     let mut timer = Timer {
-                        clocks,
+                        clock,
                         tim,
                         timeout: Hertz(0),
                     };
@@ -124,20 +148,40 @@ macro_rules! hal {
                 }
 
                 /// Releases the TIM peripheral
-                pub fn free(self) -> $TIM {
-                    // pause counter
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                pub fn free(mut self) -> $TIM {
+                    self.disable();
+
                     self.tim
+                }
+
+                /// Enables the counter.
+                fn enable(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                }
+
+                /// Disables the counter.
+                fn disable(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
                 }
             }
         )+
     }
 }
 
-// TODO: Add support for missing timers
 hal! {
     TIM2: (tim2, tim2en, tim2rst, APB1, timclk1),
     TIM3: (tim3, tim3en, tim3rst, APB1, timclk1),
     TIM4: (tim4, tim4en, tim4rst, APB1, timclk1),
     TIM5: (tim5, tim5en, tim5rst, APB1, timclk1),
+    TIM6: (tim6, tim6en, tim6rst, APB1, timclk1),
+    TIM7: (tim7, tim7en, tim7rst, APB1, timclk1),
+    TIM12: (tim12, tim12en, tim12rst, APB1, timclk1),
+    TIM13: (tim13, tim13en, tim13rst, APB1, timclk1),
+    TIM14: (tim14, tim14en, tim14rst, APB1, timclk1),
+
+    TIM1: (tim1, tim1en, tim1rst, APB2, timclk2),
+    TIM8: (tim8, tim8en, tim8rst, APB2, timclk2),
+    TIM9: (tim9, tim9en, tim9rst, APB2, timclk2),
+    TIM10: (tim10, tim10en, tim10rst, APB2, timclk2),
+    TIM11: (tim11, tim11en, tim11rst, APB2, timclk2),
 }
