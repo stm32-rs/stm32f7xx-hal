@@ -74,7 +74,7 @@ pub use crate::device::interrupt;
 #[cfg(feature = "device-selected")]
 pub mod delay;
 
-#[cfg(feature = "dma-support")]
+#[cfg(feature = "device-selected")]
 pub mod dma;
 
 #[cfg(feature = "device-selected")]
@@ -89,7 +89,7 @@ pub mod rcc;
 #[cfg(feature = "device-selected")]
 pub mod serial;
 
-#[cfg(feature = "dma-support")]
+#[cfg(feature = "device-selected")]
 pub mod spi;
 
 #[cfg(feature = "device-selected")]
