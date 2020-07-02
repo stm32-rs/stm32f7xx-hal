@@ -26,50 +26,50 @@ compile_error!(
 pub(crate) use embedded_hal as hal;
 
 #[cfg(feature = "stm32f722")]
-pub use stm32f7::stm32f7x2 as device;
+pub use stm32f7::stm32f7x2 as pac;
 
 #[cfg(feature = "stm32f723")]
-pub use stm32f7::stm32f7x3 as device;
+pub use stm32f7::stm32f7x3 as pac;
 
 #[cfg(feature = "stm32f730")]
-pub use stm32f7::stm32f730 as device;
+pub use stm32f7::stm32f730 as pac;
 
 #[cfg(feature = "stm32f732")]
-pub use stm32f7::stm32f7x2 as device;
+pub use stm32f7::stm32f7x2 as pac;
 
 #[cfg(feature = "stm32f733")]
-pub use stm32f7::stm32f7x3 as device;
+pub use stm32f7::stm32f7x3 as pac;
 
 #[cfg(feature = "stm32f745")]
-pub use stm32f7::stm32f745 as device;
+pub use stm32f7::stm32f745 as pac;
 
 #[cfg(feature = "stm32f746")]
-pub use stm32f7::stm32f7x6 as device;
+pub use stm32f7::stm32f7x6 as pac;
 
 #[cfg(feature = "stm32f756")]
-pub use stm32f7::stm32f7x6 as device;
+pub use stm32f7::stm32f7x6 as pac;
 
 #[cfg(feature = "stm32f765")]
-pub use stm32f7::stm32f765 as device;
+pub use stm32f7::stm32f765 as pac;
 
 #[cfg(feature = "stm32f767")]
-pub use stm32f7::stm32f7x7 as device;
+pub use stm32f7::stm32f7x7 as pac;
 
 #[cfg(feature = "stm32f769")]
-pub use stm32f7::stm32f7x9 as device;
+pub use stm32f7::stm32f7x9 as pac;
 
 #[cfg(feature = "stm32f777")]
-pub use stm32f7::stm32f7x7 as device;
+pub use stm32f7::stm32f7x7 as pac;
 
 #[cfg(feature = "stm32f778")]
-pub use stm32f7::stm32f7x9 as device;
+pub use stm32f7::stm32f7x9 as pac;
 
 #[cfg(feature = "stm32f779")]
-pub use stm32f7::stm32f7x9 as device;
+pub use stm32f7::stm32f7x9 as pac;
 
 // Enable use of interrupt macro
 #[cfg(feature = "rt")]
-pub use crate::device::interrupt;
+pub use crate::pac::interrupt;
 
 #[cfg(feature = "device-selected")]
 pub mod delay;

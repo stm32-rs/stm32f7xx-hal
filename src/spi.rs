@@ -2,7 +2,7 @@
 //!
 //! See chapter 32 in the STM32F746 Reference Manual.
 
-pub use crate::device::spi1::cr1::BR_A as ClockDivider;
+pub use crate::pac::spi1::cr1::BR_A as ClockDivider;
 pub use embedded_hal::spi::{Mode, Phase, Polarity};
 
 use core::{fmt, marker::PhantomData, ops::DerefMut, pin::Pin, ptr};
@@ -14,11 +14,8 @@ use embedded_hal::{
 };
 
 use crate::{
-    device::{self, spi1::cr2},
-    gpio::{
-        self,
-        Alternate, AF5, AF6, AF7,
-    },
+    gpio::{self, Alternate, AF5, AF6, AF7},
+    pac::{self, spi1::cr2},
     rcc::Rcc,
     state,
 };
@@ -60,8 +57,7 @@ where
         let cpha = mode.phase == Phase::CaptureOnSecondTransition;
 
         self.spi.enable_clock(rcc);
-        self.spi
-            .configure::<Word>(clock_divider.into(), cpol, cpha);
+        self.spi.configure::<Word>(clock_divider.into(), cpol, cpha);
 
         Spi {
             spi: self.spi,
@@ -453,7 +449,7 @@ macro_rules! impl_instance {
 }
 
 impl_instance!(
-    device::SPI1 {
+    pac::SPI1 {
         regs: (apb2, spi1rst, spi1en),
         pins: {
             SCK: [
@@ -470,7 +466,7 @@ impl_instance!(
             ],
         }
     }
-    device::SPI2 {
+    pac::SPI2 {
         regs: (apb1, spi2rst, spi2en),
         pins: {
             SCK: [
@@ -493,7 +489,7 @@ impl_instance!(
             ],
         }
     }
-    device::SPI3 {
+    pac::SPI3 {
         regs: (apb1, spi3rst, spi3en),
         pins: {
             SCK: [
@@ -512,7 +508,7 @@ impl_instance!(
             ],
         }
     }
-    device::SPI4 {
+    pac::SPI4 {
         regs: (apb2, spi4rst, spi4en),
         pins: {
             SCK: [
@@ -529,7 +525,7 @@ impl_instance!(
             ],
         }
     }
-    device::SPI5 {
+    pac::SPI5 {
         regs: (apb2, spi5rst, spi5en),
         pins: {
             SCK: [
@@ -560,7 +556,7 @@ impl_instance!(
     feature = "stm32f779",
 ))]
 impl_instance!(
-    device::SPI6 {
+    pac::SPI6 {
         regs: (apb2, spi6rst, spi6en),
         pins: {
             SCK: [

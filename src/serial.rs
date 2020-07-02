@@ -7,16 +7,16 @@ use core::ptr;
 
 use as_slice::{AsMutSlice, AsSlice};
 
-use crate::device;
 use crate::dma;
 use crate::hal::prelude::*;
 use crate::hal::serial;
+use crate::pac;
 use crate::state;
 use crate::time::U32Ext;
 use nb::block;
 
 #[cfg(any(feature = "device-selected",))]
-use crate::device::{RCC, USART1, USART2, UART4, USART3, USART6, UART7};
+use crate::pac::{RCC, UART4, UART7, USART1, USART2, USART3, USART6};
 
 #[cfg(any(feature = "device-selected",))]
 use crate::gpio::{
@@ -24,9 +24,9 @@ use crate::gpio::{
     gpiob::{PB10, PB11, PB6, PB7},
     gpioc::{PC10, PC11, PC6, PC7},
     gpiod::{PD5, PD6, PD8, PD9},
-    gpiog::{PG14, PG9},
     gpioe::{PE7, PE8},
     gpiof::{PF6, PF7},
+    gpiog::{PG14, PG9},
     Alternate, AF7, AF8,
 };
 
@@ -403,10 +403,10 @@ pub enum Event {
 }
 
 /// Implemented by all USART instances
-pub trait Instance: Deref<Target = device::usart1::RegisterBlock> {
-    fn ptr() -> *const device::usart1::RegisterBlock;
-    fn select_sysclock(rcc: &device::rcc::RegisterBlock);
-    fn enable_clock(rcc: &device::rcc::RegisterBlock);
+pub trait Instance: Deref<Target = pac::usart1::RegisterBlock> {
+    fn ptr() -> *const pac::usart1::RegisterBlock;
+    fn select_sysclock(rcc: &pac::rcc::RegisterBlock);
+    fn enable_clock(rcc: &pac::rcc::RegisterBlock);
 }
 
 macro_rules! impl_instance {
@@ -415,15 +415,15 @@ macro_rules! impl_instance {
     )+) => {
         $(
             impl Instance for $USARTX {
-                fn ptr() -> *const device::usart1::RegisterBlock {
+                fn ptr() -> *const pac::usart1::RegisterBlock {
                     $USARTX::ptr()
                 }
 
-                fn select_sysclock(rcc: &device::rcc::RegisterBlock) {
+                fn select_sysclock(rcc: &pac::rcc::RegisterBlock) {
                     rcc.dckcfgr2.modify(|_, w| w.$usartXsel().bits(1));
                 }
 
-                fn enable_clock(rcc: &device::rcc::RegisterBlock) {
+                fn enable_clock(rcc: &pac::rcc::RegisterBlock) {
                     rcc.$apbXenr.modify(|_, w| w.$usartXen().set_bit());
                 }
             }

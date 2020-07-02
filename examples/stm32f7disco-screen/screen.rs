@@ -2,14 +2,14 @@ use embedded_graphics::{
     drawable::Pixel,
     geometry::Size,
     pixelcolor::{Rgb565, RgbColor},
+    primitives,
     style::{PrimitiveStyle, Styled},
     DrawTarget,
-    primitives
 };
 
 use stm32f7xx_hal::{
-    device::{LTDC, DMA2D},
-    ltdc::{DisplayConfig, Layer, DisplayController, SupportedWord, PixelFormat},
+    ltdc::{DisplayConfig, DisplayController, Layer, PixelFormat, SupportedWord},
+    pac::{DMA2D, LTDC},
     rcc::{HSEClock, HSEClockMode},
     time::U32Ext,
 };
@@ -45,9 +45,7 @@ impl<T: 'static + SupportedWord> Stm32F7DiscoDisplay<T> {
             Some(&HSEClock::new(25.mhz(), HSEClockMode::Bypass)),
         );
 
-        Stm32F7DiscoDisplay {
-            controller,
-        }
+        Stm32F7DiscoDisplay { controller }
     }
 }
 
@@ -68,22 +66,36 @@ impl DrawTarget<Rgb565> for Stm32F7DiscoDisplay<u16> {
     }
 
     /// Draw a hardware accelerated (by DMA2D) rectangle
-    fn draw_rectangle(&mut self, item: &Styled<primitives::Rectangle, PrimitiveStyle<Rgb565>>) -> Result<(), Self::Error> {
+    fn draw_rectangle(
+        &mut self,
+        item: &Styled<primitives::Rectangle, PrimitiveStyle<Rgb565>>,
+    ) -> Result<(), Self::Error> {
         if item.style.stroke_color.is_none() {
-            let top_left = (item.primitive.top_left.x as usize, item.primitive.top_left.y as usize);
-            let bottom_right = (item.primitive.bottom_right.x as usize, item.primitive.bottom_right.y as usize);
+            let top_left = (
+                item.primitive.top_left.x as usize,
+                item.primitive.top_left.y as usize,
+            );
+            let bottom_right = (
+                item.primitive.bottom_right.x as usize,
+                item.primitive.bottom_right.y as usize,
+            );
             let color = match item.style.fill_color {
-                Some(c) =>  {
-                    (c.b() as u32 & 0x1F) | ((c.g() as u32 & 0x3F) << 5) | ((c.r() as u32 & 0x1F) << 11)
-                },
-                None => 0u32 
+                Some(c) => {
+                    (c.b() as u32 & 0x1F)
+                        | ((c.g() as u32 & 0x3F) << 5)
+                        | ((c.r() as u32 & 0x1F) << 11)
+                }
+                None => 0u32,
             };
 
             // Note(unsafe) because transfert might not be before an other write
             // to the buffer occurs. However, such Register -> Buffer transfert
             // is so fast that such issue does not occur
             // TODO : use safer DMA api when the embedde-hal DMA traits will be stabilised
-            unsafe {self.controller.draw_rectangle(Layer::L1, top_left, bottom_right, color);}
+            unsafe {
+                self.controller
+                    .draw_rectangle(Layer::L1, top_left, bottom_right, color);
+            }
         } else {
             self.draw_iter(item).unwrap();
         }

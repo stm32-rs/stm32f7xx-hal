@@ -1,9 +1,9 @@
 //! Timers
 
-use crate::device::{
+use crate::hal::timer::{Cancel, CountDown, Periodic};
+use crate::pac::{
     TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8, TIM9,
 };
-use crate::hal::timer::{Cancel, CountDown, Periodic};
 use crate::rcc::{Clocks, APB1, APB2};
 use crate::time::Hertz;
 use cast::{u16, u32};

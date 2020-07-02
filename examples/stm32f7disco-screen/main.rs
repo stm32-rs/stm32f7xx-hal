@@ -15,9 +15,9 @@ use embedded_graphics::{
 };
 
 use stm32f7xx_hal::{
-    device,
     gpio::Speed,
     ltdc::{Layer, PixelFormat},
+    pac,
     prelude::*,
     rcc::{HSEClock, HSEClockMode, Rcc},
 };
@@ -34,7 +34,7 @@ static mut FB_LAYER1: [u16; FB_GRAPHICS_SIZE] = [0; FB_GRAPHICS_SIZE];
 
 #[entry]
 fn main() -> ! {
-    let perif = device::Peripherals::take().unwrap();
+    let perif = pac::Peripherals::take().unwrap();
     let _cp = cortex_m::Peripherals::take().unwrap();
 
     let rcc_hal: Rcc = perif.RCC.constrain();

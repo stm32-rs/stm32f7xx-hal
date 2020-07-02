@@ -1,7 +1,7 @@
 use micromath::F32Ext;
 
 use crate::{
-    device::{LTDC, RCC, DMA2D},
+    pac::{DMA2D, LTDC, RCC},
     rcc::HSEClock,
 };
 
@@ -51,7 +51,13 @@ pub struct DisplayController<T: 'static + SupportedWord> {
 
 impl<T: 'static + SupportedWord> DisplayController<T> {
     /// Create and configure the DisplayController
-    pub fn new(ltdc: LTDC, dma2d: DMA2D, pixel_format: PixelFormat, config: DisplayConfig, hse: Option<&HSEClock>) -> DisplayController<T> {
+    pub fn new(
+        ltdc: LTDC,
+        dma2d: DMA2D,
+        pixel_format: PixelFormat,
+        config: DisplayConfig,
+        hse: Option<&HSEClock>,
+    ) -> DisplayController<T> {
         // TODO : change it to something safe ...
         let rcc = unsafe { &(*RCC::ptr()) };
 
@@ -63,7 +69,7 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         let lcd_clk: u32 =
             (total_width as u32) * (total_height as u32) * (config.frame_rate as u32);
 
-        // Enable LTDC 
+        // Enable LTDC
         rcc.apb2enr.modify(|_, w| w.ltdcen().enabled());
         // Reset LTDC peripheral
         rcc.apb2rstr.modify(|_, w| w.ltdcrst().reset());
@@ -180,7 +186,7 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
 
         // Set blue background color
         ltdc.bccr.write(|w| unsafe { w.bits(0xAAAAAAAA) });
-        
+
         // TODO: configure interupts
 
         // Reload ltdc config immediatly
@@ -190,16 +196,15 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
 
         // Reload ltdc config immediatly
         ltdc.srcr.modify(|_, w| w.imr().set_bit());
-        
+
         DisplayController {
             _ltdc: ltdc,
             _dma2d: dma2d,
             config,
             buffer1: None,
             buffer2: None,
-            pixel_format
+            pixel_format,
         }
-        
     }
 
     /// Configure the layer
@@ -212,7 +217,7 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         &mut self,
         layer: Layer,
         buffer: &'static mut [T],
-        pixel_format: PixelFormat
+        pixel_format: PixelFormat,
     ) {
         let _layer = match &layer {
             Layer::L1 => &self._ltdc.layer1,
@@ -220,9 +225,9 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         };
 
         let height = self.config.active_height;
-        let width =  self.config.active_width;
+        let width = self.config.active_width;
         assert!(buffer.len() == height as usize * width as usize);
-        
+
         // Horizontal and vertical window (coordinates include porches): where
         // in the time frame the layer values should be sent
         let h_win_start = self.config.h_sync + self.config.h_back_porch - 1;
@@ -297,15 +302,13 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         });
 
         // Frame buffer number of lines
-        _layer
-            .cfblnr
-            .write(|w| unsafe { w.cfblnbr().bits(height) });
+        _layer.cfblnr.write(|w| unsafe { w.cfblnbr().bits(height) });
 
         // No Color Lookup table (CLUT)
         _layer.cr.modify(|_, w| w.cluten().clear_bit());
 
-        // Config DMA2D hardware acceleration : pixel format, no CLUT 
-        self._dma2d.fgpfccr.write(|w| unsafe { 
+        // Config DMA2D hardware acceleration : pixel format, no CLUT
+        self._dma2d.fgpfccr.write(|w| unsafe {
             w.bits(match &pixel_format {
                 PixelFormat::ARGB8888 => 0b000,
                 // PixelFormat::RGB888 => 0b0001, unsupported for now because u24 does not exist
@@ -324,7 +327,7 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
 
         match &layer {
             Layer::L1 => self.buffer1 = Some(buffer),
-            Layer::L2 => self.buffer2 = Some(buffer)
+            Layer::L2 => self.buffer2 = Some(buffer),
         }
     }
 
@@ -333,7 +336,7 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         match layer {
             Layer::L1 => self._ltdc.layer1.cr.modify(|_, w| w.len().set_bit()),
             Layer::L2 => self._ltdc.layer2.cr.modify(|_, w| w.len().set_bit()),
-        }       
+        }
     }
 
     /// Draw a pixel at position (x,y) on the given layer
@@ -343,8 +346,12 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         }
 
         match layer {
-            Layer::L1 => self.buffer1.as_mut().unwrap()[x + self.config.active_width as usize * y] = color,
-            Layer::L2 => self.buffer2.as_mut().unwrap()[x + self.config.active_width as usize * y] = color,
+            Layer::L1 => {
+                self.buffer1.as_mut().unwrap()[x + self.config.active_width as usize * y] = color
+            }
+            Layer::L2 => {
+                self.buffer2.as_mut().unwrap()[x + self.config.active_width as usize * y] = color
+            }
         }
     }
 
@@ -358,44 +365,47 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         color: u32,
     ) {
         // Output color format
-        self._dma2d.opfccr.write(|w| w.cm().bits(
-            match &self.pixel_format {
+        self._dma2d.opfccr.write(|w| {
+            w.cm().bits(match &self.pixel_format {
                 PixelFormat::ARGB8888 => 0b000,
                 // PixelFormat::RGB888 => 0b001, unsupported for now
                 PixelFormat::RGB565 => 0b010,
                 PixelFormat::ARGB1555 => 0b011,
                 PixelFormat::ARGB4444 => 0b100,
                 _ => unreachable!(),
-            }
-        ));
+            })
+        });
 
         // Output color
         self._dma2d.ocolr.write_with_zero(|w| w.bits(color));
 
         // Destination memory address
         let offset: isize = (top_left.0 + self.config.active_width as usize * top_left.1) as isize;
-        self._dma2d.omar.write_with_zero(|w| w.bits(
-            match &layer {
+        self._dma2d.omar.write_with_zero(|w| {
+            w.bits(match &layer {
                 Layer::L1 => self.buffer1.as_ref().unwrap().as_ptr().offset(offset) as u32,
                 Layer::L2 => self.buffer2.as_ref().unwrap().as_ptr().offset(offset) as u32,
-            } 
-        ));
+            })
+        });
 
         // Pixels per line and number of lines
-        self._dma2d.nlr.write(|w|
+        self._dma2d.nlr.write(|w| {
             w.pl()
                 .bits((bottom_right.0 - top_left.0) as u16)
                 .nl()
                 .bits((bottom_right.1 - top_left.1) as u16)
-        );
+        });
 
         // Line offset
-        self._dma2d.oor.write(|w| w.lo().bits(
-            top_left.0 as u16 + self.config.active_width - bottom_right.0 as u16
-        ));
+        self._dma2d.oor.write(|w| {
+            w.lo()
+                .bits(top_left.0 as u16 + self.config.active_width - bottom_right.0 as u16)
+        });
 
         // Start transfert: register to memory mode
-        self._dma2d.cr.modify(|_, w|  w.mode().bits(0b11).start().set_bit());
+        self._dma2d
+            .cr
+            .modify(|_, w| w.mode().bits(0b11).start().set_bit());
     }
 
     /// Reload display controller immediatly

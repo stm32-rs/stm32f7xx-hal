@@ -13,14 +13,14 @@ use nb::block;
 
 use cortex_m_rt::entry;
 use stm32f7xx_hal::{
-    device,
+    pac,
     prelude::*,
     serial::{self, Serial},
 };
 
 #[entry]
 fn main() -> ! {
-    let p = device::Peripherals::take().unwrap();
+    let p = pac::Peripherals::take().unwrap();
 
     let rcc = p.RCC.constrain();
     let clocks = rcc.cfgr.sysclk(216.mhz()).freeze();

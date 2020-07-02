@@ -5,7 +5,6 @@
 
 use micromath::F32Ext;
 
-use crate::device::{DWT, I2C1, I2C2, I2C3};
 use crate::gpio::gpioa::PA8;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::gpioc::PC9;
@@ -13,6 +12,7 @@ use crate::gpio::gpiof::{PF0, PF1};
 use crate::gpio::gpioh::{PH4, PH5, PH7, PH8};
 use crate::gpio::{Alternate, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
+use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
 use crate::time::Hertz;
 use nb::Error::{Other, WouldBlock};
