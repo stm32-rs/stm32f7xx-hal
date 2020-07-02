@@ -11,7 +11,7 @@ use core::{
 use as_slice::AsSlice;
 
 use crate::{
-    device::{
+    pac::{
         self,
         dma2::{self, st::cr},
         Interrupt, DMA1, DMA2, NVIC,
@@ -391,50 +391,50 @@ macro_rules! impl_target {
 // victory and leave this problem to someone who actually needs this capability.
 impl_target!(
     // SPI receive
-    spi::Rx<device::SPI1>, DMA2, Stream0, Channel3, DMA2_STREAM0;
+    spi::Rx<pac::SPI1>, DMA2, Stream0, Channel3, DMA2_STREAM0;
     // SPI1 for DMA2, stream 2, channel 3 is unsupported
-    spi::Rx<device::SPI2>, DMA1, Stream3, Channel0, DMA1_STREAM3;
-    spi::Rx<device::SPI3>, DMA1, Stream0, Channel0, DMA1_STREAM0;
+    spi::Rx<pac::SPI2>, DMA1, Stream3, Channel0, DMA1_STREAM3;
+    spi::Rx<pac::SPI3>, DMA1, Stream0, Channel0, DMA1_STREAM0;
     // SPI3 for DMA1, stream 2, channel 0 is unsupported
-    spi::Rx<device::SPI4>, DMA2, Stream0, Channel4, DMA2_STREAM0;
+    spi::Rx<pac::SPI4>, DMA2, Stream0, Channel4, DMA2_STREAM0;
     // SPI4 for DMA2, stream 3, channel 5 is unsupported
-    spi::Rx<device::SPI5>, DMA2, Stream3, Channel2, DMA2_STREAM3;
+    spi::Rx<pac::SPI5>, DMA2, Stream3, Channel2, DMA2_STREAM3;
     // SPI5 for DMA2, stream 5, channel 7 is unsupported
 
     // SPI transmit
-    spi::Tx<device::SPI1>, DMA2, Stream3, Channel3, DMA2_STREAM3;
+    spi::Tx<pac::SPI1>, DMA2, Stream3, Channel3, DMA2_STREAM3;
     // SPI1 for DMA2, stream 5, channel 3 is unsupported
-    spi::Tx<device::SPI2>, DMA1, Stream4, Channel0, DMA1_STREAM4;
-    spi::Tx<device::SPI3>, DMA1, Stream5, Channel0, DMA1_STREAM5;
+    spi::Tx<pac::SPI2>, DMA1, Stream4, Channel0, DMA1_STREAM4;
+    spi::Tx<pac::SPI3>, DMA1, Stream5, Channel0, DMA1_STREAM5;
     // SPI3 for DMA1, stream 7, channel 0 is unsupported
-    spi::Tx<device::SPI4>, DMA2, Stream1, Channel4, DMA2_STREAM1;
+    spi::Tx<pac::SPI4>, DMA2, Stream1, Channel4, DMA2_STREAM1;
     // SPI4 for DMA2, stream 4, channel 5 is unsupported
-    spi::Tx<device::SPI5>, DMA2, Stream4, Channel2, DMA2_STREAM4;
+    spi::Tx<pac::SPI5>, DMA2, Stream4, Channel2, DMA2_STREAM4;
     // SPI5 for DMA2, stream 6, channel 7 is unsupported
 
     // USART receive
-    serial::Rx<device::USART1>, DMA2, Stream2, Channel4, DMA2_STREAM2;
+    serial::Rx<pac::USART1>, DMA2, Stream2, Channel4, DMA2_STREAM2;
     // USART1 for DMA2, stream 5, channel 4 is unsupported
-    serial::Rx<device::USART2>, DMA1, Stream5, Channel4, DMA1_STREAM5;
-    serial::Rx<device::USART3>, DMA1, Stream1, Channel4, DMA1_STREAM1;
-    serial::Rx<device::UART4>, DMA1, Stream2, Channel4, DMA1_STREAM2;
-    serial::Rx<device::UART5>, DMA1, Stream0, Channel4, DMA1_STREAM0;
-    serial::Rx<device::USART6>, DMA2, Stream1, Channel5, DMA2_STREAM1;
+    serial::Rx<pac::USART2>, DMA1, Stream5, Channel4, DMA1_STREAM5;
+    serial::Rx<pac::USART3>, DMA1, Stream1, Channel4, DMA1_STREAM1;
+    serial::Rx<pac::UART4>, DMA1, Stream2, Channel4, DMA1_STREAM2;
+    serial::Rx<pac::UART5>, DMA1, Stream0, Channel4, DMA1_STREAM0;
+    serial::Rx<pac::USART6>, DMA2, Stream1, Channel5, DMA2_STREAM1;
     // USART6 for DMA2, stream 2, channel 5 is unsupported
-    serial::Rx<device::UART7>, DMA1, Stream3, Channel5, DMA1_STREAM3;
-    serial::Rx<device::UART8>, DMA1, Stream6, Channel5, DMA1_STREAM6;
+    serial::Rx<pac::UART7>, DMA1, Stream3, Channel5, DMA1_STREAM3;
+    serial::Rx<pac::UART8>, DMA1, Stream6, Channel5, DMA1_STREAM6;
 
     // USART transmit
-    serial::Tx<device::USART1>, DMA2, Stream7, Channel4, DMA2_STREAM7;
-    serial::Tx<device::USART2>, DMA1, Stream6, Channel4, DMA1_STREAM6;
-    serial::Tx<device::USART3>, DMA1, Stream3, Channel4, DMA1_STREAM3;
+    serial::Tx<pac::USART1>, DMA2, Stream7, Channel4, DMA2_STREAM7;
+    serial::Tx<pac::USART2>, DMA1, Stream6, Channel4, DMA1_STREAM6;
+    serial::Tx<pac::USART3>, DMA1, Stream3, Channel4, DMA1_STREAM3;
     // USART3 for DMA1, stream 4, channel 7 is unsupported
-    serial::Tx<device::UART4>,  DMA1, Stream4, Channel4, DMA1_STREAM4;
-    serial::Tx<device::UART5>,  DMA1, Stream7, Channel4, DMA1_STREAM7;
-    serial::Tx<device::USART6>, DMA2, Stream6, Channel5, DMA2_STREAM6;
+    serial::Tx<pac::UART4>,  DMA1, Stream4, Channel4, DMA1_STREAM4;
+    serial::Tx<pac::UART5>,  DMA1, Stream7, Channel4, DMA1_STREAM7;
+    serial::Tx<pac::USART6>, DMA2, Stream6, Channel5, DMA2_STREAM6;
     // USART6 for DMA2, stream 7, channel 5 is unsupported
-    serial::Tx<device::UART7>,  DMA1, Stream1, Channel5, DMA1_STREAM1;
-    serial::Tx<device::UART8>,  DMA1, Stream0, Channel5, DMA1_STREAM0;
+    serial::Tx<pac::UART7>,  DMA1, Stream1, Channel5, DMA1_STREAM1;
+    serial::Tx<pac::UART8>,  DMA1, Stream0, Channel5, DMA1_STREAM0;
 );
 
 #[cfg(any(
@@ -449,8 +449,8 @@ impl_target!(
     feature = "stm32f779",
 ))]
 impl_target!(
-    spi::Rx<device::SPI6>, DMA2, Stream6, Channel1, DMA2_STREAM6;
-    spi::Tx<device::SPI6>, DMA2, Stream5, Channel1, DMA2_STREAM5;
+    spi::Rx<pac::SPI6>, DMA2, Stream6, Channel1, DMA2_STREAM6;
+    spi::Tx<pac::SPI6>, DMA2, Stream5, Channel1, DMA2_STREAM5;
 );
 
 /// Implemented for all types that represent DMA streams

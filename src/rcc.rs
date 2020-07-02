@@ -2,7 +2,7 @@ use core::cmp::min;
 
 use micromath::F32Ext;
 
-use crate::device::{rcc, FLASH, RCC};
+use crate::pac::{rcc, FLASH, RCC};
 use crate::time::Hertz;
 
 /// Extension trait that constrains the `RCC` peripheral
@@ -635,10 +635,10 @@ pub trait Reset: RccBus {
 macro_rules! bus {
     ($($PER:ident => ($apbX:ty, $peren:ident, $perrst:ident),)+) => {
         $(
-            impl RccBus for crate::device::$PER {
+            impl RccBus for crate::pac::$PER {
                 type Bus = $apbX;
             }
-            impl Enable for crate::device::$PER {
+            impl Enable for crate::pac::$PER {
                 #[inline(always)]
                 fn enable(apb: &mut Self::Bus) {
                     apb.enr().modify(|_, w| w.$peren().set_bit());
@@ -648,7 +648,7 @@ macro_rules! bus {
                     apb.enr().modify(|_, w| w.$peren().clear_bit());
                 }
             }
-            impl Reset for crate::device::$PER {
+            impl Reset for crate::pac::$PER {
                 #[inline(always)]
                 fn reset(apb: &mut Self::Bus) {
                     apb.rstr().modify(|_, w| w.$perrst().set_bit());

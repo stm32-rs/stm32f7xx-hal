@@ -10,13 +10,13 @@ extern crate panic_semihosting;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
 
-use stm32f7xx_hal::{device, flash::Flash};
+use stm32f7xx_hal::{flash::Flash, pac};
 
 const DATA: &[u8] = &[0, 1, 2, 3, 4];
 
 #[entry]
 fn main() -> ! {
-    let p = device::Peripherals::take().unwrap();
+    let p = pac::Peripherals::take().unwrap();
 
     let mut flash = Flash::new(p.FLASH);
 

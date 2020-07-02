@@ -1,6 +1,6 @@
 //! Flash memory
 
-use crate::device::FLASH;
+use crate::pac::FLASH;
 use nb::block;
 
 /// Base address of flash memory on AXIM interface.

@@ -14,14 +14,14 @@ use core::fmt::Write;
 use cortex_m_rt::entry;
 use stm32f7xx_hal::{
     delay::Delay,
-    device,
+    pac,
     prelude::*,
     serial::{self, Serial},
 };
 
 #[entry]
 fn main() -> ! {
-    let p = device::Peripherals::take().unwrap();
+    let p = pac::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
 
     let rcc = p.RCC.constrain();
