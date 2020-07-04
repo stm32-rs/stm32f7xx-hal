@@ -27,6 +27,7 @@ impl RccExt for RCC {
                 sysclk: None,
                 timclk1: None,
                 timclk2: None,
+                pll48clk: false,
             },
         }
     }
@@ -172,6 +173,7 @@ pub struct CFGR {
     sysclk: Option<u32>,
     timclk1: Option<u32>,
     timclk2: Option<u32>,
+    pll48clk: bool,
 }
 
 impl CFGR {
@@ -250,6 +252,11 @@ impl CFGR {
         self
     }
 
+    pub fn require_pll48clk(mut self) -> Self {
+        self.pll48clk = true;
+        self
+    }
+
     /// Configure the "mandatory" clocks (`sysclk`, `hclk`, `pclk1` and `pclk2')
     /// and return them via the `Clocks` struct.
     ///
@@ -292,89 +299,66 @@ impl CFGR {
 
         let mut use_pll = false;
 
+        let mut pll48clk: Option<Hertz> = None;
+
         if sysclk != base_clk {
-            // A PLL is needed to multiply / divide the frequency
-            // Input divisor from HSI/HSE clock, must result in less than 2MHz, and
-            // must be between 2 and 63. In this case, the condition is always
-            // respected. We set it at 2MHz as recommended by the user manual.
-            let pllm = ((base_clk as f32) / (2_000_000 as f32)).ceil() as u8;
-            let vco_clkin_mhz = (base_clk as f32 / pllm as f32) / 1_000_000.0;
-            let mut sysclk_mhz: f32 = sysclk as f32 / 1_000_000.0;
+            // Sysclk output divisor must be one of 2, 4, 6 or 8
+            let sysclk_div = core::cmp::min(8, (432_000_000 / sysclk) & !1);
 
-            // PLLN, main scaler, must result in VCO frequency >=100MHz and <=432MHz,
-            // PLLN min 50, max 432, this constraint is always respected when
-            // vco_clkin <= 2 MHz
-            let mut plln: f32 = 100.0;
-            let allowed_pllp: [u8; 4] = [2, 4, 6, 8];
-            let pllp_val = *allowed_pllp
-                .iter()
-                .min_by_key(|&pllp| {
-                    plln = ((sysclk_mhz * (*pllp as f32)) / vco_clkin_mhz).floor();
-                    let error = sysclk_mhz - ((plln / (*pllp as f32)) * vco_clkin_mhz);
+            // Input divisor from PLL source clock, must result to frequency in
+            // the range from 1 to 2 MHz
+            let pllm_min = (sysclk + 1_999_999) / 2_000_000;
+            let pllm_max = sysclk / 1_000_000;
 
-                    if error < 0.0
-                        || plln * vco_clkin_mhz < 100.0
-                        || plln * vco_clkin_mhz > 432.0
-                        || plln < 50.0
-                        || plln > 432.0
-                    {
-                        core::u32::MAX
-                    } else {
-                        (error * 1_000.0) as u32
-                    }
+            let target_freq = if self.pll48clk {
+                48_000_000
+            } else {
+                sysclk * sysclk_div
+            };
+
+            // Find the lowest pllm value that minimize the difference between
+            // target frequency and the real vco_out frequency.
+            let pllm = (pllm_min..=pllm_max)
+                .min_by_key(|pllm| {
+                    let vco_in = sysclk / pllm;
+                    let plln = target_freq / vco_in;
+                    target_freq - vco_in * plln
                 })
                 .unwrap();
 
-            // PLLN corresponding to the best pllp_val
-            plln = ((sysclk_mhz * (pllp_val as f32)) / vco_clkin_mhz).floor();
+            let vco_in = sysclk / pllm;
+            assert!(vco_in >= 1_000_000 && vco_in <= 2_000_000);
 
-            // Pllp bits to be written in the register
-            let pllp = match pllp_val {
-                2 => 0b00,
-                4 => 0b01,
-                6 => 0b10,
-                8 => 0b11,
-                _ => unreachable!(),
-            };
-
-            // Update the real sysclk value
-            sysclk_mhz = (vco_clkin_mhz * plln) / (pllp_val as f32);
-            sysclk = (sysclk_mhz * 1_000_000.0) as u32;
-
-            // Turn PLL off
-            rcc.cr.modify(|_, w| w.pllon().off());
-            // Wait till PLL is disabled
-            while !rcc.cr.read().pllrdy().is_not_ready() {}
-
-            if self.hse.is_some() {
-                // If HSE is provided
-                // Configure PLL from HSE
-                rcc.pllcfgr.write(|w| unsafe {
-                    w.pllsrc()
-                        .hse()
-                        .pllm()
-                        .bits(pllm as u8)
-                        .plln()
-                        .bits(plln as u16)
-                        .pllp()
-                        .bits(pllp)
-                        .pllq()
-                        .bits(9)
-                });
+            // Main scaler, must result in >= 100MHz (>= 192MHz for F401)
+            // and <= 432MHz, min 50, max 432
+            let plln = if self.pll48clk {
+                // try the different valid pllq according to the valid
+                // main scaller values, and take the best
+                let pllq = (4..=9)
+                    .min_by_key(|pllq| {
+                        let plln = 48_000_000 * pllq / vco_in;
+                        let pll48_diff = 48_000_000 - vco_in * plln / pllq;
+                        let sysclk_diff =
+                            (sysclk as i32 - (vco_in * plln / sysclk_div) as i32).abs();
+                        (pll48_diff, sysclk_diff)
+                    })
+                    .unwrap();
+                48_000_000 * pllq / vco_in
             } else {
-                // If HSE is not provided
-                // configure PLL from HSI
-                rcc.pllcfgr.modify(|_, w| unsafe {
-                    w.pllsrc()
-                        .hsi()
-                        .pllm()
-                        .bits(pllm as u8)
-                        .plln()
-                        .bits(plln as u16)
-                        .pllp()
-                        .bits(pllp)
-                });
-            }
+                sysclk * sysclk_div / vco_in
+            };
+            let pllp = (sysclk_div / 2) - 1;
+
+            let pllq = (vco_in * plln + 47_999_999) / 48_000_000;
+            pll48clk = Some(Hertz(vco_in * plln / pllq));
+
+            unsafe { &*RCC::ptr() }.pllcfgr.write(|w| unsafe {
+                w.pllm().bits(pllm as u8);
+                w.plln().bits(plln as u16);
+                w.pllp().bits(pllp as u8);
+                w.pllq().bits(pllq as u8);
+                w.pllsrc().bit(self.hse.is_some())
+            });
 
             // Enable PLL
             rcc.cr.modify(|_, w| w.pllon().on());
@@ -382,6 +366,8 @@ impl CFGR {
             while rcc.cr.read().pllrdy().is_not_ready() {}
 
             use_pll = true;
+
+            sysclk = vco_in * plln / sysclk_div;
         }
 
         // HCLK. By default, SYSCLK frequency is chosen. Because of the method
@@ -524,14 +510,21 @@ impl CFGR {
         // predivision is applied
         cortex_m::asm::delay(16);
 
-        Clocks {
+        let clocks = Clocks {
             hclk: Hertz(hclk),
             pclk1: Hertz(pclk1),
             pclk2: Hertz(pclk2),
             sysclk: Hertz(sysclk),
             timclk1: Hertz(timclk1),
             timclk2: Hertz(timclk2),
+            pll48clk,
+        };
+
+        if self.pll48clk {
+            assert!(clocks.is_pll48clk_valid());
         }
+
+        clocks
     }
 }
 
@@ -546,6 +539,7 @@ pub struct Clocks {
     sysclk: Hertz,
     timclk1: Hertz,
     timclk2: Hertz,
+    pll48clk: Option<Hertz>,
 }
 
 impl Clocks {
@@ -577,6 +571,20 @@ impl Clocks {
     /// Returns the frequency for timers on APB1
     pub fn timclk2(&self) -> Hertz {
         self.timclk2
+    }
+
+    /// Returns the frequency of the PLL48 clock line
+    pub fn pll48clk(&self) -> Option<Hertz> {
+        self.pll48clk
+    }
+
+    /// Returns true if the PLL48 clock is within USB
+    /// specifications. It is required to use the USB functionality.
+    pub fn is_pll48clk_valid(&self) -> bool {
+        // USB specification allow +-0.25%
+        self.pll48clk
+            .map(|freq| (48_000_000 - freq.0 as i32).abs() <= 48_000_000 * 25 / 10000)
+            .unwrap_or(false)
     }
 }
 
