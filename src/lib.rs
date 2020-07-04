@@ -80,6 +80,18 @@ pub mod dma;
 #[cfg(feature = "device-selected")]
 pub mod gpio;
 
+#[cfg(all(
+    feature = "usb_fs",
+    any(
+        feature = "stm32f722",
+        feature = "stm32f723",
+        feature = "stm32f730",
+        feature = "stm32f732",
+        feature = "stm32f733",
+    )
+))]
+pub mod otg_fs;
+
 #[cfg(feature = "device-selected")]
 pub mod prelude;
 
