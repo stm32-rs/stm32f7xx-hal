@@ -352,7 +352,7 @@ impl CFGR {
             let pllq = (vco_in * plln + 47_999_999) / 48_000_000;
             pll48clk = Some(Hertz(vco_in * plln / pllq));
 
-            unsafe { &*RCC::ptr() }.pllcfgr.write(|w| unsafe {
+            rcc.pllcfgr.write(|w| unsafe {
                 w.pllm().bits(pllm as u8);
                 w.plln().bits(plln as u16);
                 w.pllp().bits(pllp as u8);
