@@ -329,8 +329,9 @@ impl CFGR {
             let vco_in = sysclk / pllm;
             assert!(vco_in >= 1_000_000 && vco_in <= 2_000_000);
 
-            // Main scaler, must result in >= 100MHz (>= 192MHz for F401)
-            // and <= 432MHz, min 50, max 432
+            // PLLN, main scaler, must result in >= 100MHz and <= 432MHz, min
+            // 50, max 432, this constraint is allways respected when vco_clkin
+            // <= 2 MHz
             let plln = if self.pll48clk {
                 // try the different valid pllq according to the valid
                 // main scaller values, and take the best
