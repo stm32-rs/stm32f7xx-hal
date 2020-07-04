@@ -311,6 +311,9 @@ impl CFGR {
             let pllm_max = sysclk / 1_000_000;
 
             let target_freq = if self.pll48clk {
+                // set source clock for 48 MHz to main PLL
+                rcc.dckcfgr2.modify(|_, w| w.ck48msel().bit(false));
+
                 48_000_000
             } else {
                 sysclk * sysclk_div
