@@ -271,14 +271,12 @@ impl CFGR {
         // Switch to HSI
         rcc.cfgr.modify(|_, w| w.sw().hsi());
 
-        // If HSE is provided by the user
-        let hse_freq: u32 = self.hse.as_ref().map_or(0, |c| c.freq);
-        // SYSCLK, must be <= 216 Mhz. By default, HSI frequency is chosen
-        let mut sysclk = self.sysclk.unwrap_or(HSI);
-        let base_clk = match hse_freq {
-            0 => HSI,
-            _ => hse_freq,
+        let base_clk = match self.hse.as_ref() {
+            Some(hse) => hse.freq,
+            None => HSI,
         };
+        // SYSCLK, must be <= 216 Mhz. By default, HSI/HSE frequency is chosen
+        let mut sysclk = self.sysclk.unwrap_or(base_clk);
 
         // Configure HSE if provided
         if self.hse.is_some() {
