@@ -263,6 +263,14 @@ impl CFGR {
         let flash = unsafe { &(*FLASH::ptr()) };
         let rcc = unsafe { &(*RCC::ptr()) };
 
+        // Switch to fail-safe clock settings.
+        // This is useful when booting from a bootloader that alters clock tree configuration.
+        // Turn on HSI
+        rcc.cr.modify(|_, w| w.hsion().set_bit());
+        while rcc.cr.read().hsirdy().bit_is_clear() {}
+        // Switch to HSI
+        rcc.cfgr.modify(|_, w| w.sw().hsi());
+
         // If HSE is provided by the user
         let hse_freq: u32 = self.hse.as_ref().map_or(0, |c| c.freq);
         // SYSCLK, must be <= 216 Mhz. By default, HSI frequency is chosen
