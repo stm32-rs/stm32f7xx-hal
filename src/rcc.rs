@@ -303,9 +303,9 @@ impl CFGR {
             let vco_clkin_mhz = (base_clk as f32 / pllm as f32) / 1_000_000.0;
             let mut sysclk_mhz: f32 = sysclk as f32 / 1_000_000.0;
 
-            // PLLN, main scaler, must result in >= 192MHz and <= 432MHz, min
-            // 50, max 432, this constraint is allways respected when vco_clkin
-            // <= 2 MHz
+            // PLLN, main scaler, must result in VCO frequency >=100MHz and <=432MHz,
+            // PLLN min 50, max 432, this constraint is always respected when
+            // vco_clkin <= 2 MHz
             let mut plln: f32 = 100.0;
             let allowed_pllp: [u8; 4] = [2, 4, 6, 8];
             let pllp_val = *allowed_pllp
@@ -314,7 +314,12 @@ impl CFGR {
                     plln = ((sysclk_mhz * (*pllp as f32)) / vco_clkin_mhz).floor();
                     let error = sysclk_mhz - ((plln / (*pllp as f32)) * vco_clkin_mhz);
 
-                    if error < 0.0 || plln * vco_clkin_mhz > 432.0 || plln > 432.0 || plln < 100.0 {
+                    if error < 0.0
+                        || plln * vco_clkin_mhz < 100.0
+                        || plln * vco_clkin_mhz > 432.0
+                        || plln < 50.0
+                        || plln > 432.0
+                    {
                         core::u32::MAX
                     } else {
                         (error * 1_000.0) as u32
