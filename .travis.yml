@@ -26,8 +26,8 @@ matrix:
   fast_finish: true
 script:
   - rustup target add thumbv7em-none-eabihf
-  - cargo build --features=$MCU --verbose
-  - cargo build --features=$MCU --release --verbose
+  - cargo build --features="$MCU usb_fs" --verbose
+  - cargo build --features="$MCU usb_fs" --release --verbose
   - cargo build --features="$MCU,rt" --release --examples
   - cargo test --features=$MCU --target x86_64-unknown-linux-gnu --lib
   - cargo fmt --all -- --check
