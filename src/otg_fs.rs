@@ -5,11 +5,14 @@
 
 use crate::pac;
 
-use crate::gpio::{Alternate, AF10, gpioa::{PA11, PA12}};
+use crate::gpio::{
+    gpioa::{PA11, PA12},
+    Alternate, AF10,
+};
 use crate::time::Hertz;
 
-use synopsys_usb_otg::UsbPeripheral;
 pub use synopsys_usb_otg::UsbBus;
+use synopsys_usb_otg::UsbPeripheral;
 
 pub struct USB {
     pub usb_global: pac::OTG_FS_GLOBAL,
