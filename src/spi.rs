@@ -455,6 +455,7 @@ impl_instance!(
             SCK: [
                 gpio::gpioa::PA5<Alternate<AF5>>,
                 gpio::gpiob::PB3<Alternate<AF5>>,
+                gpio::gpiog::PG11<Alternate<AF5>>,
             ],
             MISO: [
                 gpio::gpioa::PA6<Alternate<AF5>>,
@@ -463,6 +464,7 @@ impl_instance!(
             MOSI: [
                 gpio::gpioa::PA7<Alternate<AF5>>,
                 gpio::gpiob::PB5<Alternate<AF5>>,
+                gpio::gpiod::PD7<Alternate<AF5>>,
             ],
         }
     }
