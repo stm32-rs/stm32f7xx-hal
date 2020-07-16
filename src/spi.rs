@@ -460,6 +460,7 @@ impl_instance!(
             MISO: [
                 gpio::gpioa::PA6<Alternate<AF5>>,
                 gpio::gpiob::PB4<Alternate<AF5>>,
+                gpio::gpiog::PG9<Alternate<AF5>>,
             ],
             MOSI: [
                 gpio::gpioa::PA7<Alternate<AF5>>,
