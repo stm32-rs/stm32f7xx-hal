@@ -9,13 +9,12 @@
 ///
 /// The intended behavior of the example is that when the user presses the button, an LED is
 /// toggled.
-
 extern crate panic_halt;
 
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
 use stm32f7xx_hal::gpio::{Edge, ExtiPin};
-use stm32f7xx_hal::{pac, interrupt, prelude::*};
+use stm32f7xx_hal::{interrupt, pac, prelude::*};
 
 const SYSCFG_EN: u32 = 14;
 
