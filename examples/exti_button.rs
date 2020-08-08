@@ -1,34 +1,33 @@
+#![no_main]
+#![no_std]
+
 /// This example demonstrates how to use the ExtiPin trait for a GPIO input pin to capture a
-/// push button press. This example was written for the Nucleo-F767ZI board, from the Nucleo-144
-/// family, targeting the STM32F767ZI microcontroller. To port this to another board, simply
+/// push button press. This example was written for the Nucleo-F767ZI board from the Nucleo-144
+/// family of boards, targeting the STM32F767ZI microcontroller. To port this to another board,
 /// change the GPIOs used for the push button and for the debug LED. Note that the EXTI number
 /// may change if using a new button, meaning that the interrupt handler will need to change also.
 ///
 /// The intended behavior of the example is that when the user presses the button, an LED is
 /// toggled.
 
-#![no_main]
-#![no_std]
-
 extern crate panic_halt;
 
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
-use nucleof767zi_rs::Led;
 use stm32f7xx_hal::gpio::{Edge, ExtiPin};
-use stm32f7xx_hal::{device, interrupt, prelude::*};
+use stm32f7xx_hal::{pac, interrupt, prelude::*};
 
 const SYSCFG_EN: u32 = 14;
 
 #[entry]
 fn main() -> ! {
-    let pac_periph = device::Peripherals::take().unwrap();
+    let pac_periph = pac::Peripherals::take().unwrap();
 
     let rcc = pac_periph.RCC.constrain();
 
     // TODO: This took a long time to figure out, is there a way to bake this into GPIO/EXTI?
     unsafe {
-        &(*device::RCC::ptr())
+        &(*pac::RCC::ptr())
             .apb2enr
             .modify(|r, w| w.bits(r.bits() | (1 << SYSCFG_EN)));
     }
@@ -56,7 +55,7 @@ fn EXTI15_10() {
 
     unsafe {
         // TODO: Is there a safe alternative? Using a mutable static GPIO pin is also unsafe
-        let pac_periph = device::Peripherals::steal();
+        let pac_periph = pac::Peripherals::steal();
 
         // Clear the push button interrupt
         let gpioc = pac_periph.GPIOC.split();
@@ -65,11 +64,11 @@ fn EXTI15_10() {
 
         // Blink an LED for debug purposes
         let gpiob = pac_periph.GPIOB.split();
-        let mut led1 = Led::new(gpiob.pb0.into_push_pull_output().downgrade());
+        let mut led1 = gpiob.pb0.into_push_pull_output().downgrade();
         if *COUNT & 0x1 == 0x01 {
-            led1.on();
+            led1.set_high().ok();
         } else {
-            led1.off();
+            led1.set_low().ok();
         }
     }
 
