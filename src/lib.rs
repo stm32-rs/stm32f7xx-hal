@@ -77,6 +77,9 @@ pub mod delay;
 #[cfg(feature = "device-selected")]
 pub mod dma;
 
+#[cfg(all(feature = "device-selected", feature = "fmc"))]
+pub mod fmc;
+
 #[cfg(feature = "device-selected")]
 pub mod gpio;
 
