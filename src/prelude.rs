@@ -1,3 +1,6 @@
+#[cfg(feature = "fmc")]
+pub use crate::fmc::FmcExt as _stm327xx_hal_fmc_FmcExt;
+
 pub use crate::gpio::GpioExt as _stm327xx_hal_gpio_GpioExt;
 pub use crate::hal::digital::v2::{InputPin, OutputPin};
 pub use crate::hal::prelude::*;
