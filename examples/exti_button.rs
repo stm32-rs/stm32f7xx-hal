@@ -16,34 +16,25 @@ use cortex_m_rt::entry;
 use stm32f7xx_hal::gpio::{Edge, ExtiPin};
 use stm32f7xx_hal::{interrupt, pac, prelude::*};
 
-const SYSCFG_EN: u32 = 14;
-
 #[entry]
 fn main() -> ! {
     let pac_periph = pac::Peripherals::take().unwrap();
 
-    let rcc = pac_periph.RCC.constrain();
-
-    // TODO: This took a long time to figure out, is there a way to bake this into GPIO/EXTI?
-    unsafe {
-        &(*pac::RCC::ptr())
-            .apb2enr
-            .modify(|r, w| w.bits(r.bits() | (1 << SYSCFG_EN)));
-    }
-
-    rcc.cfgr.sysclk(216.mhz()).freeze();
-
     // Push button configuration
+    let mut rcc = pac_periph.RCC;
     let mut syscfg = pac_periph.SYSCFG;
     let mut exti = pac_periph.EXTI;
     let gpioc = pac_periph.GPIOC.split();
     let mut button = gpioc.pc13.into_floating_input();
-    button.make_interrupt_source(&mut syscfg);
+    button.make_interrupt_source(&mut syscfg, &mut rcc);
     button.trigger_on_edge(&mut exti, Edge::RISING);
     button.enable_interrupt(&mut exti);
     unsafe {
         NVIC::unmask::<interrupt>(interrupt::EXTI15_10);
     }
+
+    // Freeze clocks
+    rcc.constrain().cfgr.sysclk(216.mhz()).freeze();
 
     loop {}
 }

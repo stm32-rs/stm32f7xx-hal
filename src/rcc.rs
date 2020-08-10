@@ -719,6 +719,8 @@ bus! {
     TIM12 => (APB1, tim12en, tim12rst),
     TIM13 => (APB1, tim13en, tim13rst),
     TIM14 => (APB1, tim14en, tim14rst),
+
+    SYSCFG => (APB2, syscfgen, syscfgrst),
 }
 
 #[cfg(not(any(
