@@ -1,14 +1,15 @@
+//! This example demonstrates how to use the ExtiPin trait for a GPIO input pin to capture a
+//! push button press. This example was written for the Nucleo-F767ZI board from the Nucleo-144
+//! family of boards, targeting the STM32F767ZI microcontroller. To port this to another board,
+//! change the GPIOs used for the push button and for the debug LED. Note that the EXTI number
+//! may change if using a new button, meaning that the interrupt handler will need to change also.
+//!
+//! The intended behavior of the example is that when the user presses the button, an LED is
+//! toggled.
+
 #![no_main]
 #![no_std]
 
-/// This example demonstrates how to use the ExtiPin trait for a GPIO input pin to capture a
-/// push button press. This example was written for the Nucleo-F767ZI board from the Nucleo-144
-/// family of boards, targeting the STM32F767ZI microcontroller. To port this to another board,
-/// change the GPIOs used for the push button and for the debug LED. Note that the EXTI number
-/// may change if using a new button, meaning that the interrupt handler will need to change also.
-///
-/// The intended behavior of the example is that when the user presses the button, an LED is
-/// toggled.
 extern crate panic_halt;
 
 use cortex_m::peripheral::NVIC;
@@ -54,7 +55,7 @@ fn EXTI15_10() {
 
         // Blink an LED for debug purposes
         let gpiob = pac_periph.GPIOB.split();
-        let mut led1 = gpiob.pb0.into_push_pull_output().downgrade();
+        let mut led1 = gpiob.pb0.into_push_pull_output();
         if *COUNT & 0x1 == 0x01 {
             led1.set_high().ok();
         } else {
