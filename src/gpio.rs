@@ -2,7 +2,7 @@
 
 use core::marker::PhantomData;
 
-use crate::pac::{EXTI, SYSCFG};
+use crate::pac::{EXTI, RCC, SYSCFG};
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
@@ -80,7 +80,7 @@ pub enum Edge {
 
 /// External Interrupt Pin
 pub trait ExtiPin {
-    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG);
+    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, rcc: &mut RCC);
     fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
     fn enable_interrupt(&mut self, exti: &mut EXTI);
     fn disable_interrupt(&mut self, exti: &mut EXTI);
@@ -199,7 +199,10 @@ macro_rules! gpio {
 
             impl<MODE> ExtiPin for $PXx<Input<MODE>> {
                 /// Make corresponding EXTI line sensitive to this pin
-                fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG) {
+                fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, rcc: &mut RCC) {
+                    // SYSCFG clock must be enabled in order to do register writes
+                    rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+
                     let offset = 4 * (self.i % 4);
                     match self.i {
                         0..=3 => {
@@ -623,7 +626,10 @@ macro_rules! gpio {
 
                 impl<MODE> ExtiPin for $PXi<Input<MODE>> {
                     /// Configure EXTI Line $i to trigger from this pin.
-                    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG) {
+                    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, rcc: &mut RCC) {
+                        // SYSCFG clock must be enabled in order to do register writes
+                        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+
                         let offset = 4 * ($i % 4);
                         syscfg.$exticri.modify(|r, w| unsafe {
                             let mut exticr = r.bits();
