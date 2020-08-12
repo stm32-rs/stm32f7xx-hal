@@ -12,14 +12,27 @@
 
 extern crate panic_halt;
 
+use core::cell::{Cell, RefCell};
+use cortex_m::interrupt::{free, Mutex};
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
-use stm32f7xx_hal::gpio::{Edge, ExtiPin};
+use stm32f7xx_hal::gpio::gpioc::PC13;
+use stm32f7xx_hal::gpio::{Edge, ExtiPin, Floating, Input};
 use stm32f7xx_hal::{interrupt, pac, prelude::*};
+
+// Semaphore for synchronization
+static SEMAPHORE: Mutex<Cell<bool>> = Mutex::new(Cell::new(true));
+
+// GPIO pin that main thread and interrupt handler must share
+static BUTTON_PIN: Mutex<RefCell<Option<PC13<Input<Floating>>>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
     let pac_periph = pac::Peripherals::take().unwrap();
+
+    // Debug LED configuration
+    let gpiob = pac_periph.GPIOB.split();
+    let mut led1 = gpiob.pb0.into_push_pull_output();
 
     // Push button configuration
     let mut rcc = pac_periph.RCC;
@@ -30,38 +43,49 @@ fn main() -> ! {
     button.make_interrupt_source(&mut syscfg, &mut rcc);
     button.trigger_on_edge(&mut exti, Edge::RISING);
     button.enable_interrupt(&mut exti);
-    unsafe {
-        NVIC::unmask::<interrupt>(interrupt::EXTI15_10);
-    }
 
     // Freeze clocks
     rcc.constrain().cfgr.sysclk(216.mhz()).freeze();
 
-    loop {}
+    // Save information needed by the interrupt handler to the global variable
+    free(|cs| {
+        BUTTON_PIN.borrow(cs).replace(Some(button));
+    });
+
+    // Enable the button interrupt
+    unsafe {
+        NVIC::unmask::<interrupt>(interrupt::EXTI15_10);
+    }
+
+    loop {
+        // Wait for the interrupt to fire
+        free(|cs| {
+            if SEMAPHORE.borrow(cs).get() == false {
+                // Toggle debug LED
+                if let Ok(true) = led1.is_low() {
+                    led1.set_high().ok();
+                } else {
+                    led1.set_low().ok();
+                }
+
+                SEMAPHORE.borrow(cs).set(true);
+            }
+        });
+    }
 }
 
 #[interrupt]
 fn EXTI15_10() {
-    static mut COUNT: u32 = 0;
+    free(|cs| {
+        match BUTTON_PIN.borrow(cs).borrow_mut().as_mut() {
+            // Clear the push button interrupt
+            Some(b) => b.clear_interrupt_pending_bit(),
 
-    unsafe {
-        // TODO: Is there a safe alternative? Using a mutable static GPIO pin is also unsafe
-        let pac_periph = pac::Peripherals::steal();
-
-        // Clear the push button interrupt
-        let gpioc = pac_periph.GPIOC.split();
-        let mut button = gpioc.pc13.into_floating_input();
-        button.clear_interrupt_pending_bit();
-
-        // Blink an LED for debug purposes
-        let gpiob = pac_periph.GPIOB.split();
-        let mut led1 = gpiob.pb0.into_push_pull_output();
-        if *COUNT & 0x1 == 0x01 {
-            led1.set_high().ok();
-        } else {
-            led1.set_low().ok();
+            // This should never happen
+            None => (),
         }
-    }
 
-    *COUNT += 1;
+        // Signal that the interrupt fired
+        SEMAPHORE.borrow(cs).set(false);
+    });
 }
