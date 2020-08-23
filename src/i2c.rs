@@ -14,7 +14,7 @@ use crate::gpio::{Alternate, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
-use crate::time::Hertz;
+use crate::time::{Hertz, U32Ext};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 
@@ -74,6 +74,192 @@ impl Mode {
             &Mode::FastPlus { frequency } => frequency,
         }
     }
+}
+
+struct I2cSpec {
+    freq_min: u32,
+    freq_max: u32,
+    hddat_min: u32,
+    vddat_max: u32,
+    sudat_min: u32,
+    lscl_min: u32,
+    hscl_min: u32,
+    trise: u32,
+    tfall: u32,
+}
+
+const I2C_STANDARD_MODE_SPEC: I2cSpec = I2cSpec {
+    freq_min: 80000,
+    freq_max: 120000,
+    hddat_min: 0,
+    vddat_max: 3450,
+    sudat_min: 250,
+    lscl_min: 4700,
+    hscl_min: 4000,
+    trise: 640,
+    tfall: 20,
+};
+const I2C_FAST_MODE_SPEC: I2cSpec = I2cSpec {
+    freq_min: 320000,
+    freq_max: 480000,
+    hddat_min: 0,
+    vddat_max: 900,
+    sudat_min: 100,
+    lscl_min: 1300,
+    hscl_min: 600,
+    trise: 250,
+    tfall: 100,
+};
+
+const I2C_FAST_PLUS_MODE_SPEC: I2cSpec = I2cSpec {
+    freq_min: 800000,
+    freq_max: 1200000,
+    hddat_min: 0,
+    vddat_max: 450,
+    sudat_min: 50,
+    lscl_min: 500,
+    hscl_min: 260,
+    trise: 60,
+    tfall: 100,
+};
+const I2C_VALID_TIMING_NBR: u32 = 8;
+const I2C_PRESC_MAX: u32 = 16;
+const I2C_SCLDEL_MAX: u32 = 16;
+const I2C_SDADEL_MAX: u32 = 16;
+const I2C_SCLH_MAX: u32 = 256;
+const I2C_SCLL_MAX: u32 = 256;
+const SEC2NSEC: u32 = 1_000_000_000;
+
+impl I2cSpec {
+    fn for_mode(m: &Mode) -> &'static I2cSpec {
+        match m {
+            Mode::Standard { frequency } => &I2C_STANDARD_MODE_SPEC,
+            Mode::Fast { .. } => &I2C_FAST_MODE_SPEC,
+            Mode::FastPlus { .. } => &I2C_FAST_PLUS_MODE_SPEC,
+        }
+    }
+
+    fn calculate_timing<F, G>(&self, clkFreq: F, speed: G) -> I2cTiming
+    where
+        F: Into<Hertz>,
+        G: Into<Hertz>,
+    {
+        // from Arduino code for STM32
+        // https://github.com/fpistm/Arduino_Core_STM32/blob/745c200fb21ee0f800bd1bd050a650f63a5c2e07/cores/arduino/stm32/twi.c
+        let clkSrcFreq = clkFreq.into().0;
+        let freq = speed.into().0;
+        assert!(freq >= self.freq_min);
+        assert!(freq <= self.freq_max);
+
+        let mut valid_timing_nbr: u32 = 0;
+        let mut prev_presc: u32 = I2C_PRESC_MAX;
+
+        let ti2cclk: u32 = (SEC2NSEC + (clkSrcFreq / 2)) / clkSrcFreq;
+        let ti2cspeed: u32 = (SEC2NSEC + (freq / 2)) / freq;
+
+        let tafdel_min: u32 = 0;
+        let tafdel_max: u32 = 0;
+        /*
+         * tDNF = DNF x tI2CCLK
+         * tPRESC = (PRESC+1) x tI2CCLK
+         * SDADEL >= {tf +tHD;DAT(min) - tAF(min) - tDNF - [3 x tI2CCLK]} / {tPRESC}
+         * SDADEL <= {tVD;DAT(max) - tr - tAF(max) - tDNF- [4 x tI2CCLK]} / {tPRESC}
+         */
+        let mut tsdadel_min: i32 = self.tfall as i32 + self.hddat_min as i32
+            - tafdel_min as i32
+            - (3 * ti2cclk as i32) as i32;
+        let mut tsdadel_max: i32 =
+            self.vddat_max as i32 - self.trise as i32 - tafdel_max as i32 - (4 * ti2cclk as i32);
+        /* {[tr+ tSU;DAT(min)] / [tPRESC]} - 1 <= SCLDEL */
+        let tscldel_min: i32 = self.trise as i32 + self.sudat_min as i32;
+        if tsdadel_min <= 0 {
+            tsdadel_min = 0;
+        }
+        if tsdadel_max <= 0 {
+            tsdadel_max = 0;
+        }
+
+        let clk_max = SEC2NSEC / self.freq_min;
+        let clk_min = SEC2NSEC / self.freq_max;
+
+        let mut prev_error: u32 = ti2cspeed;
+        let mut ret = I2cTiming {
+            presc: 0,
+            scldel: 0,
+            sdadel: 0,
+            sclh: 0,
+            scll: 0,
+        };
+
+        for presc in 0..I2C_PRESC_MAX {
+            for scldel in 0..I2C_SCLDEL_MAX {
+                /* TSCLDEL = (SCLDEL+1) * (PRESC+1) * TI2CCLK */
+                let tscldel: u32 = (scldel + 1) * (presc + 1) * ti2cclk;
+                if tscldel >= tscldel_min as u32 {
+                    for sdadel in 0..I2C_SDADEL_MAX {
+                        /* TSDADEL = SDADEL * (PRESC+1) * TI2CCLK */
+                        let tsdadel: u32 = (sdadel * (presc + 1)) * ti2cclk;
+                        if (tsdadel >= tsdadel_min as u32) && (tsdadel <= tsdadel_max as u32) {
+                            if presc != prev_presc {
+                                valid_timing_nbr += 1;
+                                if valid_timing_nbr >= I2C_VALID_TIMING_NBR {
+                                    return ret;
+                                }
+                                /* tPRESC = (PRESC+1) x tI2CCLK*/
+                                let tpresc: u32 = (presc + 1) * ti2cclk;
+                                for scll in 0..I2C_SCLL_MAX {
+                                    /* tLOW(min) <= tAF(min) + tDNF + 2 x tI2CCLK + [(SCLL+1) x tPRESC ] */
+                                    let tscl_l: u32 =
+                                        tafdel_min + (2 * ti2cclk) + ((scll + 1) * tpresc);
+                                    /* The I2CCLK period tI2CCLK must respect the following conditions:
+                                     * tI2CCLK < (tLOW - tfilters) / 4 and tI2CCLK < tHIGH */
+                                    if (tscl_l > self.lscl_min)
+                                        && (ti2cclk < ((tscl_l - tafdel_min) / 4))
+                                    {
+                                        for sclh in 0..I2C_SCLH_MAX {
+                                            /* tHIGH(min) <= tAF(min) + tDNF + 2 x tI2CCLK + [(SCLH+1) x tPRESC] */
+                                            let tscl_h: u32 =
+                                                tafdel_min + (2 * ti2cclk) + ((sclh + 1) * tpresc);
+                                            /* tSCL = tf + tLOW + tr + tHIGH */
+                                            let tscl: u32 =
+                                                tscl_l + tscl_h + self.trise + self.tfall;
+                                            if (tscl >= clk_min)
+                                                && (tscl <= clk_max)
+                                                && (tscl_h >= self.hscl_min)
+                                                && (ti2cclk < tscl_h)
+                                            {
+                                                let error: u32 =
+                                                    (tscl as i32 - ti2cspeed as i32).abs() as u32;
+                                                /* look for the timings with the lowest clock error */
+                                                if error < prev_error {
+                                                    prev_error = error as u32;
+                                                    ret.presc = presc as u8;
+                                                    ret.scldel = scldel as u8;
+                                                    ret.sdadel = sdadel as u8;
+                                                    ret.sclh = sclh as u8;
+                                                    ret.scll = scll as u8;
+                                                    prev_presc = presc;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ret
+    }
+}
+
+struct I2cTiming {
+    presc: u8,
+    scldel: u8,
+    sdadel: u8,
+    sclh: u8,
+    scll: u8,
 }
 
 /// Marker trait to define SCL pins for an I2C interface.
@@ -316,49 +502,20 @@ macro_rules! hal {
 
                     // Disable I2C during configuration
                     self.i2c.cr1.write(|w| w.pe().disabled());
-                    let target_freq_mhz: f32 = self.mode.get_frequency().0 as f32 / 1_000_000.0;
-
-                    // by default, APB clock is selected by RCC for I2C
-                    // Set the base clock as pclk1 (all I2C are on APB1)
-                    let base_clk_mhz: f32 = self.pclk as f32 / 1_000_000.0;
-
-                    match self.mode {
-                        Mode::Standard { .. } => {
-                            // In standard mode, t_{SCL High} = t_{SCL Low}
-                            // Delays
-                            // let sdadel = 2;
-                            // let scldel = 4;
-
-                            let sdadel = 2;
-                            let scldel = 4;
-
-                            // SCL Low time
-                            let scll = (base_clk_mhz / (2.0 * (target_freq_mhz))).ceil();
-                            let scll: u8 = if scll <= 256.0 { scll as u8 - 1 } else { 255 };
-                            let fscll_mhz: f32 = base_clk_mhz / (scll as f32 + 1.0);
-
-                            let sclh: u8 = scll;
-
-                            // Prescaler
-                            let presc = base_clk_mhz / fscll_mhz;
-                            let presc: u8 = if presc <= 16.0 { sclh as u8 - 1 } else { 15 };
-
-                            self.i2c.timingr.write(|w|
-                                w.presc()
-                                    .bits(presc)
-                                    .scll()
-                                    .bits(scll)
-                                    .sclh()
-                                    .bits(sclh)
-                                    .sdadel()
-                                    .bits(sdadel)
-                                    .scldel()
-                                    .bits(scldel)
-                            );
-                        },
-                        _ => unimplemented!(),
-                    }
-
+                    let timing = I2cSpec::for_mode(&self.mode)
+                        .calculate_timing(self.pclk.hz(), self.mode.get_frequency());
+                    self.i2c.timingr.write(|w|
+                        w.presc()
+                            .bits(timing.presc)
+                            .scll()
+                            .bits(timing.scll)
+                            .sclh()
+                            .bits(timing.sclh)
+                            .sdadel()
+                            .bits(timing.sdadel)
+                            .scldel()
+                            .bits(timing.scldel)
+                    );
                     self.i2c.cr1.modify(|_, w| w.pe().enabled());
                 }
 
