@@ -165,6 +165,24 @@ impl HSEClock {
 
 const HSI: u32 = 16_000_000; // Hz
 
+#[derive(Default)]
+pub struct RCCRawConfig {
+    pub pllm: u8,
+    pub plln: u16,
+    pub pllp: u8,
+    pub pllq: u8,
+    pub hpre: u8,
+    pub ppre1: u8,
+    pub ppre2: u8,
+    pub flash_waitstates: u8,
+    pub hclk: u32,
+    pub pclk1: u32,
+    pub pclk2: u32,
+    pub sysclk: u32,
+    pub timclk1: u32,
+    pub timclk2: u32,
+}
+
 pub struct CFGR {
     hse: Option<HSEClock>,
     hclk: Option<u32>,
@@ -267,35 +285,15 @@ impl CFGR {
     /// HSE except when HSE is provided. When HSE is provided, HSE is used
     /// wherever it is possible.
     pub fn freeze(self) -> Clocks {
-        let flash = unsafe { &(*FLASH::ptr()) };
-        let rcc = unsafe { &(*RCC::ptr()) };
-
-        // Switch to fail-safe clock settings.
-        // This is useful when booting from a bootloader that alters clock tree configuration.
-        // Turn on HSI
-        rcc.cr.modify(|_, w| w.hsion().set_bit());
-        while rcc.cr.read().hsirdy().bit_is_clear() {}
-        // Switch to HSI
-        rcc.cfgr.modify(|_, w| w.sw().hsi());
+        let mut config = RCCRawConfig::default();
 
         let base_clk = match self.hse.as_ref() {
             Some(hse) => hse.freq,
             None => HSI,
         };
+
         // SYSCLK, must be <= 216 Mhz. By default, HSI/HSE frequency is chosen
         let mut sysclk = self.sysclk.unwrap_or(base_clk);
-
-        // Configure HSE if provided
-        if self.hse.is_some() {
-            // Configure the HSE mode
-            match self.hse.as_ref().unwrap().mode {
-                HSEClockMode::Bypass => rcc.cr.modify(|_, w| w.hsebyp().bypassed()),
-                HSEClockMode::Oscillator => rcc.cr.modify(|_, w| w.hsebyp().not_bypassed()),
-            }
-            // Start HSE
-            rcc.cr.modify(|_, w| w.hseon().on());
-            while rcc.cr.read().hserdy().is_not_ready() {}
-        }
 
         let mut use_pll = false;
 
@@ -311,9 +309,6 @@ impl CFGR {
             let pllm_max = sysclk / 1_000_000;
 
             let target_freq = if self.pll48clk {
-                // set source clock for 48 MHz to main PLL
-                rcc.dckcfgr2.modify(|_, w| w.ck48msel().bit(false));
-
                 48_000_000
             } else {
                 sysclk * sysclk_div
@@ -351,23 +346,10 @@ impl CFGR {
             } else {
                 sysclk * sysclk_div / vco_in
             };
-            let pllp = (sysclk_div / 2) - 1;
+            config.pllp = ((sysclk_div / 2) - 1) as u8;
 
             let pllq = (vco_in * plln + 47_999_999) / 48_000_000;
             pll48clk = Some(Hertz(vco_in * plln / pllq));
-
-            rcc.pllcfgr.write(|w| unsafe {
-                w.pllm().bits(pllm as u8);
-                w.plln().bits(plln as u16);
-                w.pllp().bits(pllp as u8);
-                w.pllq().bits(pllq as u8);
-                w.pllsrc().bit(self.hse.is_some())
-            });
-
-            // Enable PLL
-            rcc.cr.modify(|_, w| w.pllon().on());
-            // // Wait for PLL to stabilise
-            while rcc.cr.read().pllrdy().is_not_ready() {}
 
             use_pll = true;
 
@@ -397,6 +379,7 @@ impl CFGR {
             192..=383 => (256.0, 0b1110),
             _ => (512.0, 0b1111),
         };
+        config.hpre = hpre;
         // update hclk with the real value
         hclk = (sysclk as f32 / hpre_val).floor() as u32;
 
@@ -409,7 +392,7 @@ impl CFGR {
 
         // Configure PPRE1
         let mut ppre1_val: u32 = (hclk as f32 / pclk1 as f32).ceil() as u32;
-        let ppre1: u32 = match ppre1_val {
+        config.ppre1 = match ppre1_val {
             0 => unreachable!(),
             1 => {
                 ppre1_val = 1;
@@ -437,7 +420,7 @@ impl CFGR {
 
         // Configure PPRE2
         let mut ppre2_val: u32 = (hclk as f32 / pclk2 as f32).ceil() as u32;
-        let ppre2: u32 = match ppre2_val {
+        config.ppre2 = match ppre2_val {
             0 => unreachable!(),
             1 => {
                 ppre2_val = 1;
@@ -464,29 +447,83 @@ impl CFGR {
         pclk2 = hclk / ppre2_val;
 
         // Assumes TIMPRE bit of RCC_DCKCFGR1 is reset (0)
-        let timclk1 = if ppre1_val == 1 { pclk1 } else { 2 * pclk1 };
-        let timclk2 = if ppre2_val == 1 { pclk2 } else { 2 * pclk2 };
+        config.timclk1 = if ppre1_val == 1 { pclk1 } else { 2 * pclk1 };
+        config.timclk2 = if ppre2_val == 1 { pclk2 } else { 2 * pclk2 };
 
         // Adjust flash wait states
-        flash.acr.write(|w| {
-            w.latency().bits(if sysclk <= 30_000_000 {
-                0b0000
-            } else if sysclk <= 60_000_000 {
-                0b0001
-            } else if sysclk <= 90_000_000 {
-                0b0010
-            } else if sysclk <= 120_000_000 {
-                0b0011
-            } else if sysclk <= 150_000_000 {
-                0b0100
-            } else if sysclk <= 180_000_000 {
-                0b0101
-            } else if sysclk <= 210_000_000 {
-                0b0110
-            } else {
-                0b0111
-            })
-        });
+        config.flash_waitstates = if sysclk <= 30_000_000 {
+            0b0000
+        } else if sysclk <= 60_000_000 {
+            0b0001
+        } else if sysclk <= 90_000_000 {
+            0b0010
+        } else if sysclk <= 120_000_000 {
+            0b0011
+        } else if sysclk <= 150_000_000 {
+            0b0100
+        } else if sysclk <= 180_000_000 {
+            0b0101
+        } else if sysclk <= 210_000_000 {
+            0b0110
+        } else {
+            0b0111
+        };
+
+        self.freeze_raw(use_pll, pll48clk, config)
+    }
+
+    pub fn freeze_raw(
+        self,
+        use_pll: bool,
+        pll48clk: Option<Hertz>,
+        config: RCCRawConfig,
+    ) -> Clocks {
+        let flash = unsafe { &(*FLASH::ptr()) };
+        let rcc = unsafe { &(*RCC::ptr()) };
+
+        // Switch to fail-safe clock settings.
+        // This is useful when booting from a bootloader that alters clock tree configuration.
+        // Turn on HSI
+        rcc.cr.modify(|_, w| w.hsion().set_bit());
+        while rcc.cr.read().hsirdy().bit_is_clear() {}
+        // Switch to HSI
+        rcc.cfgr.modify(|_, w| w.sw().hsi());
+
+        // Configure HSE if provided
+        if self.hse.is_some() {
+            // Configure the HSE mode
+            match self.hse.as_ref().unwrap().mode {
+                HSEClockMode::Bypass => rcc.cr.modify(|_, w| w.hsebyp().bypassed()),
+                HSEClockMode::Oscillator => rcc.cr.modify(|_, w| w.hsebyp().not_bypassed()),
+            }
+            // Start HSE
+            rcc.cr.modify(|_, w| w.hseon().on());
+            while rcc.cr.read().hserdy().is_not_ready() {}
+        }
+
+        if self.pll48clk {
+            // set source clock for 48 MHz to main PLL
+            rcc.dckcfgr2.modify(|_, w| w.ck48msel().bit(false));
+        }
+
+        if use_pll {
+            rcc.pllcfgr.write(|w| unsafe {
+                w.pllm().bits(config.pllm);
+                w.plln().bits(config.plln);
+                w.pllp().bits(config.pllp);
+                w.pllq().bits(config.pllq);
+                w.pllsrc().bit(self.hse.is_some())
+            });
+
+            // Enable PLL
+            rcc.cr.modify(|_, w| w.pllon().on());
+            // // Wait for PLL to stabilise
+            while rcc.cr.read().pllrdy().is_not_ready() {}
+        }
+
+        flash
+            .acr
+            .write(|w| w.latency().bits(config.flash_waitstates));
 
         // Select SYSCLK source
         if use_pll {
@@ -503,11 +540,11 @@ impl CFGR {
         // Configure HCLK, PCLK1, PCLK2
         rcc.cfgr.modify(|_, w| unsafe {
             w.ppre1()
-                .bits(ppre1 as u8)
+                .bits(config.ppre1)
                 .ppre2()
-                .bits(ppre2 as u8)
+                .bits(config.ppre2)
                 .hpre()
-                .bits(hpre as u8)
+                .bits(config.hpre)
         });
 
         // As requested by user manual we need to wait 16 ticks before the right
@@ -515,12 +552,12 @@ impl CFGR {
         cortex_m::asm::delay(16);
 
         let clocks = Clocks {
-            hclk: Hertz(hclk),
-            pclk1: Hertz(pclk1),
-            pclk2: Hertz(pclk2),
-            sysclk: Hertz(sysclk),
-            timclk1: Hertz(timclk1),
-            timclk2: Hertz(timclk2),
+            hclk: Hertz(config.hclk),
+            pclk1: Hertz(config.pclk1),
+            pclk2: Hertz(config.pclk2),
+            sysclk: Hertz(config.sysclk),
+            timclk1: Hertz(config.timclk1),
+            timclk2: Hertz(config.timclk2),
             pll48clk,
         };
 
