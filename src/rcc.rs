@@ -403,6 +403,31 @@ impl CFGR {
         (clocks, config)
     }
 
+    /// Configure the default clock settings.
+    /// Set sysclk as 216 Mhz and setup USB clock if defined.
+    pub fn set_defaults(self) -> Self {
+        // Configure default clock settings if pll used
+        if self.use_pll {
+            // Use division by 2 because 216 is 432 / 2
+            self.pllp(PLLP::Div2);
+            // Use multiplication by 432 because is maximum and stable for conversion.
+            self.plln(432 as u16);
+            // Setup main pll divider for each input clock
+            let divider = (match self.hse.as_ref() {
+                Some(hse) => hse.freq,
+                None => HSI,
+            } / 1_000_000) as u8;
+            self.pllm(divider);
+            // Setup USB clock if used.
+            if self.use_pll48clk {
+                // Use divsion by 9 because 48 is 432 / 9
+                self.pllq(9 as u8);
+            }
+        }
+
+        self
+    }
+
     /// Configure the "mandatory" clocks (`sysclk`, `hclk`, `pclk1` and `pclk2')
     /// and return them via the `Clocks` struct.
     ///
