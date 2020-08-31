@@ -21,6 +21,9 @@ impl RccExt for RCC {
             apb2: APB2 { _0: () },
             cfgr: CFGR {
                 hse: None,
+                hclk: None,
+                pclk1: None,
+                pclk2: None,
                 use_pll: false,
                 use_pll48clk: false,
                 pllm: 2,
@@ -190,6 +193,9 @@ impl Default for VOSscale {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CFGR {
     hse: Option<HSEClock>,
+    hclk: Option<u32>,
+    pclk1: Option<u32>,
+    pclk2: Option<u32>,
     use_pll: bool,
     use_pll48clk: bool,
     pllm: u8,
@@ -221,6 +227,45 @@ impl CFGR {
             hse.mode != HSEClockMode::Bypass || (hse.freq >= 4_000_000 && hse.freq <= 26_000_000)
         );
         self.hse = Some(hse);
+        self
+    }
+
+    /// Set HCLK Clock (AHB bus, core, memory and DMA.
+    /// Specified frequency must be <= 216 MHz
+    pub fn hclk<F>(mut self, freq: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        let f: u32 = freq.into().0;
+        assert!(f <= 216_000_000);
+
+        self.hclk = Some(f);
+        self
+    }
+
+    /// Set PCLK1 Clock (APB1 clock). Must be <= 54 Mhz. By default, max
+    /// frequency is chosen
+    pub fn pclk1<F>(mut self, freq: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        let f: u32 = freq.into().0;
+        assert!(12_500_000 <= f && f <= 54_000_000);
+
+        self.pclk1 = Some(f);
+        self
+    }
+
+    /// Set PCLK2 Clock (APB2 clock). Must be <= 108 Mhz. By default, max
+    /// frequency is chosen
+    pub fn pclk2<F>(mut self, freq: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        let f: u32 = freq.into().0;
+        assert!(12_500_000 <= f && f <= 108_000_000);
+
+        self.pclk2 = Some(f);
         self
     }
 
@@ -302,7 +347,7 @@ impl CFGR {
         // of clock multiplication and division, even if `sysclk` is set to be
         // the same as `hclk`, it can be slightly inferior to `sysclk` after
         // pllm, pllp... calculations
-        let mut hclk: u32 = sysclk;
+        let mut hclk: u32 = min(sysclk, self.hclk.unwrap_or(sysclk));
 
         // Configure HPRE.
         let hpre_val: f32 = (sysclk as f32 / hclk as f32).ceil();
@@ -327,10 +372,10 @@ impl CFGR {
 
         // PCLK1 (APB1). Must be <= 54 Mhz. By default, min(hclk, 54Mhz) is
         // chosen
-        let mut pclk1: u32 = min(54_000_000, hclk);
+        let mut pclk1: u32 = min(54_000_000, self.pclk1.unwrap_or(hclk));
         // PCLK2 (APB2). Must be <= 108 Mhz. By default, min(hclk, 108Mhz) is
         // chosen
-        let mut pclk2: u32 = min(108_000_000, hclk);
+        let mut pclk2: u32 = min(108_000_000, self.pclk2.unwrap_or(hclk));
 
         // Configure PPRE1
         let mut ppre1_val: u32 = (hclk as f32 / pclk1 as f32).ceil() as u32;
@@ -513,11 +558,16 @@ impl CFGR {
 
     /// Configure system clock settings by providen user clock frequency
     /// Set sysclk as providen and setup USB clock if defined.
+    /// It must be between 12.5 Mhz and 216 Mhz.
+    /// If the ethernet peripheral is on, the user should set a
+    /// frequency higher than 25 Mhz
     pub fn set_sysclk<F>(self, sysclk: F) -> Option<Self>
     where
         F: Into<Hertz>,
     {
         let f: u32 = sysclk.into().0;
+
+        assert!(12_500_000 <= f && f <= 216_000_000);
 
         let base_clk = match self.hse.as_ref() {
             Some(hse) => hse.freq,
