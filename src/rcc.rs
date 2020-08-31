@@ -372,10 +372,22 @@ impl CFGR {
 
         // PCLK1 (APB1). Must be <= 54 Mhz. By default, min(hclk, 54Mhz) is
         // chosen
-        let mut pclk1: u32 = min(54_000_000, self.pclk1.unwrap_or(hclk));
+        // Add limits dependens on OD follows by DS Table 16.
+        let max_pclk1 = if sysclk <= 180_000_000 {
+            45_000_000
+        } else {
+            54_000_000
+        };
+        let mut pclk1: u32 = min(max_pclk1, self.pclk1.unwrap_or(hclk));
         // PCLK2 (APB2). Must be <= 108 Mhz. By default, min(hclk, 108Mhz) is
         // chosen
-        let mut pclk2: u32 = min(108_000_000, self.pclk2.unwrap_or(hclk));
+        // Add limits dependens on OD follows by DS Table 16.
+        let max_pclk2 = if sysclk <= 180_000_000 {
+            90_000_000
+        } else {
+            108_000_000
+        };
+        let mut pclk2: u32 = min(max_pclk2, self.pclk2.unwrap_or(hclk));
 
         // Configure PPRE1
         let mut ppre1_val: u32 = (hclk as f32 / pclk1 as f32).ceil() as u32;
@@ -456,6 +468,8 @@ impl CFGR {
             0b0111
         };
         // Adjust power state and overdrive mode
+        // Configure follows by RM 4.1.4
+        // Values getted from DS Table 16. General operating conditions
         config.vos_scale = if sysclk <= 144_000_000 {
             VOSscale::PwrScale3
         } else if sysclk <= 168_000_000 {
@@ -463,6 +477,8 @@ impl CFGR {
         } else {
             VOSscale::PwrScale1
         };
+        // For every frequency higher than 180 need to enable overdrive
+        // Follows by DS Table 16.
         config.overdrive = if sysclk <= 180_000_000 { false } else { true };
 
         let clocks = Clocks {
@@ -653,6 +669,7 @@ impl CFGR {
             while rcc.cr.read().hserdy().is_not_ready() {}
         }
 
+        // Enable sequence follows by RM 4.1.4 Entering Overdrive mode.
         if self.use_pll || self.use_pll48clk {
             rcc.pllcfgr.write(|w| unsafe {
                 w.pllm().bits(self.pllm);
