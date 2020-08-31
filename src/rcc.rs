@@ -208,6 +208,12 @@ struct InternalRCCConfig {
     vos_scale: VOSscale,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+struct FreqRequest {
+    p: Option<(u32, u32)>,
+    q: Option<(u32, u32)>,
+}
+
 impl CFGR {
     /// Declare an HSE clock if available.
     pub fn hse(mut self, hse: HSEClock) -> Self {
@@ -279,14 +285,14 @@ impl CFGR {
                     PLLP::Div6 => 6,
                     PLLP::Div8 => 8,
                 };
+        }
 
-            if self.use_pll48clk {
-                pll48clk_valid = {
-                    let pll48clk =
-                        base_clk as u64 * self.plln as u64 / self.pllm as u64 / self.pllq as u64;
-                    pll48clk >= 48_000_000 + 120_000 && pll48clk <= 48_000_000 + 120_000
-                };
-            }
+        if self.use_pll48clk {
+            pll48clk_valid = {
+                let pll48clk =
+                    base_clk as u64 * self.plln as u64 / self.pllm as u64 / self.pllq as u64;
+                pll48clk >= 48_000_000 + 120_000 && pll48clk <= 48_000_000 + 120_000
+            };
         }
         // SYSCLK, must be <= 216 Mhz. By default, HSI/HSE frequency is chosen
         assert!(sysclk <= 216);
@@ -427,27 +433,136 @@ impl CFGR {
         (clocks, config)
     }
 
+    /// Calculate the PLL M, N, P and Q values from the provided clock and requested options.
+    fn calculate_mnpq(
+        f_pll_clock_input: u32,
+        freq_req: FreqRequest,
+    ) -> Option<(u32, u32, Option<u32>, Option<u32>)> {
+        let mut m = 2;
+        let mut n = 432;
+        let mut p = None;
+        let mut q = None;
+
+        if freq_req.p.is_none() && freq_req.q.is_none() {
+            return None;
+        }
+
+        loop {
+            if m > 432 {
+                return None;
+            }
+            let f_vco_input = f_pll_clock_input / m;
+            if f_vco_input < 1_000_000 {
+                return None;
+            }
+            if f_vco_input > 2_000_000 || n < 50 {
+                m += 1;
+                n = 432;
+                continue;
+            }
+            let f_vco_clock = (f_pll_clock_input as u64 * n as u64 / m as u64) as u32;
+            if f_vco_clock < 50_000_000 {
+                m += 1;
+                n = 432;
+                continue;
+            }
+            if f_vco_clock > 432_000_000 {
+                n -= 1;
+                continue;
+            }
+
+            if let Some((p_freq_max, p_freq_min)) = freq_req.p {
+                let mut div = None;
+                for div_p in &[2, 4, 6, 8] {
+                    let f_pll_clock_output = f_vco_clock / div_p;
+                    if f_pll_clock_output >= p_freq_min && f_pll_clock_output <= p_freq_max {
+                        div = Some(*div_p)
+                    }
+                }
+                if div.is_some() {
+                    p = div;
+                    if let None = freq_req.q {
+                        break;
+                    }
+                } else {
+                    n -= 1;
+                    continue;
+                }
+            }
+
+            if let Some((q_freq_max, q_freq_min)) = freq_req.q {
+                let mut div = None;
+                for div_q in 2..=15 {
+                    let f_usb_clock_output = f_vco_clock / div_q;
+                    if f_usb_clock_output >= q_freq_min && f_usb_clock_output <= q_freq_max {
+                        div = Some(div_q)
+                    }
+                }
+                if div.is_some() {
+                    q = div;
+                    break;
+                } else {
+                    n -= 1;
+                    continue;
+                }
+            }
+        }
+
+        Some((m, n, p, q))
+    }
+
+    /// Configure system clock settings by providen user clock frequency
+    /// Set sysclk as providen and setup USB clock if defined.
+    pub fn set_sysclk<F>(self, sysclk: F) -> Option<Self>
+    where
+        F: Into<Hertz>,
+    {
+        let f: u32 = sysclk.into().0;
+
+        let base_clk = match self.hse.as_ref() {
+            Some(hse) => hse.freq,
+            None => HSI,
+        };
+
+        let p = if base_clk == f {
+            None
+        } else {
+            Some((f + 1, f - 1))
+        };
+
+        let q = if self.use_pll48clk {
+            Some((48_000_000 + 120_000, 48_000_000 - 120_000))
+        } else {
+            None
+        };
+
+        if let Some((m, n, p, q)) = CFGR::calculate_mnpq(base_clk, FreqRequest { p, q }) {
+            self.pllm(m as u8);
+            self.plln(n as u16);
+            if let Some(p) = p {
+                self.use_pll();
+                self.pllp(match p {
+                    2 => PLLP::Div2,
+                    4 => PLLP::Div4,
+                    6 => PLLP::Div6,
+                    8 => PLLP::Div8,
+                    _ => unreachable!(),
+                });
+            }
+            if let Some(q) = q {
+                self.pllq(q as u8);
+            }
+
+            Some(self)
+        } else {
+            None
+        }
+    }
+
     /// Configure the default clock settings.
     /// Set sysclk as 216 Mhz and setup USB clock if defined.
     pub fn set_defaults(self) -> Self {
-        // Configure default clock settings if pll used
-        if self.use_pll {
-            // Use division by 2 because 216 is 432 / 2
-            self.pllp(PLLP::Div2);
-            // Use multiplication by 432 because is maximum and stable for conversion.
-            self.plln(432 as u16);
-            // Setup main pll divider for each input clock
-            let divider = (match self.hse.as_ref() {
-                Some(hse) => hse.freq,
-                None => HSI,
-            } / 1_000_000) as u8;
-            self.pllm(divider);
-            // Setup USB clock if used.
-            if self.use_pll48clk {
-                // Use divsion by 9 because 48 is 432 / 9
-                self.pllq(9 as u8);
-            }
-        }
+        self.set_sysclk(Hertz(216_000_000));
 
         self
     }
@@ -488,7 +603,7 @@ impl CFGR {
             while rcc.cr.read().hserdy().is_not_ready() {}
         }
 
-        if self.use_pll {
+        if self.use_pll || self.use_pll48clk {
             rcc.pllcfgr.write(|w| unsafe {
                 w.pllm().bits(self.pllm);
                 w.plln().bits(self.plln);
