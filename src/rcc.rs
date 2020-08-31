@@ -2,7 +2,7 @@ use core::cmp::min;
 
 use micromath::F32Ext;
 
-use crate::pac::{rcc, FLASH, RCC};
+use crate::pac::{rcc, FLASH, PWR, RCC};
 use crate::time::Hertz;
 
 /// Extension trait that constrains the `RCC` peripheral
@@ -175,6 +175,19 @@ pub enum PLLP {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum VOSscale {
+    PwrScale1,
+    PwrScale2,
+    PwrScale3,
+}
+
+impl Default for VOSscale {
+    fn default() -> Self {
+        VOSscale::PwrScale3
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CFGR {
     hse: Option<HSEClock>,
     use_pll: bool,
@@ -187,10 +200,12 @@ pub struct CFGR {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 struct InternalRCCConfig {
-    pub hpre: u8,
-    pub ppre1: u8,
-    pub ppre2: u8,
-    pub flash_waitstates: u8,
+    hpre: u8,
+    ppre1: u8,
+    ppre2: u8,
+    flash_waitstates: u8,
+    overdrive: bool,
+    vos_scale: VOSscale,
 }
 
 impl CFGR {
@@ -389,6 +404,15 @@ impl CFGR {
         } else {
             0b0111
         };
+        // Adjust power state and overdrive mode
+        config.vos_scale = if sysclk <= 144_000_000 {
+            VOSscale::PwrScale3
+        } else if sysclk <= 168_000_000 {
+            VOSscale::PwrScale2
+        } else {
+            VOSscale::PwrScale1
+        };
+        config.overdrive = if sysclk <= 180_000_000 { false } else { true };
 
         let clocks = Clocks {
             hclk: Hertz(hclk),
@@ -440,6 +464,7 @@ impl CFGR {
     pub fn freeze(self) -> Clocks {
         let flash = unsafe { &(*FLASH::ptr()) };
         let rcc = unsafe { &(*RCC::ptr()) };
+        let pwr = unsafe { &(*PWR::ptr()) };
 
         let (clocks, config) = self.calculate_clocks();
 
@@ -472,8 +497,22 @@ impl CFGR {
                 w.pllsrc().bit(self.hse.is_some())
             });
 
+            // Enable PWR domain and setup VOSscale and Overdrive options
+            rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
+
+            pwr.cr1.modify(|_, w| match config.vos_scale {
+                VOSscale::PwrScale3 => w.vos().scale3(),
+                VOSscale::PwrScale2 => w.vos().scale2(),
+                VOSscale::PwrScale1 => w.vos().scale1(),
+            });
+
+            if config.overdrive {
+                pwr.cr1.modify(|_, w| w.oden().set_bit());
+            }
+
             // Enable PLL
             rcc.cr.modify(|_, w| w.pllon().on());
+
             // // Wait for PLL to stabilise
             while rcc.cr.read().pllrdy().is_not_ready() {}
         }
