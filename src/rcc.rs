@@ -509,7 +509,7 @@ impl CFGR {
         }
 
         loop {
-            if m > 432 {
+            if m > 63 {
                 return None;
             }
             let f_vco_input = f_pll_clock_input / m;
