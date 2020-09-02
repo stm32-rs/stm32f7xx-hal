@@ -532,7 +532,7 @@ impl CFGR {
                 continue;
             }
 
-            if let Some((p_freq_max, p_freq_min)) = freq_req.p {
+            if let Some((p_freq_min, p_freq_max)) = freq_req.p {
                 let mut div = None;
                 for div_p in &[2, 4, 6, 8] {
                     let f_pll_clock_output = f_vco_clock / div_p;
@@ -551,7 +551,7 @@ impl CFGR {
                 }
             }
 
-            if let Some((q_freq_max, q_freq_min)) = freq_req.q {
+            if let Some((q_freq_min, q_freq_max)) = freq_req.q {
                 let mut div = None;
                 for div_q in 2..=15 {
                     let f_usb_clock_output = f_vco_clock / div_q;
@@ -593,11 +593,11 @@ impl CFGR {
         let p = if base_clk == f {
             None
         } else {
-            Some((f + 1, f - 1))
+            Some((f - 1, f + 1))
         };
 
         let q = if self.use_pll48clk {
-            Some((48_000_000 + 120_000, 48_000_000 - 120_000))
+            Some((48_000_000 - 120_000, 48_000_000 + 120_000))
         } else {
             None
         };
