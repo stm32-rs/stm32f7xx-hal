@@ -952,7 +952,7 @@ bus! {
 
 #[cfg(test)]
 mod tests {
-    use super::{CFGR, FreqRequest};
+    use super::{FreqRequest, CFGR};
 
     fn build_request(sysclk: u32, use_pll48clk: bool) -> FreqRequest {
         let p = Some((sysclk - 1, sysclk + 1));
@@ -961,15 +961,13 @@ mod tests {
         } else {
             None
         };
-        FreqRequest {
-            p, q
-        }
+        FreqRequest { p, q }
     }
 
     fn check(hse: u32, sysclk: u32, use_pll48clk: bool) {
         let request = build_request(sysclk, use_pll48clk);
-        let (m, n, p, q) = CFGR::calculate_mnpq(hse, request)
-            .expect("Can't calculate PLL parameters");
+        let (m, n, p, q) =
+            CFGR::calculate_mnpq(hse, request).expect("Can't calculate PLL parameters");
 
         let pll_in = hse;
 
@@ -1001,7 +999,10 @@ mod tests {
             panic!("Invalid PLL P frequency: {}", p_freq);
         }
         if p_freq < (sysclk - 1) || p_freq > (sysclk + 1) {
-            panic!("Invalid PLL P frequency: {} (requested sysclk {})", p_freq, sysclk);
+            panic!(
+                "Invalid PLL P frequency: {} (requested sysclk {})",
+                p_freq, sysclk
+            );
         }
 
         if use_pll48clk && q.is_none() {
