@@ -81,6 +81,10 @@ name = "blinky"
 required-features = ["stm32f746", "rt"]
 
 [[example]]
+name = "flash"
+required-features = ["stm32f746", "rt"]
+
+[[example]]
 name = "hello"
 required-features = ["stm32f746", "rt"]
 
