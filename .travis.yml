@@ -28,6 +28,7 @@ script:
   - rustup target add thumbv7em-none-eabihf
   - cargo build --features=$MCU --verbose
   - cargo build --features=$MCU --release --verbose
+  - cargo build --features="$MCU,rt" --release --examples
   - cargo fmt --all -- --check
 notifications:
   email:
