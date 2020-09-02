@@ -577,7 +577,7 @@ impl CFGR {
     /// This sets the sysclk frequency and sets up the USB clock if defined.
     /// The provided frequency must be between 12.5 Mhz and 216 Mhz.
     /// If the ethernet peripheral is on, the user should set a frequency higher than 25 Mhz.
-    pub fn set_sysclk<F>(self, sysclk: F) -> Option<Self>
+    pub fn sysclk<F>(self, sysclk: F) -> Self
     where
         F: Into<Hertz>,
     {
@@ -618,17 +618,15 @@ impl CFGR {
             if let Some(q) = q {
                 self.pllq(q as u8);
             }
-
-            Some(self)
-        } else {
-            None
         }
+
+        self
     }
 
     /// Configure the default clock settings.
     /// Set sysclk as 216 Mhz and setup USB clock if defined.
     pub fn set_defaults(self) -> Self {
-        self.set_sysclk(Hertz(216_000_000));
+        self.sysclk(Hertz(216_000_000));
 
         self
     }
