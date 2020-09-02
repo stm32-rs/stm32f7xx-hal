@@ -336,11 +336,11 @@ impl CFGR {
             pll48clk_valid = {
                 let pll48clk =
                     base_clk as u64 * self.plln as u64 / self.pllm as u64 / self.pllq as u64;
-                pll48clk >= 48_000_000 + 120_000 && pll48clk <= 48_000_000 + 120_000
+                pll48clk >= 48_000_000 - 120_000 && pll48clk <= 48_000_000 + 120_000
             };
         }
         // SYSCLK, must be <= 216 Mhz. By default, HSI/HSE frequency is chosen
-        assert!(sysclk <= 216);
+        assert!(sysclk <= 216_000_000);
         let sysclk = sysclk as u32;
 
         // HCLK. By default, SYSCLK frequency is chosen. Because of the method
@@ -618,6 +618,8 @@ impl CFGR {
             if let Some(q) = q {
                 self.pllq(q as u8);
             }
+        } else {
+            panic!("couldn't calculate {} from {}", f, base_clk);
         }
 
         self
