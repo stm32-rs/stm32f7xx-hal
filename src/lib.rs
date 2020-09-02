@@ -1,6 +1,6 @@
 //! HAL for the STM32F7xx family of microcontrollers
 
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![allow(non_camel_case_types)]
 
 #[cfg(not(feature = "device-selected"))]
