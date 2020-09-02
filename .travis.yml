@@ -29,6 +29,7 @@ script:
   - cargo build --features=$MCU --verbose
   - cargo build --features=$MCU --release --verbose
   - cargo build --features="$MCU,rt" --release --examples
+  - cargo test --features=$MCU --target x86_64-unknown-linux-gnu --lib
   - cargo fmt --all -- --check
 notifications:
   email:
