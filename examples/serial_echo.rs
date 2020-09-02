@@ -38,6 +38,7 @@ fn main() -> ! {
         serial::Config {
             baud_rate: 115_200.bps(),
             oversampling: serial::Oversampling::By16,
+            character_match: None,
         },
     );
 
