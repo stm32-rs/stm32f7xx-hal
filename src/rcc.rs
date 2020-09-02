@@ -572,11 +572,11 @@ impl CFGR {
         Some((m, n, p, q))
     }
 
-    /// Configure system clock settings by providen user clock frequency
-    /// Set sysclk as providen and setup USB clock if defined.
-    /// It must be between 12.5 Mhz and 216 Mhz.
-    /// If the ethernet peripheral is on, the user should set a
-    /// frequency higher than 25 Mhz
+    /// Configure the system clock settings.
+    ///
+    /// This sets the sysclk frequency and sets up the USB clock if defined.
+    /// The provided frequency must be between 12.5 Mhz and 216 Mhz.
+    /// If the ethernet peripheral is on, the user should set a frequency higher than 25 Mhz.
     pub fn set_sysclk<F>(self, sysclk: F) -> Option<Self>
     where
         F: Into<Hertz>,
@@ -695,7 +695,7 @@ impl CFGR {
             // Enable PLL
             rcc.cr.modify(|_, w| w.pllon().on());
 
-            // // Wait for PLL to stabilise
+            // Wait for PLL to stabilise
             while rcc.cr.read().pllrdy().is_not_ready() {}
         }
 
