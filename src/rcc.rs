@@ -22,6 +22,7 @@ impl RccExt for RCC {
             cfgr: CFGR {
                 hse: None,
                 hclk: None,
+                sysclk: None,
                 pclk1: None,
                 pclk2: None,
                 use_pll: false,
@@ -194,6 +195,7 @@ impl Default for VOSscale {
 pub struct CFGR {
     hse: Option<HSEClock>,
     hclk: Option<u32>,
+    sysclk: Option<u32>,
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     use_pll: bool,
@@ -240,6 +242,24 @@ impl CFGR {
         assert!(f <= 216_000_000);
 
         self.hclk = Some(f);
+        self
+    }
+
+    /// Configure the system clock settings.
+    ///
+    /// This sets the sysclk frequency and sets up the USB clock if defined.
+    /// The provided frequency must be between 12.5 Mhz and 216 Mhz.
+    /// 12.5 Mhz is the VCO minimum frequency and sysclk PLLP divider limitation.
+    /// If the ethernet peripheral is on, the user should set a frequency higher than 25 Mhz.
+    pub fn sysclk<F>(mut self, sysclk: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        let f: u32 = sysclk.into().0;
+
+        assert!(12_500_000 <= f && f <= 216_000_000);
+
+        self.sysclk = Some(f);
         self
     }
 
@@ -572,28 +592,22 @@ impl CFGR {
         Some((m, n, p, q))
     }
 
-    /// Configure the system clock settings.
-    ///
-    /// This sets the sysclk frequency and sets up the USB clock if defined.
-    /// The provided frequency must be between 12.5 Mhz and 216 Mhz.
-    /// If the ethernet peripheral is on, the user should set a frequency higher than 25 Mhz.
-    pub fn sysclk<F>(mut self, sysclk: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        let f: u32 = sysclk.into().0;
-
-        assert!(12_500_000 <= f && f <= 216_000_000);
-
+    fn pll_configure(mut self) -> Self {
         let base_clk = match self.hse.as_ref() {
             Some(hse) => hse.freq,
             None => HSI,
         };
 
-        let p = if base_clk == f {
+        let sysclk = if let Some(clk) = self.sysclk {
+            clk
+        } else {
+            base_clk
+        };
+
+        let p = if base_clk == sysclk {
             None
         } else {
-            Some((f - 1, f + 1))
+            Some((sysclk - 1, sysclk + 1))
         };
 
         let q = if self.use_pll48clk {
@@ -619,7 +633,7 @@ impl CFGR {
                 self.pllq = q as u8;
             }
         } else {
-            panic!("couldn't calculate {} from {}", f, base_clk);
+            panic!("couldn't calculate {} from {}", sysclk, base_clk);
         }
 
         self
@@ -646,6 +660,8 @@ impl CFGR {
         let flash = unsafe { &(*FLASH::ptr()) };
         let rcc = unsafe { &(*RCC::ptr()) };
         let pwr = unsafe { &(*PWR::ptr()) };
+
+        self.pll_configure();
 
         let (clocks, config) = self.calculate_clocks();
 
@@ -1059,6 +1075,7 @@ mod tests {
         let cfgr = CFGR {
             hse: None,
             hclk: None,
+            sysclk: None,
             pclk1: None,
             pclk2: None,
             use_pll: false,
@@ -1073,7 +1090,8 @@ mod tests {
             .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
             .use_pll()
             .use_pll48clk()
-            .sysclk(216.mhz());
+            .sysclk(216.mhz())
+            .pll_configure();
 
         assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
 
