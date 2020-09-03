@@ -577,7 +577,7 @@ impl CFGR {
     /// This sets the sysclk frequency and sets up the USB clock if defined.
     /// The provided frequency must be between 12.5 Mhz and 216 Mhz.
     /// If the ethernet peripheral is on, the user should set a frequency higher than 25 Mhz.
-    pub fn sysclk<F>(self, sysclk: F) -> Self
+    pub fn sysclk<F>(mut self, sysclk: F) -> Self
     where
         F: Into<Hertz>,
     {
@@ -603,20 +603,20 @@ impl CFGR {
         };
 
         if let Some((m, n, p, q)) = CFGR::calculate_mnpq(base_clk, FreqRequest { p, q }) {
-            self.pllm(m as u8);
-            self.plln(n as u16);
+            self.pllm = m as u8;
+            self.plln = n as u16;
             if let Some(p) = p {
                 self.use_pll();
-                self.pllp(match p {
+                self.pllp = match p {
                     2 => PLLP::Div2,
                     4 => PLLP::Div4,
                     6 => PLLP::Div6,
                     8 => PLLP::Div8,
                     _ => unreachable!(),
-                });
+                };
             }
             if let Some(q) = q {
-                self.pllq(q as u8);
+                self.pllq = q as u8;
             }
         } else {
             panic!("couldn't calculate {} from {}", f, base_clk);
@@ -1049,5 +1049,36 @@ mod tests {
     #[test]
     fn test_pll_calc3_usb() {
         check(12_000_000, 216_000_000, true);
+    }
+
+    #[test]
+    fn test_rcc_calc1() {
+        use super::{HSEClock, HSEClockMode, PLLP};
+        use crate::time::U32Ext;
+
+        let cfgr = CFGR {
+            hse: None,
+            hclk: None,
+            pclk1: None,
+            pclk2: None,
+            use_pll: false,
+            use_pll48clk: false,
+            pllm: 2,
+            plln: 50,
+            pllp: PLLP::Div2,
+            pllq: 2,
+        };
+
+        let cfgr = cfgr
+            .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
+            .use_pll()
+            .use_pll48clk()
+            .sysclk(216.mhz());
+
+        assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
+
+        let (clocks, config) = cfgr.calculate_clocks();
+        assert_eq!(clocks.sysclk().0, 216_000_000);
+        assert!(clocks.is_pll48clk_valid());
     }
 }
