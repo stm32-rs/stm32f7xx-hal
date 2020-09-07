@@ -654,7 +654,7 @@ impl CFGR {
     /// The implementation makes the following choice: HSI is always chosen over
     /// HSE except when HSE is provided. When HSE is provided, HSE is used
     /// wherever it is possible.
-    pub fn freeze(&mut self) -> Clocks {
+    pub fn freeze(mut self) -> Clocks {
         let flash = unsafe { &(*FLASH::ptr()) };
         let rcc = unsafe { &(*RCC::ptr()) };
         let pwr = unsafe { &(*PWR::ptr()) };
@@ -685,7 +685,13 @@ impl CFGR {
 
         // Enable sequence follows by RM 4.1.4 Entering Overdrive mode.
         if self.use_pll || self.use_pll48clk {
-            rcc.pllcfgr.write(|w| unsafe {
+            // Disable PLL
+            // Since the main-PLL configuration parameters cannot be changed once PLL is enabled, it is
+            // recommended to configure PLL before enabling it (selection of the HSI or HSE oscillator as
+            // PLL clock source, and configuration of division factors M, N, P, and Q).
+            rcc.cr.modify(|_, w| w.pllon().off());
+
+            rcc.pllcfgr.modify(|_, w| unsafe {
                 w.pllm().bits(self.pllm);
                 w.plln().bits(self.plln);
                 w.pllp().bits(self.pllp as u8);
@@ -1084,12 +1090,12 @@ mod tests {
             pllq: 2,
         };
 
-        let cfgr = cfgr
+        let mut cfgr = cfgr
             .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
             .use_pll()
             .use_pll48clk()
-            .sysclk(216.mhz())
-            .pll_configure();
+            .sysclk(216.mhz());
+        cfgr.pll_configure();
 
         assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
 
