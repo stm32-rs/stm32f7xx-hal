@@ -592,7 +592,7 @@ impl CFGR {
         Some((m, n, p, q))
     }
 
-    fn pll_configure(mut self) -> Self {
+    fn pll_configure(&mut self) {
         let base_clk = match self.hse.as_ref() {
             Some(hse) => hse.freq,
             None => HSI,
@@ -635,8 +635,6 @@ impl CFGR {
         } else {
             panic!("couldn't calculate {} from {}", sysclk, base_clk);
         }
-
-        self
     }
 
     /// Configure the default clock settings.
@@ -656,7 +654,7 @@ impl CFGR {
     /// The implementation makes the following choice: HSI is always chosen over
     /// HSE except when HSE is provided. When HSE is provided, HSE is used
     /// wherever it is possible.
-    pub fn freeze(self) -> Clocks {
+    pub fn freeze(&mut self) -> Clocks {
         let flash = unsafe { &(*FLASH::ptr()) };
         let rcc = unsafe { &(*RCC::ptr()) };
         let pwr = unsafe { &(*PWR::ptr()) };
