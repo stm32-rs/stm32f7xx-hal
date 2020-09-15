@@ -44,6 +44,8 @@ cortex-m-semihosting = "0.3.3"
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.2"
 embedded-graphics = "0.6.1"
+usb-device = "0.2.5"
+usbd-serial = "0.1.0"
 
 [features]
 device-selected = []
@@ -110,3 +112,7 @@ required-features = ["stm32f746", "rt"]
 [[example]]
 name = "exti_button"
 required-features = ["stm32f767", "rt"]
+
+[[example]]
+name = "usb_serial"
+required-features = ["stm32f723", "rt", "usb_fs"]
