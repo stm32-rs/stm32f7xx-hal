@@ -6,15 +6,14 @@
 use panic_semihosting as _;
 
 use cortex_m_rt::entry;
-use stm32f7xx_hal::prelude::*;
-use stm32f7xx_hal::pac;
-use stm32f7xx_hal::rcc::{HSEClock, HSEClockMode};
 #[cfg(feature = "usb_fs")]
 use stm32f7xx_hal::otg_fs::{UsbBus, USB};
 #[cfg(feature = "usb_hs")]
 use stm32f7xx_hal::otg_hs::{UsbBus, USB};
+use stm32f7xx_hal::pac;
+use stm32f7xx_hal::prelude::*;
+use stm32f7xx_hal::rcc::{HSEClock, HSEClockMode};
 use usb_device::prelude::*;
-
 
 #[entry]
 fn main() -> ! {
