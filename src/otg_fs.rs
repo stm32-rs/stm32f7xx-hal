@@ -9,6 +9,7 @@ use crate::gpio::{
     gpioa::{PA11, PA12},
     Alternate, AF10,
 };
+use crate::rcc::Clocks;
 use crate::time::Hertz;
 
 pub use synopsys_usb_otg::UsbBus;
@@ -21,6 +22,29 @@ pub struct USB {
     pub pin_dm: PA11<Alternate<AF10>>,
     pub pin_dp: PA12<Alternate<AF10>>,
     pub hclk: Hertz,
+}
+
+impl USB {
+    /// Construct a USB peripheral wrapper.
+    ///
+    /// Call `UsbBus::new` to construct and initialize the USB peripheral driver.
+    pub fn new(
+        usb_global: pac::OTG_FS_GLOBAL,
+        usb_device: pac::OTG_FS_DEVICE,
+        usb_pwrclk: pac::OTG_FS_PWRCLK,
+        pin_dm: PA11<Alternate<AF10>>,
+        pin_dp: PA12<Alternate<AF10>>,
+        clocks: Clocks,
+    ) -> Self {
+        Self {
+            usb_global,
+            usb_device,
+            usb_pwrclk,
+            pin_dm,
+            pin_dp,
+            hclk: clocks.hclk(),
+        }
+    }
 }
 
 unsafe impl Sync for USB {}
