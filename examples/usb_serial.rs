@@ -39,8 +39,7 @@ fn main() -> ! {
         dp.OTG_FS_GLOBAL,
         dp.OTG_FS_DEVICE,
         dp.OTG_FS_PWRCLK,
-        gpioa.pa11.into_alternate_af10(),
-        gpioa.pa12.into_alternate_af10(),
+        (gpioa.pa11.into_alternate_af10(), gpioa.pa12.into_alternate_af10()),
         clocks,
     );
     #[cfg(feature = "usb_hs")]
@@ -48,8 +47,7 @@ fn main() -> ! {
         dp.OTG_HS_GLOBAL,
         dp.OTG_HS_DEVICE,
         dp.OTG_HS_PWRCLK,
-        gpiob.pb14.into_alternate_af12(),
-        gpiob.pb15.into_alternate_af12(),
+        (gpiob.pb14.into_alternate_af12(), gpiob.pb15.into_alternate_af12()),
         clocks,
     );
 
