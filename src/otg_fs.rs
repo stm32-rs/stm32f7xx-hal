@@ -32,16 +32,15 @@ impl USB {
         usb_global: pac::OTG_FS_GLOBAL,
         usb_device: pac::OTG_FS_DEVICE,
         usb_pwrclk: pac::OTG_FS_PWRCLK,
-        pin_dm: PA11<Alternate<AF10>>,
-        pin_dp: PA12<Alternate<AF10>>,
+        pins: (PA11<Alternate<AF10>>, PA12<Alternate<AF10>>),
         clocks: Clocks,
     ) -> Self {
         Self {
             usb_global,
             usb_device,
             usb_pwrclk,
-            pin_dm,
-            pin_dp,
+            pin_dm: pins.0,
+            pin_dp: pins.1,
             hclk: clocks.hclk(),
         }
     }
