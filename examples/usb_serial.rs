@@ -35,23 +35,23 @@ fn main() -> ! {
     let gpiob = dp.GPIOB.split();
 
     #[cfg(feature = "usb_fs")]
-    let usb = USB {
-        usb_global: dp.OTG_FS_GLOBAL,
-        usb_device: dp.OTG_FS_DEVICE,
-        usb_pwrclk: dp.OTG_FS_PWRCLK,
-        pin_dm: gpioa.pa11.into_alternate_af10(),
-        pin_dp: gpioa.pa12.into_alternate_af10(),
-        hclk: clocks.hclk(),
-    };
-    #[cfg(feature = "hs")]
-    let usb = USB {
-        usb_global: dp.OTG_HS_GLOBAL,
-        usb_device: dp.OTG_HS_DEVICE,
-        usb_pwrclk: dp.OTG_HS_PWRCLK,
-        pin_dm: gpiob.pb14.into_alternate_af12(),
-        pin_dp: gpiob.pb15.into_alternate_af12(),
-        hclk: clocks.hclk(),
-    };
+    let usb = USB::new(
+        dp.OTG_FS_GLOBAL,
+        dp.OTG_FS_DEVICE,
+        dp.OTG_FS_PWRCLK,
+        gpioa.pa11.into_alternate_af10(),
+        gpioa.pa12.into_alternate_af10(),
+        clocks,
+    );
+    #[cfg(feature = "usb_hs")]
+    let usb = USB::new(
+        dp.OTG_HS_GLOBAL,
+        dp.OTG_HS_DEVICE,
+        dp.OTG_HS_PWRCLK,
+        gpiob.pb14.into_alternate_af12(),
+        gpiob.pb15.into_alternate_af12(),
+        clocks,
+    );
 
     static mut EP_MEMORY: [u32; 1024] = [0; 1024];
     let usb_bus = UsbBus::new(usb, unsafe { &mut EP_MEMORY });
