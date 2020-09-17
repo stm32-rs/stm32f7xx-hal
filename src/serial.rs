@@ -16,14 +16,14 @@ use crate::time::U32Ext;
 use nb::block;
 
 #[cfg(any(feature = "device-selected",))]
-use crate::pac::{RCC, UART4, UART7, USART1, USART2, USART3, USART6};
+use crate::pac::{RCC, UART4, UART5, UART7, USART1, USART2, USART3, USART6};
 
 #[cfg(any(feature = "device-selected",))]
 use crate::gpio::{
     gpioa::{PA0, PA1, PA10, PA2, PA3, PA9},
     gpiob::{PB10, PB11, PB6, PB7},
-    gpioc::{PC10, PC11, PC6, PC7},
-    gpiod::{PD5, PD6, PD8, PD9},
+    gpioc::{PC10, PC11, PC12, PC6, PC7},
+    gpiod::{PD2, PD5, PD6, PD8, PD9},
     gpioe::{PE7, PE8},
     gpiof::{PF6, PF7},
     gpiog::{PG14, PG9},
@@ -69,6 +69,7 @@ impl PinTx<USART3> for PC10<Alternate<AF7>> {}
 impl PinTx<USART3> for PD8<Alternate<AF7>> {}
 impl PinTx<UART4> for PA0<Alternate<AF8>> {}
 impl PinTx<UART4> for PC10<Alternate<AF8>> {}
+impl PinTx<UART5> for PC12<Alternate<AF8>> {}
 impl PinTx<USART6> for PC6<Alternate<AF8>> {}
 impl PinTx<USART6> for PG14<Alternate<AF8>> {}
 impl PinTx<UART7> for PE8<Alternate<AF8>> {}
@@ -84,6 +85,7 @@ impl PinRx<USART3> for PC11<Alternate<AF7>> {}
 impl PinRx<USART3> for PD9<Alternate<AF7>> {}
 impl PinRx<UART4> for PA1<Alternate<AF8>> {}
 impl PinRx<UART4> for PC11<Alternate<AF8>> {}
+impl PinRx<UART5> for PD2<Alternate<AF8>> {}
 impl PinRx<USART6> for PC7<Alternate<AF8>> {}
 impl PinRx<USART6> for PG9<Alternate<AF8>> {}
 impl PinRx<UART7> for PE7<Alternate<AF8>> {}
@@ -448,6 +450,7 @@ impl_instance! {
     USART2: (apb1enr, usart2sel, usart2en),
     USART3: (apb1enr, usart3sel, usart3en),
     UART4:  (apb1enr, uart4sel,  uart4en),
+    UART5:  (apb1enr, uart5sel,  uart5en),
     USART6: (apb2enr, usart6sel, usart6en),
     UART7:  (apb1enr, uart7sel,  uart7en),
 }
