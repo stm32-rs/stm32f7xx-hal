@@ -191,7 +191,7 @@ impl Default for VOSscale {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CFGR {
     hse: Option<HSEClock>,
     hclk: Option<u32>,
