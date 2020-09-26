@@ -1103,4 +1103,36 @@ mod tests {
         assert_eq!(clocks.sysclk().0, 216_000_000);
         assert!(clocks.is_pll48clk_valid());
     }
+
+    #[test]
+    fn test_rcc_calc2() {
+        use super::{HSEClock, HSEClockMode, PLLP};
+        use crate::time::U32Ext;
+
+        let cfgr = CFGR {
+            hse: None,
+            hclk: None,
+            sysclk: None,
+            pclk1: None,
+            pclk2: None,
+            use_pll: false,
+            use_pll48clk: false,
+            pllm: 2,
+            plln: 50,
+            pllp: PLLP::Div2,
+            pllq: 2,
+        };
+
+        let mut cfgr = cfgr
+            .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
+            .use_pll48clk()
+            .sysclk(216.mhz());
+        cfgr.pll_configure();
+
+        assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
+
+        let (clocks, config) = cfgr.calculate_clocks();
+        assert_eq!(clocks.sysclk().0, 216_000_000);
+        assert!(clocks.is_pll48clk_valid());
+    }
 }
