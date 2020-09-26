@@ -620,7 +620,7 @@ impl CFGR {
             self.pllm = m as u8;
             self.plln = n as u16;
             if let Some(p) = p {
-                self.use_pll();
+                self.use_pll = true;
                 self.pllp = match p {
                     2 => PLLP::Div2,
                     4 => PLLP::Div4,
