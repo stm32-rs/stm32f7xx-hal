@@ -2,7 +2,7 @@
 
 // From stm32_fmc
 use stm32_fmc::FmcPeripheral;
-use stm32_fmc::{PinsSdram, Sdram, SdramChip, SdramPinSet, SdramTargetBank};
+use stm32_fmc::{AddressPinSet, PinsSdram, Sdram, SdramChip, SdramPinSet, SdramTargetBank};
 
 use crate::pac as stm32;
 use crate::rcc::Clocks;
@@ -72,7 +72,12 @@ pub trait FmcExt: Sized {
     fn fmc(self, clocks: &Clocks) -> FMC;
 
     /// A new SDRAM memory via the Flexible Memory Controller
-    fn sdram<BANK: SdramPinSet, PINS: PinsSdram<BANK>, CHIP: SdramChip>(
+    fn sdram<
+        BANK: SdramPinSet,
+        ADDR: AddressPinSet,
+        PINS: PinsSdram<BANK, ADDR>,
+        CHIP: SdramChip,
+    >(
         self,
         pins: PINS,
         chip: CHIP,
