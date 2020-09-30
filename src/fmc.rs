@@ -1,4 +1,6 @@
 //! HAL for Flexible memory controller (FMC)
+//!
+//! See the stm32-fmc [usage guide](https://github.com/stm32-rs/stm32-fmc#usage)
 
 // From stm32_fmc
 use stm32_fmc::FmcPeripheral;
