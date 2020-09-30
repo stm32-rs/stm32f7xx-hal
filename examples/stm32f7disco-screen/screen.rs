@@ -103,7 +103,7 @@ impl DrawTarget<Rgb565> for Stm32F7DiscoDisplay<u16> {
         Ok(())
     }
 
-    /// Return the sise of the screen
+    /// Return the size of the screen
     fn size(&self) -> Size {
         Size::new(480, 272)
     }
