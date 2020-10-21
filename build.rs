@@ -23,7 +23,7 @@ fn copy_memory_config(target: Target) -> Result<(), Error> {
         | SubFamily::Stm32f732
         | SubFamily::Stm32f733 => include_bytes!("memory_512_176.x").as_ref(),
         SubFamily::Stm32f745 | SubFamily::Stm32f746 | SubFamily::Stm32f756 => {
-            include_bytes!("memory_1024_240.x").as_ref()
+            include_bytes!("memory_1024_320.x").as_ref()
         }
         SubFamily::Stm32f765
         | SubFamily::Stm32f767
@@ -42,7 +42,7 @@ fn copy_memory_config(target: Target) -> Result<(), Error> {
     // Tell Cargo where to find the file.
     println!("cargo:rustc-link-search={}", out_dir.display());
 
-    println!("cargo:rerun-if-changed=memory_1024_240.x");
+    println!("cargo:rerun-if-changed=memory_1024_320.x");
     println!("cargo:rerun-if-changed=memory_2048_368.x");
     println!("cargo:rerun-if-changed=memory_512_176.x");
     println!("cargo:rerun-if-changed=memory_64_176.x");
