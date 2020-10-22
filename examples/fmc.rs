@@ -107,7 +107,7 @@ fn main() -> ! {
         slice::from_raw_parts_mut(ram_ptr, len_words)
     };
 
-    // Access the first 256 words in SDRAM
+    // Access all the words in SDRAM (takes several seconds)
     for addr in 0..len_words {
         let val: u32 = addr as u32;
 
