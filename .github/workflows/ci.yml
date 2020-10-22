@@ -1,0 +1,54 @@
+on: [push, pull_request]
+
+name: Continuous integration
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mcu:
+          - stm32f722
+          - stm32f723
+          - stm32f732
+          - stm32f733
+          - stm32f745
+          - stm32f746
+          - stm32f756
+          - stm32f765
+          - stm32f767
+          - stm32f769
+          - stm32f777
+          - stm32f778
+          - stm32f779
+        rust:
+          - stable
+        include:
+          - rust: nightly
+            mcu: stm32f746
+            experimental: true
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          target: thumbv7em-none-eabihf
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --features=${{ matrix.mcu }},usb_fs --examples
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --features=${{ matrix.mcu }},usb_fs --examples --release
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --features=${{ matrix.mcu }},rt,usb_fs --examples
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features=${{ matrix.mcu }} --target x86_64-unknown-linux-gnu --lib
