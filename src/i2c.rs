@@ -46,6 +46,7 @@ pub enum Mode {
     Standard { frequency: Hertz },
     Fast { frequency: Hertz },
     FastPlus { frequency: Hertz },
+    // Custom { timingr: u32 },
 }
 
 impl Mode {
@@ -324,6 +325,16 @@ macro_rules! hal {
                     // let base_clk_mhz: f32 = self.pclk as f32 / 1_000_000.0;
                     let sdadel = 2;
                     let scldel = 4;
+                    // T_sync or delay introduced in SCL
+                    // generally it is 2-3 clock cycles
+                    let dnf = self.i2c.cr1.read().dnf().bits();
+                    // t_sync + dnf delay
+                    let t_dnf = (dnf + 3 ) as f32/ self.pclk as f32;
+                    // if analog filter is enabled then it offer about 50 - 70 ns delay
+                    let t_af:f32 = if self.i2c.cr1.read().anfoff().is_disabled(){ 0.0 } else { 70.0/1_000_000_000f32 };
+                    
+                    let t_fall:f32 =  70.0/1_000_000_000f32 ;
+                    let t_delay = (t_dnf + t_af + t_fall);
 
                     match self.mode {
                         Mode::Standard { frequency } => {
@@ -332,7 +343,9 @@ macro_rules! hal {
                             // be 50% duty cycle. lets consider scl_l+scl_h to be 128. so that it can
                             // be changed later
                             // (scl_l+scl_h+2)(presc +1 ) ==> as scl+presc ==F_i2cclk/F/F_scl_clk
-                            let clk_ratio = (self.pclk as f32 / frequency.0 as f32);
+                            let mut  clk_ratio = (self.pclk as f32 / frequency.0 as f32);
+                            // t_sync1 = T_fall_time + T_analog_filter(60ns is 767zi) + (DNF+3)*T_i2cclk
+                            clk_ratio -= (t_delay * self.pclk as f32);
                             let scl_l:u8;
                             let scl_h:u8;
                             let mut presc:u8 ;
