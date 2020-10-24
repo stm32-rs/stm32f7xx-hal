@@ -297,7 +297,8 @@ macro_rules! hal {
 
                     let pclk = <$I2CX as RccBus>::Bus::get_frequency(&clocks).0;
 
-                    assert!(mode.get_frequency().0 <= 400_000);
+                    // changed to 1MHz. some f7 supports 500KHz and 1MHz clocks too
+                    assert!(mode.get_frequency().0 <= 1_000_000);
 
                     let mut i2c = I2c { i2c, pins, mode, pclk };
                     i2c.init();
@@ -316,40 +317,61 @@ macro_rules! hal {
 
                     // Disable I2C during configuration
                     self.i2c.cr1.write(|w| w.pe().disabled());
-                    let target_freq_mhz: f32 = self.mode.get_frequency().0 as f32 / 1_000_000.0;
+                    // let target_freq_mhz: f32 = self.mode.get_frequency().0 as f32 / 1_000_000.0;
 
                     // by default, APB clock is selected by RCC for I2C
                     // Set the base clock as pclk1 (all I2C are on APB1)
-                    let base_clk_mhz: f32 = self.pclk as f32 / 1_000_000.0;
+                    // let base_clk_mhz: f32 = self.pclk as f32 / 1_000_000.0;
+                    let sdadel = 2;
+                    let scldel = 4;
 
                     match self.mode {
-                        Mode::Standard { .. } => {
-                            // In standard mode, t_{SCL High} = t_{SCL Low}
-                            // Delays
-                            // let sdadel = 2;
-                            // let scldel = 4;
-
-                            let sdadel = 2;
-                            let scldel = 4;
-
-                            // SCL Low time
-                            let scll = (base_clk_mhz / (2.0 * (target_freq_mhz))).ceil();
-                            let scll: u8 = if scll <= 256.0 { scll as u8 - 1 } else { 255 };
-                            let fscll_mhz: f32 = base_clk_mhz / (scll as f32 + 1.0);
-
-                            let sclh: u8 = scll;
-
-                            // Prescaler
-                            let presc = base_clk_mhz / fscll_mhz;
-                            let presc: u8 = if presc <= 16.0 { sclh as u8 - 1 } else { 15 };
+                        Mode::Standard { frequency } => {
+                            // formula is like F_i2cclk/F/F_scl_clk = (scl_h+scl_l+2)*(Presc + 1)
+                            // consider scl_l+scl_h is 256 max. but in that case clock should always
+                            // be 50% duty cycle. lets consider scl_l+scl_h to be 128. so that it can
+                            // be changed later
+                            // (scl_l+scl_h+2)(presc +1 ) ==> as scl+presc ==F_i2cclk/F/F_scl_clk
+                            let clk_ratio = (self.pclk as f32 / frequency.0 as f32);
+                            let scl_l:u8;
+                            let scl_h:u8;
+                            let mut presc:u8 ;
+                            // if ratio is > 4096. that frequancy is not possible to generate. so
+                            // minimum frequancy possible is generated
+                            if clk_ratio > 4096 as f32{
+                                // TODO: should we panic or use minimum allowed frequancy
+                                scl_l = 0x7fu8;
+                                scl_h = 0x7fu8;
+                                presc = 0xfu8;
+                            } else{
+                                // smaller the minimum devition less difference between expected vs
+                                // actual scl clock
+                                let mut min_deviation = 16f32;
+                                // TODO: use duty cycle and based on that use precstart
+                                let presc_start = (clk_ratio / 256.0).ceil() as u8;
+                                presc = presc_start;
+                                for tmp_presc in presc_start..17{
+                                    let deviation = clk_ratio % tmp_presc as f32;
+                                    if (min_deviation > deviation) {
+                                        min_deviation = deviation;
+                                        presc = tmp_presc as u8;
+                                    }
+                                }
+                                // now that we have optimal prescalar value. optimal scl_l and scl_h
+                                // needs to be calculated
+                                let scl_width = (clk_ratio / presc as f32) as u8;   // it will be always less than 256
+                                scl_h = scl_width / 2u8 - 1;
+                                scl_l = scl_width - scl_h - 1;                            // This is to get max precision
+                                presc -= 1;
+                            }
 
                             self.i2c.timingr.write(|w|
                                 w.presc()
                                     .bits(presc)
                                     .scll()
-                                    .bits(scll)
+                                    .bits(scl_l)
                                     .sclh()
-                                    .bits(sclh)
+                                    .bits(scl_h)
                                     .sdadel()
                                     .bits(sdadel)
                                     .scldel()
