@@ -302,7 +302,7 @@ macro_rules! hal {
                     assert!(mode.get_frequency().0 <= 1_000_000);
 
                     let mut i2c = I2c { i2c, pins, mode, pclk };
-                    i2c.init();
+                    i2c.init(clocks);
                     i2c
                 }
 
@@ -310,7 +310,7 @@ macro_rules! hal {
                 /// I2C_SDAEL, I2C_SCLH, I2C_SCLL
                 ///
                 /// For now, only standard mode is implemented
-                fn init(&mut self) {
+                fn init(&mut self, clocks: Clocks) {
                     // NOTE : operations are in float for better precision,
                     // STM32F7 usually have FPU and this runs only at
                     // initialization so the footprint of such heavy calculation
@@ -329,12 +329,15 @@ macro_rules! hal {
                     // generally it is 2-3 clock cycles
                     let dnf = self.i2c.cr1.read().dnf().bits();
                     // t_sync + dnf delay
-                    let t_dnf = (dnf + 3 ) as f32/ self.pclk as f32;
+                    let t_dnf = (dnf) as f32/ self.pclk as f32;
                     // if analog filter is enabled then it offer about 50 - 70 ns delay
-                    let t_af:f32 = if self.i2c.cr1.read().anfoff().is_disabled(){ 0.0 } else { 70.0/1_000_000_000f32 };
+                    let t_af:f32 = if self.i2c.cr1.read().anfoff().is_disabled(){ 0.0 } else { 60.0/1_000_000_000f32 };
 
-                    let t_fall:f32 =  70.0/1_000_000_000f32 ;
-                    let t_delay = (t_dnf + t_af + t_fall);
+                    let t_sync = 3.0/clocks.sysclk().0 as f32;
+                    // fall or rise time 
+                    let t_fall:f32 =  30f32/1_000_000_000f32;
+                    // t_sync1 + t_sync2
+                    let t_delay = 2f32*(t_dnf + t_af + t_fall+ t_sync);
 
                     match self.mode {
                         Mode::Standard { frequency } => {
