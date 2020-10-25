@@ -616,6 +616,12 @@ impl CFGR {
             None
         };
 
+        if p.is_none() && q.is_none() {
+            // We don't need PLL
+            self.use_pll = false;
+            return;
+        }
+
         if let Some((m, n, p, q)) = CFGR::calculate_mnpq(base_clk, FreqRequest { p, q }) {
             self.pllm = m as u8;
             self.plln = n as u16;
@@ -1164,5 +1170,29 @@ mod tests {
         let (clocks, config) = cfgr.calculate_clocks();
         assert_eq!(clocks.sysclk().0, 216_000_000);
         assert!(clocks.is_pll48clk_valid());
+    }
+
+    #[test]
+    fn test_rcc_default() {
+        use super::PLLP;
+
+        let mut cfgr = CFGR {
+            hse: None,
+            hclk: None,
+            sysclk: None,
+            pclk1: None,
+            pclk2: None,
+            use_pll: false,
+            use_pll48clk: false,
+            pllm: 2,
+            plln: 50,
+            pllp: PLLP::Div2,
+            pllq: 2,
+        };
+
+        cfgr.pll_configure();
+        assert!(!cfgr.use_pll);
+        let (clocks, config) = cfgr.calculate_clocks();
+        assert_eq!(clocks.sysclk().0, 16_000_000);
     }
 }
