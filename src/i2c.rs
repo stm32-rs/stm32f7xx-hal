@@ -331,10 +331,10 @@ macro_rules! hal {
                     // t_sync + dnf delay
                     let t_dnf = (dnf) as f32/ self.pclk as f32;
                     // if analog filter is enabled then it offer about 50 - 70 ns delay
-                    let t_af:f32 = if self.i2c.cr1.read().anfoff().is_disabled(){ 
-                        0.0 
-                    } else { 
-                        60.0/1_000_000_000f32 
+                    let t_af:f32 = if self.i2c.cr1.read().anfoff().is_disabled(){
+                        0.0
+                    } else {
+                        60.0/1_000_000_000f32
                     };
 
                     let t_sync = 3.0/clocks.sysclk().0 as f32;
