@@ -334,7 +334,7 @@ macro_rules! hal {
                     let t_af:f32 = if self.i2c.cr1.read().anfoff().is_disabled(){ 0.0 } else { 60.0/1_000_000_000f32 };
 
                     let t_sync = 3.0/clocks.sysclk().0 as f32;
-                    // fall or rise time 
+                    // fall or rise time
                     let t_fall:f32 =  30f32/1_000_000_000f32;
                     // t_sync1 + t_sync2
                     let t_delay = 2f32*(t_dnf + t_af + t_fall+ t_sync);
