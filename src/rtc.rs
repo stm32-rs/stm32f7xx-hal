@@ -37,14 +37,33 @@ impl Rtc {
     ) -> Self {
         let mut result = Self { regs };
 
-        enable_lse(bdcr, bypass);
-        unlock(apb1, pwr);
-        enable(bdcr);
-        result.set_24h_fmt();
+        // Steps:
+        // Enable PWR and DBP
+        // Enable LSE (if needed)
+        // Enable RTC Clock
+        // Disable Write Protect
+        // Enter Init
+        // Configure 24 hour format
+        // Set prescalers
+        // Exit Init
+        // Enable write protect
 
-        result.regs.prer.modify(|_, w| unsafe {
-            w.prediv_s().bits(prediv_s);
-            w.prediv_a().bits(prediv_a)
+        // As per the sample code, unlock comes first. (Enable PWR and DBP)
+        unlock(apb1, pwr);
+        // If necessary, enable the LSE.
+        if bdcr.bdcr().read().lserdy().bit_is_clear() {
+            enable_lse(bdcr, bypass);
+        }
+        enable(bdcr);
+
+        result.modify(|regs| {
+            // Set 24 Hour
+            regs.cr.modify(|_, w| w.fmt().clear_bit());
+            // Set prescalers
+            regs.prer.modify(|_, w| unsafe {
+                w.prediv_s().bits(prediv_s);
+                w.prediv_a().bits(prediv_a)
+            })
         });
 
         result
@@ -52,16 +71,16 @@ impl Rtc {
 
     /// Sets calendar clock to 24 hr format
     pub fn set_24h_fmt(&mut self) {
-        self.regs.cr.modify(|_, w| w.fmt().set_bit());
+        self.regs.cr.modify(|_, w| w.fmt().clear_bit());
     }
     /// Sets calendar clock to 12 hr format
     pub fn set_12h_fmt(&mut self) {
-        self.regs.cr.modify(|_, w| w.fmt().clear_bit());
+        self.regs.cr.modify(|_, w| w.fmt().set_bit());
     }
 
     /// Reads current hour format selection
     pub fn is_24h_fmt(&self) -> bool {
-        self.regs.cr.read().fmt().bit()
+        !self.regs.cr.read().fmt().bit()
     }
 
     /// As described in Section 27.3.7 in RM0316,
@@ -86,10 +105,14 @@ impl Rtc {
         self.regs.isr.modify(|_, w| w.init().clear_bit());
         // wait for last write to be done
         while !self.regs.isr.read().initf().bit_is_clear() {}
+
+        // Enable write protection
+        self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
     }
 }
 
 impl Rtcc for Rtc {
+    // ** Assumes 1970-01-01 00:00:00 Epoch **
     type Error = Error;
 
     /// set time using NaiveTime (ISO 8601 time without timezone)
@@ -99,14 +122,16 @@ impl Rtcc for Rtc {
         let (ht, hu) = bcd2_encode(time.hour())?;
         let (mnt, mnu) = bcd2_encode(time.minute())?;
         let (st, su) = bcd2_encode(time.second())?;
-        self.regs.tr.write(|w| unsafe {
-            w.ht().bits(ht);
-            w.hu().bits(hu);
-            w.mnt().bits(mnt);
-            w.mnu().bits(mnu);
-            w.st().bits(st);
-            w.su().bits(su);
-            w.pm().clear_bit()
+        self.modify(|regs| {
+            regs.tr.write(|w| unsafe {
+                w.ht().bits(ht);
+                w.hu().bits(hu);
+                w.mnt().bits(mnt);
+                w.mnu().bits(mnu);
+                w.st().bits(st);
+                w.su().bits(su);
+                w.pm().clear_bit()
+            })
         });
 
         Ok(())
@@ -145,9 +170,10 @@ impl Rtcc for Rtc {
             Hours::AM(_h) | Hours::PM(_h) => self.set_12h_fmt(),
         }
 
-        self.regs
-            .tr
-            .modify(|_, w| unsafe { w.ht().bits(ht).hu().bits(hu) });
+        self.modify(|regs| {
+            regs.tr
+                .modify(|_, w| unsafe { w.ht().bits(ht).hu().bits(hu) })
+        });
 
         Ok(())
     }
@@ -191,7 +217,7 @@ impl Rtcc for Rtc {
         if (year < 1970) || (year > 2038) {
             return Err(Error::InvalidInputData);
         }
-        let (yt, yu) = bcd2_encode(year as u32)?;
+        let (yt, yu) = bcd2_encode(year as u32 - 1970)?;
         self.modify(|regs| {
             regs.dr
                 .modify(|_, w| unsafe { w.yt().bits(yt).yu().bits(yu) })
@@ -211,13 +237,15 @@ impl Rtcc for Rtc {
         let (mt, mu) = bcd2_encode(date.month())?;
         let (dt, du) = bcd2_encode(date.day())?;
 
-        self.regs.dr.write(|w| unsafe {
-            w.dt().bits(dt);
-            w.du().bits(du);
-            w.mt().bit(mt > 0);
-            w.mu().bits(mu);
-            w.yt().bits(yt);
-            w.yu().bits(yu)
+        self.modify(|regs| {
+            regs.dr.write(|w| unsafe {
+                w.dt().bits(dt);
+                w.du().bits(du);
+                w.mt().bit(mt > 0);
+                w.mu().bits(mu);
+                w.yt().bits(yt);
+                w.yu().bits(yu)
+            })
         });
 
         Ok(())
@@ -237,23 +265,24 @@ impl Rtcc for Rtc {
         let (mnt, mnu) = bcd2_encode(date.minute())?;
         let (st, su) = bcd2_encode(date.second())?;
 
-        self.regs.dr.write(|w| unsafe {
-            w.dt().bits(dt);
-            w.du().bits(du);
-            w.mt().bit(mt > 0);
-            w.mu().bits(mu);
-            w.yt().bits(yt);
-            w.yu().bits(yu)
-        });
-
-        self.regs.tr.write(|w| unsafe {
-            w.ht().bits(ht);
-            w.hu().bits(hu);
-            w.mnt().bits(mnt);
-            w.mnu().bits(mnu);
-            w.st().bits(st);
-            w.su().bits(su);
-            w.pm().clear_bit()
+        self.modify(|regs| {
+            regs.dr.write(|w| unsafe {
+                w.dt().bits(dt);
+                w.du().bits(du);
+                w.mt().bit(mt > 0);
+                w.mu().bits(mu);
+                w.yt().bits(yt);
+                w.yu().bits(yu)
+            });
+            regs.tr.write(|w| unsafe {
+                w.ht().bits(ht);
+                w.hu().bits(hu);
+                w.mnt().bits(mnt);
+                w.mnu().bits(mnu);
+                w.st().bits(st);
+                w.su().bits(su);
+                w.pm().clear_bit()
+            })
         });
 
         Ok(())
@@ -317,7 +346,7 @@ impl Rtcc for Rtc {
 
     fn get_year(&mut self) -> Result<u16, Self::Error> {
         let dr = self.regs.dr.read();
-        let year = bcd2_decode(dr.yt().bits(), dr.yu().bits());
+        let year = bcd2_decode(dr.yt().bits(), dr.yu().bits()) + 1970; // 1970-01-01 is the epoch begin.
         Ok(year as u16)
     }
 
@@ -331,14 +360,15 @@ impl Rtcc for Rtc {
 
     fn get_datetime(&mut self) -> Result<NaiveDateTime, Self::Error> {
         self.set_24h_fmt();
+        // If the time register is read, the upper bits are frozen until the date is read.
+        // Thus, read the time first, then the date.
+        let seconds = self.get_seconds().unwrap();
+        let minutes = self.get_minutes().unwrap();
+        let hours = hours_to_u8(self.get_hours()?)?;
 
         let day = self.get_day().unwrap();
         let month = self.get_month().unwrap();
         let year = self.get_year().unwrap();
-
-        let seconds = self.get_seconds().unwrap();
-        let minutes = self.get_minutes().unwrap();
-        let hours = hours_to_u8(self.get_hours()?)?;
 
         Ok(
             NaiveDate::from_ymd(year.into(), month.into(), day.into()).and_hms(
@@ -396,9 +426,15 @@ fn hours_to_u8(hours: Hours) -> Result<u8, Error> {
 /// Enable the low frequency external oscillator. This is the only mode currently
 /// supported, to avoid exposing the `CR` and `CRS` registers.
 fn enable_lse(bdcr: &mut BDCR, bypass: bool) {
+    // Force a reset of the backup domain.
+    bdcr.bdcr().modify(|_, w| w.bdrst().enabled());
+    bdcr.bdcr().modify(|_, w| w.bdrst().disabled());
+    // Enable the LSE.
     bdcr.bdcr()
         .modify(|_, w| w.lseon().set_bit().lsebyp().bit(bypass));
     while bdcr.bdcr().read().lserdy().bit_is_clear() {}
+    // Set clock source to LSE.
+    bdcr.bdcr().modify(|_, w| w.rtcsel().lse());
 }
 
 fn unlock(apb1: &mut APB1, pwr: &mut PWR) {
@@ -408,21 +444,15 @@ fn unlock(apb1: &mut APB1, pwr: &mut PWR) {
             .pwren()
             .set_bit()
     });
-    pwr.cr.modify(|_, w| {
+    pwr.cr1.modify(|_, w| {
         w
             // Enable access to the backup registers
             .dbp()
             .set_bit()
     });
-
-    while pwr.cr.read().dbp().bit_is_clear() {}
 }
 
 fn enable(bdcr: &mut BDCR) {
-    bdcr.bdcr().modify(|_, w| w.bdrst().enabled());
-    bdcr.bdcr().modify(|_, w| {
-        w.rtcsel().lse();
-        w.rtcen().enabled();
-        w.bdrst().disabled()
-    });
+    // Start the actual RTC.
+    bdcr.bdcr().modify(|_, w| w.rtcen().enabled());
 }
