@@ -1103,7 +1103,7 @@ mod tests {
 
         assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
 
-        let (clocks, config) = cfgr.calculate_clocks();
+        let (clocks, _config) = cfgr.calculate_clocks();
         assert_eq!(clocks.sysclk().0, 216_000_000);
         assert!(clocks.is_pll48clk_valid());
     }
@@ -1135,7 +1135,7 @@ mod tests {
 
         assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
 
-        let (clocks, config) = cfgr.calculate_clocks();
+        let (clocks, _config) = cfgr.calculate_clocks();
         assert_eq!(clocks.sysclk().0, 216_000_000);
         assert!(clocks.is_pll48clk_valid());
     }
@@ -1167,7 +1167,7 @@ mod tests {
 
         assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
 
-        let (clocks, config) = cfgr.calculate_clocks();
+        let (clocks, _config) = cfgr.calculate_clocks();
         assert_eq!(clocks.sysclk().0, 216_000_000);
         assert!(clocks.is_pll48clk_valid());
     }
@@ -1192,7 +1192,7 @@ mod tests {
 
         cfgr.pll_configure();
         assert!(!cfgr.use_pll);
-        let (clocks, config) = cfgr.calculate_clocks();
+        let (clocks, _config) = cfgr.calculate_clocks();
         assert_eq!(clocks.sysclk().0, 16_000_000);
     }
 }
