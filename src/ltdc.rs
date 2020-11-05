@@ -1,3 +1,4 @@
+#[cfg_attr(test, allow(unused_imports))]
 use micromath::F32Ext;
 
 use crate::{
