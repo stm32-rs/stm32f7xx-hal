@@ -1,5 +1,6 @@
 use core::cmp::min;
 
+#[cfg_attr(test, allow(unused_imports))]
 use micromath::F32Ext;
 
 use crate::pac::{rcc, FLASH, PWR, RCC};

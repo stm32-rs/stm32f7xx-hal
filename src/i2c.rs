@@ -3,6 +3,7 @@
 
 // NB : this implementation started as a modified copy of https://github.com/stm32-rs/stm32f1xx-hal/blob/master/src/i2c.rs
 
+#[cfg_attr(test, allow(unused_imports))]
 use micromath::F32Ext;
 
 use crate::gpio::gpioa::PA8;
