@@ -12,8 +12,10 @@ use crate::gpio::{
 use crate::rcc::Clocks;
 use crate::time::Hertz;
 
+#[cfg(feature = "usb_hs_phy")]
+use synopsys_usb_otg::PhyType;
 pub use synopsys_usb_otg::UsbBus;
-use synopsys_usb_otg::{PhyType, UsbPeripheral};
+use synopsys_usb_otg::UsbPeripheral;
 
 pub struct USB {
     pub usb_global: pac::OTG_HS_GLOBAL,
@@ -113,6 +115,7 @@ unsafe impl UsbPeripheral for USB {
         self.hclk.0
     }
 
+    #[cfg(feature = "usb_hs_phy")]
     #[inline(always)]
     fn phy_type(&self) -> PhyType {
         if self.usb_phy.is_some() {
