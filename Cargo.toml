@@ -124,4 +124,4 @@ required-features = ["stm32f767", "rt"]
 
 [[example]]
 name = "usb_serial"
-required-features = ["stm32f723", "rt", "usb_fs"]
+required-features = ["stm32f723", "rt", "synopsys-usb-otg"]
