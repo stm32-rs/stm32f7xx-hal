@@ -4,8 +4,6 @@
 // NB : this implementation started as a modified copy of https://github.com/stm32-rs/stm32f1xx-hal/blob/master/src/i2c.rs
 
 #[cfg_attr(test, allow(unused_imports))]
-use micromath::F32Ext;
-
 use crate::gpio::gpioa::PA8;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::gpioc::PC9;
@@ -16,6 +14,7 @@ use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
 use crate::time::Hertz;
+use micromath::F32Ext;
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 
@@ -47,6 +46,7 @@ pub enum Mode {
     Standard { frequency: Hertz },
     Fast { frequency: Hertz },
     FastPlus { frequency: Hertz },
+    Custom { timing_r: u32 },
 }
 
 impl Mode {
@@ -65,14 +65,6 @@ impl Mode {
     pub fn fast_plus<F: Into<Hertz>>(frequency: F) -> Self {
         Mode::FastPlus {
             frequency: frequency.into(),
-        }
-    }
-
-    pub fn get_frequency(&self) -> Hertz {
-        match self {
-            &Mode::Standard { frequency } => frequency,
-            &Mode::Fast { frequency } => frequency,
-            &Mode::FastPlus { frequency } => frequency,
         }
     }
 }
@@ -231,6 +223,128 @@ fn blocking_i2c<I2C, SCL, SDA>(
     };
 }
 
+// hddat and vddat are removed because SDADEL is always going to be 0 in this implementation so
+// condition is always met
+struct I2cSpec {
+    freq_max: u32,
+    sudat_min: u32,
+    _lscl_min: u32,
+    _hscl_min: u32,
+    trise_max: u32, // in ns
+    _tfall_max: u32,
+}
+
+#[derive(Debug)]
+struct I2cTiming {
+    presc: u8,
+    scldel: u8,
+    sdadel: u8,
+    sclh: u8,
+    scll: u8,
+}
+
+// everything is in nano seconds
+const I2C_STANDARD_MODE_SPEC: I2cSpec = I2cSpec {
+    freq_max: 102400,
+    sudat_min: 250,
+    _lscl_min: 4700,
+    _hscl_min: 4000,
+    trise_max: 640,
+    _tfall_max: 20,
+};
+const I2C_FAST_MODE_SPEC: I2cSpec = I2cSpec {
+    freq_max: 409600,
+    sudat_min: 100,
+    _lscl_min: 1300,
+    _hscl_min: 600,
+    trise_max: 250,
+    _tfall_max: 100,
+};
+
+const I2C_FAST_PLUS_MODE_SPEC: I2cSpec = I2cSpec {
+    freq_max: 1024000,
+    sudat_min: 50,
+    _lscl_min: 500,
+    _hscl_min: 260,
+    trise_max: 60,
+    _tfall_max: 100,
+};
+
+fn calculate_timing(
+    spec: I2cSpec,
+    i2c_freq: u32,
+    scl_freq: u32,
+    an_filter: bool,
+    dnf: u8,
+) -> I2cTiming {
+    // frequency limit check
+    assert!(scl_freq <= spec.freq_max);
+    // T_sync or delay introduced in SCL
+    // generally it is 2-3 clock cycles
+    // t_sync + dnf delay
+    let t_dnf = (dnf) as f32 / i2c_freq as f32;
+    // if analog filter is enabled then it offer about 50 - 70 ns delay
+    let t_af: f32 = if an_filter {
+        40.0 / 1_000_000_000f32
+    } else {
+        0.0
+    };
+    // t_sync = 2 to 3 * i2cclk
+    let t_sync = 2.0 / (i2c_freq as f32);
+    // fall or rise time
+    let t_fall: f32 = 50f32 / 1_000_000_000f32;
+    let t_rise: f32 = 60f32 / 1_000_000_000f32;
+    let t_delay = t_fall + t_rise + 2.0 * (t_dnf + t_af + t_sync);
+    // formula is like F_i2cclk/F/F_scl_clk = (scl_h+scl_l+2)*(Presc + 1)
+    // consider scl_l+scl_h is 256 max. but in that case clock should always
+    // be 50% duty cycle. lets consider scl_l+scl_h to be 128. so that it can
+    // be changed later
+    // (scl_l+scl_h+2)(presc +1 ) ==> as scl_width*presc ==F_i2cclk/F/F_scl_clk
+    let product: f32 = (1.0 - t_delay * (scl_freq as f32)) * (i2c_freq / scl_freq) as f32;
+    let scl_l: u8;
+    let scl_h: u8;
+    let mut presc: u8;
+    // if ratio is > (scll+sclh)*presc. that frequancy is not possible to generate. so
+    // minimum frequancy possible is generated
+    if product > 8192 as f32 {
+        // TODO: should we panic or use minimum allowed frequancy
+        scl_l = 0x7fu8;
+        scl_h = 0x7fu8;
+        presc = 0xfu8;
+    } else {
+        // smaller the minimum devition less difference between expected vs
+        // actual scl clock
+        let mut min_deviation = 16f32;
+        // TODO: use duty cycle and based on that use precstart
+        let presc_start = (product / 512.0).ceil() as u8;
+        presc = presc_start;
+        for tmp_presc in presc_start..17 {
+            let deviation = product % tmp_presc as f32;
+            if min_deviation > deviation {
+                min_deviation = deviation;
+                presc = tmp_presc as u8;
+            }
+        }
+        // now that we have optimal prescalar value. optimal scl_l and scl_h
+        // needs to be calculated
+        let scl_width = (product / presc as f32) as u16; // it will be always less than 256
+        scl_h = (scl_width / 2 - 1) as u8;
+        scl_l = (scl_width - scl_h as u16 - 1) as u8; // This is to get max precision
+        presc -= 1;
+    }
+    let scldel: u8 = (((spec.trise_max + spec.sudat_min) as f32 / 1_000_000_000.0)
+        / ((presc + 1) as f32 / i2c_freq as f32)
+        - 1.0)
+        .ceil() as u8;
+    I2cTiming {
+        presc,
+        scldel,
+        sdadel: 0,
+        sclh: scl_h,
+        scll: scl_l,
+    }
+}
+
 macro_rules! check_status_flag {
     ($i2c:expr, $flag:ident, $status:ident) => {{
         let isr = $i2c.isr.read();
@@ -298,8 +412,6 @@ macro_rules! hal {
 
                     let pclk = <$I2CX as RccBus>::Bus::get_frequency(&clocks).0;
 
-                    assert!(mode.get_frequency().0 <= 400_000);
-
                     let mut i2c = I2c { i2c, pins, mode, pclk };
                     i2c.init();
                     i2c
@@ -314,51 +426,38 @@ macro_rules! hal {
                     // STM32F7 usually have FPU and this runs only at
                     // initialization so the footprint of such heavy calculation
                     // occurs only once
-
                     // Disable I2C during configuration
                     self.i2c.cr1.write(|w| w.pe().disabled());
-                    let target_freq_mhz: f32 = self.mode.get_frequency().0 as f32 / 1_000_000.0;
 
-                    // by default, APB clock is selected by RCC for I2C
-                    // Set the base clock as pclk1 (all I2C are on APB1)
-                    let base_clk_mhz: f32 = self.pclk as f32 / 1_000_000.0;
+                    let an_filter:bool = self.i2c.cr1.read().anfoff().is_enabled();
+                    let dnf = self.i2c.cr1.read().dnf().bits();
 
-                    match self.mode {
-                        Mode::Standard { .. } => {
-                            // In standard mode, t_{SCL High} = t_{SCL Low}
-                            // Delays
-                            // let sdadel = 2;
-                            // let scldel = 4;
-
-                            let sdadel = 2;
-                            let scldel = 4;
-
-                            // SCL Low time
-                            let scll = (base_clk_mhz / (2.0 * (target_freq_mhz))).ceil();
-                            let scll: u8 = if scll <= 256.0 { scll as u8 - 1 } else { 255 };
-                            let fscll_mhz: f32 = base_clk_mhz / (scll as f32 + 1.0);
-
-                            let sclh: u8 = scll;
-
-                            // Prescaler
-                            let presc = base_clk_mhz / fscll_mhz;
-                            let presc: u8 = if presc <= 16.0 { sclh as u8 - 1 } else { 15 };
-
-                            self.i2c.timingr.write(|w|
-                                w.presc()
-                                    .bits(presc)
-                                    .scll()
-                                    .bits(scll)
-                                    .sclh()
-                                    .bits(sclh)
-                                    .sdadel()
-                                    .bits(sdadel)
-                                    .scldel()
-                                    .bits(scldel)
-                            );
-                        },
-                        _ => unimplemented!(),
-                    }
+                    let i2c_timingr: I2cTiming =  match self.mode {
+                        Mode::Standard{ frequency } => calculate_timing(I2C_STANDARD_MODE_SPEC, self.pclk, frequency.0, an_filter, dnf ),
+                        Mode::Fast{ frequency } => calculate_timing(I2C_FAST_MODE_SPEC, self.pclk, frequency.0, an_filter, dnf),
+                        Mode::FastPlus{ frequency } => calculate_timing(I2C_FAST_PLUS_MODE_SPEC, self.pclk, frequency.0, an_filter, dnf ),
+                        Mode::Custom{ timing_r } => {
+                            I2cTiming{
+                                presc:  ((timing_r & 0xf000_0000) >> 28 ) as u8,
+                                scldel: ((timing_r & 0x00f0_0000) >> 20 ) as u8 ,
+                                sdadel: ((timing_r & 0x000f_0000) >> 16 ) as u8,
+                                sclh:   ((timing_r & 0x0000_ff00) >> 08 ) as u8,
+                                scll:   ((timing_r & 0x0000_00ff) >> 00 ) as u8,
+                            }
+                        }
+                    };
+                    self.i2c.timingr.write(|w|
+                        w.presc()
+                            .bits(i2c_timingr.presc)
+                            .scll()
+                            .bits(i2c_timingr.scll)
+                            .sclh()
+                            .bits(i2c_timingr.sclh)
+                            .sdadel()
+                            .bits(i2c_timingr.sdadel)
+                            .scldel()
+                            .bits(i2c_timingr.scldel)
+                    );
 
                     self.i2c.cr1.modify(|_, w| w.pe().enabled());
                 }
