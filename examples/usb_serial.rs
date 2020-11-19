@@ -97,7 +97,7 @@ fn main() -> ! {
             continue;
         }
 
-        let mut buf = [0u8; 64];
+        let mut buf = [0u8; 512];
 
         match serial.read(&mut buf) {
             Ok(count) if count > 0 => {
