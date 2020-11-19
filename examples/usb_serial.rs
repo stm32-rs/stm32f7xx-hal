@@ -1,5 +1,6 @@
 //! CDC-ACM serial port example using polling in a busy loop.
 //! Target board: any STM32F7 with an OTG FS/HS peripheral and a 25MHz HSE generator
+//! This example works on the 32F723EDISCOVERY board.
 //!
 //! For FS operation:
 //! > cargo run --example usb_serial --features  "stm32f723, rt, usb_fs" --release
