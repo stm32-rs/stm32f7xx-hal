@@ -1,5 +1,16 @@
 //! CDC-ACM serial port example using polling in a busy loop.
-//! Target board: any STM32F7 with a OTG FS peripheral and a 25MHz HSE generator
+//! Target board: any STM32F7 with an OTG FS/HS peripheral and a 25MHz HSE generator
+//! This example works on the 32F723EDISCOVERY board.
+//!
+//! For FS operation:
+//! > cargo run --example usb_serial --features  "stm32f723, rt, usb_fs" --release
+//!
+//! For HS operation:
+//! > cargo run --example usb_serial --features  "stm32f723, rt, usb_hs" --release
+//!
+//! Note that `usbd-serial` library used in this example doesn't support
+//! HighSpeed mode properly at the moment. See
+//! https://github.com/mvirkkunen/usbd-serial/pull/14 for a potential workaround.
 #![no_std]
 #![no_main]
 
@@ -45,11 +56,23 @@ fn main() -> ! {
         ),
         clocks,
     );
-    #[cfg(feature = "usb_hs")]
+    #[cfg(all(feature = "usb_hs", not(feature = "usb_hs_phy")))]
     let usb = USB::new(
         dp.OTG_HS_GLOBAL,
         dp.OTG_HS_DEVICE,
         dp.OTG_HS_PWRCLK,
+        (
+            gpiob.pb14.into_alternate_af12(),
+            gpiob.pb15.into_alternate_af12(),
+        ),
+        clocks,
+    );
+    #[cfg(all(feature = "usb_hs", feature = "usb_hs_phy"))]
+    let usb = USB::new_with_internal_hs_phy(
+        dp.OTG_HS_GLOBAL,
+        dp.OTG_HS_DEVICE,
+        dp.OTG_HS_PWRCLK,
+        dp.USBPHYC,
         (
             gpiob.pb14.into_alternate_af12(),
             gpiob.pb15.into_alternate_af12(),
@@ -67,6 +90,7 @@ fn main() -> ! {
         .product("Serial port")
         .serial_number("TEST")
         .device_class(usbd_serial::USB_CLASS_CDC)
+        .max_packet_size_0(64) // Size required for HS, and ok for FS
         .build();
 
     loop {
@@ -74,7 +98,7 @@ fn main() -> ! {
             continue;
         }
 
-        let mut buf = [0u8; 64];
+        let mut buf = [0u8; 512];
 
         match serial.read(&mut buf) {
             Ok(count) if count > 0 => {

@@ -96,6 +96,19 @@ pub mod gpio;
 ))]
 pub mod otg_fs;
 
+#[cfg(all(
+    feature = "usb_hs",
+    any(
+        feature = "stm32f722",
+        feature = "stm32f723",
+        feature = "stm32f730",
+        feature = "stm32f732",
+        feature = "stm32f733",
+        feature = "stm32f767",
+    )
+))]
+pub mod otg_hs;
+
 #[cfg(feature = "device-selected")]
 pub mod prelude;
 

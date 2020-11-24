@@ -525,6 +525,7 @@ impl CFGR {
             timclk1: Hertz(timclk1),
             timclk2: Hertz(timclk2),
             pll48clk_valid,
+            hse: self.hse.map(|hse| Hertz(hse.freq)),
         };
 
         (clocks, config)
@@ -790,6 +791,7 @@ pub struct Clocks {
     timclk1: Hertz,
     timclk2: Hertz,
     pll48clk_valid: bool,
+    hse: Option<Hertz>,
 }
 
 impl Clocks {
@@ -828,6 +830,10 @@ impl Clocks {
     pub fn is_pll48clk_valid(&self) -> bool {
         // USB specification allow +-0.25%
         self.pll48clk_valid
+    }
+
+    pub fn hse(&self) -> Option<Hertz> {
+        self.hse
     }
 }
 
