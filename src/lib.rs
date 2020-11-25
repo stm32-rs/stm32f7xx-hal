@@ -136,6 +136,9 @@ pub mod signature;
 #[cfg(feature = "device-selected")]
 pub mod i2c;
 
+#[cfg(feature = "device-selected")]
+pub mod rng;
+
 #[cfg(feature = "ltdc")]
 pub mod ltdc;
 
