@@ -45,8 +45,7 @@ fn main() -> ! {
     ncs.set_high().unwrap();
 
     // Initialize SPI
-    let mut spi = Spi::new(p.SPI3, (sck, miso, mosi)).enable(
-        &mut rcc,
+    let mut spi = Spi::new(p.SPI3, (sck, miso, mosi), &mut rcc.apb1).enable(
         spi::ClockDivider::DIV32,
         spi::Mode {
             polarity: spi::Polarity::IdleHigh,

@@ -44,11 +44,8 @@ fn main() -> ! {
     ncs.set_high().unwrap();
 
     // Initialize SPI
-    let mut spi = Spi::new(p.SPI1, (sck, spi::NoMiso, mosi)).enable(
-        &mut rcc,
-        spi::ClockDivider::DIV32,
-        embedded_hal::spi::MODE_0,
-    );
+    let mut spi = Spi::new(p.SPI1, (sck, spi::NoMiso, mosi), &mut rcc.apb2)
+        .enable(spi::ClockDivider::DIV32, embedded_hal::spi::MODE_0);
 
     // Create the buffer we're going to use for DMA. This is safe, as this
     // function won't return as long as the program runs, so there's no chance
