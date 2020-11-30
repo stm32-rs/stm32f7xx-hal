@@ -35,8 +35,7 @@ where
     P: Pins<I>,
 {
     /// Create a new instance of the SPI API
-    pub fn new(instance: I, pins: P, apb: &mut <I as RccBus>::Bus) -> Self {
-        I::enable(apb);
+    pub fn new(instance: I, pins: P) -> Self {
         Self {
             spi: instance,
             pins,
@@ -45,10 +44,16 @@ where
     }
 
     /// Initialize the SPI peripheral
-    pub fn enable<Word>(self, clock_divider: ClockDivider, mode: Mode) -> Spi<I, P, Enabled<Word>>
+    pub fn enable<Word>(
+        self,
+        apb: &mut <I as RccBus>::Bus,
+        clock_divider: ClockDivider,
+        mode: Mode,
+    ) -> Spi<I, P, Enabled<Word>>
     where
         Word: SupportedWordSize,
     {
+        I::enable(apb);
         let cpol = mode.polarity == Polarity::IdleHigh;
         let cpha = mode.phase == Phase::CaptureOnSecondTransition;
 
