@@ -1,7 +1,7 @@
 //! QUADSPI driver for the STM32F7. Supports INDIRECT mode only, using DMA or polling I/O.
 
-use core::convert::TryInto;
 use crate::pac::{QUADSPI, RCC};
+use core::convert::TryInto;
 
 /// The QSPI driver interface.
 pub struct Qspi {
@@ -10,14 +10,15 @@ pub struct Qspi {
 }
 
 /// QSPI transaction description.
+#[derive(Clone)]
 pub struct QspiTransaction {
-    iwidth: u8,
-    awidth: u8,
-    dwidth: u8,
-    instruction: u8,
-    address: Option<u32>,
-    dummy: u8,
-    data_len: Option<usize>,
+    pub iwidth: u8,
+    pub awidth: u8,
+    pub dwidth: u8,
+    pub instruction: u8,
+    pub address: Option<u32>,
+    pub dummy: u8,
+    pub data_len: Option<usize>,
 }
 
 /// QSPI transactions contain configurable instruction, address, and data fields.
@@ -95,7 +96,7 @@ impl Qspi {
         };
     }
 
-    /// Polling indirect write.
+    /// Polling indirect write. `start_idx` is the offset in `buf` to start writing to.
     pub fn polling_write(&mut self, buf: &[u8], transaction: QspiTransaction, start_idx: usize) {
         // Clear DMA bit since we are not using it
         self.qspi.cr.modify(|_, w| w.dmaen().clear_bit());
