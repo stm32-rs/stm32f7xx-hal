@@ -38,14 +38,14 @@ fn main() -> ! {
     let mut rx_stream = dma.streams.stream0;
     let mut tx_stream = dma.streams.stream3;
 
-    let dma = dma.handle.enable(&mut rcc);
+    let dma = dma.handle.enable(&mut rcc.ahb1);
 
     // Set NCS pin to high (disabled) initially
     ncs.set_high().unwrap();
 
     // Initialize SPI
     let mut spi = Spi::new(p.SPI1, (sck, spi::NoMiso, mosi)).enable(
-        &mut rcc,
+        &mut rcc.apb2,
         spi::ClockDivider::DIV32,
         embedded_hal::spi::MODE_0,
     );

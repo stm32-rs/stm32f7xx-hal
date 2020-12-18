@@ -35,7 +35,7 @@ fn main() -> ! {
 
     // Initialize SPI
     let mut spi = Spi::new(p.SPI3, (sck, miso, mosi)).enable::<u8>(
-        &mut rcc,
+        &mut rcc.apb1,
         spi::ClockDivider::DIV32,
         spi::Mode {
             polarity: spi::Polarity::IdleHigh,
