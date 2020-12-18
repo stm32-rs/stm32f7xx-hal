@@ -20,14 +20,14 @@ pub const DISCO_SCREEN_CONFIG: DisplayConfig = DisplayConfig {
     active_height: 272,
     h_back_porch: 13,
     h_front_porch: 30,
-    h_sync: 30,
+    h_sync: 41,
     v_back_porch: 2,
     v_front_porch: 2,
     v_sync: 10,
     frame_rate: 60,
     h_sync_pol: false,
     v_sync_pol: false,
-    no_data_enable_pol: true,
+    no_data_enable_pol: false,
     pixel_clock_pol: false,
 };
 
