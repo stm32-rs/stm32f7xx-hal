@@ -50,7 +50,7 @@ fn main() -> ! {
 
     // Create a set of buffers for a memory at address `ADDR` of size `LEN` bytes
     const ADDR: u32 = 0x7000;
-    const LEN: usize = 4096;
+    const LEN: usize = 1024;
     let mut read_buffer: [u8; LEN] = [0; LEN];
     let mut write_buffer: [u8; LEN] = [0; LEN];
     for i in 0..LEN {
@@ -165,7 +165,7 @@ mod flash_driver {
             .set_speed(Speed::VeryHigh);
 
         // Setup QSPI driver
-        Qspi::new(rcc, quadspi, 24)
+        Qspi::new(rcc, quadspi, 24, 3)
     }
 
     /// Check the identification bytes of the flash device to validate communication.

@@ -10,9 +10,12 @@ use core::{convert::TryInto, marker::PhantomData, pin::Pin};
 pub struct Qspi {
     /// QSPI peripheral registers.
     qspi: QUADSPI,
+    /// Address size for all transactions.
+    adsize: u8,
 }
 
-/// QSPI transaction description.
+/// QSPI transaction description. Note that "advanced" settings like DDRM, DHHC,
+/// SIOO, and the use of alternate bytes are not supported at the moment.
 #[derive(Clone)]
 pub struct QspiTransaction {
     pub iwidth: u8,
@@ -47,7 +50,8 @@ impl QspiWidth {
     pub const QUAD: u8 = 0b11;
 }
 
-/// QSPI functional mode.
+/// QSPI functional mode. Only `INDIRECT_READ` and `INDIRECT_WRITE` are
+/// supported at the moment.
 struct QspiMode;
 
 #[allow(dead_code)]
@@ -61,7 +65,11 @@ impl QspiMode {
 impl Qspi {
     /// Initialize and configure the QSPI flash driver.
     /// - `size` is log2(flash size in bytes), e.g. 16 MB = 24.
-    pub fn new(rcc: &mut RCC, qspi: QUADSPI, size: u8) -> Self {
+    /// - `adsize` is the number of bytes needed to specify the address (1, 2, 3, or 4).
+    pub fn new(rcc: &mut RCC, qspi: QUADSPI, size: u8, mut adsize: u8) -> Self {
+        assert!(1 <= adsize && adsize <= 4);
+        adsize -= 1;
+
         // Enable QUADSPI in RCC
         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
 
@@ -76,7 +84,7 @@ impl Qspi {
             qspi.dcr.write_with_zero(|w| w.fsize().bits(size - 1));
         }
 
-        Qspi { qspi }
+        Qspi { qspi, adsize }
     }
 
     /// Wrapper around the HAL DMA driver. Performs QSPI register programming then creates a DMA
@@ -238,8 +246,7 @@ impl Qspi {
                     .dmode()
                     .bits(transaction.dwidth)
                     .adsize()
-                    // TODO: Change this from 24-bit addressing to configurable in `transaction`
-                    .bits(0b10)
+                    .bits(self.adsize)
                     .abmode()
                     .bits(QspiWidth::NONE)
                     .dcyc()
