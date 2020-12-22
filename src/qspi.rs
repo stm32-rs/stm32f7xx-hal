@@ -1,7 +1,10 @@
 //! QUADSPI driver for the STM32F7. Supports INDIRECT mode only, using DMA or polling I/O.
 
+use crate::dma;
 use crate::pac::{QUADSPI, RCC};
-use core::convert::TryInto;
+use crate::state;
+use as_slice::AsSlice;
+use core::{convert::TryInto, marker::PhantomData, pin::Pin};
 
 /// The QSPI driver interface.
 pub struct Qspi {
@@ -19,6 +22,18 @@ pub struct QspiTransaction {
     pub address: Option<u32>,
     pub dummy: u8,
     pub data_len: Option<usize>,
+}
+
+/// QSPI errors.
+#[derive(Debug)]
+pub enum Error {
+    /// Bad input parameters.
+    BadParam,
+    /// DMA error.
+    DmaError(dma::Error),
+
+    #[doc(hidden)]
+    _Extensible,
 }
 
 /// QSPI transactions contain configurable instruction, address, and data fields.
@@ -64,8 +79,68 @@ impl Qspi {
         Qspi { qspi }
     }
 
+    /// Wrapper around the HAL DMA driver. Performs QSPI register programming then creates a DMA
+    /// transfer from peripheral to memory. Blocks until the transfer is complete.
+    pub fn dma_read(
+        &mut self,
+        buf: &mut [u8],
+        transaction: QspiTransaction,
+        dma_rx: &dma::Handle<<RxTx<QUADSPI> as dma::Target>::Instance, state::Enabled>,
+        rx_stream: <RxTx<QUADSPI> as dma::Target>::Stream,
+    ) -> Result<(), Error>
+    where
+        RxTx<QUADSPI>: dma::Target,
+    {
+        // Only use DMA with data, for command only use `polling_read`
+        match transaction.data_len {
+            Some(data_len) => {
+                assert!(
+                    (data_len as u32) % 4 == 0,
+                    "DMA transfer must be word aligned."
+                );
+
+                // Setup the transaction registers
+                self.setup_transaction(QspiMode::INDIRECT_READ, &transaction);
+
+                // Setup DMA transfer
+                let rx_token = RxTx(PhantomData);
+                let rx_buffer = dma::PtrBuffer {
+                    ptr: buf.as_slice().as_ptr(),
+                    len: data_len,
+                };
+
+                let rx_transfer = unsafe {
+                    dma::Transfer::new(
+                        dma_rx,
+                        rx_stream,
+                        Pin::new(rx_buffer),
+                        rx_token,
+                        self.dr_address(),
+                        dma::Direction::PeripheralToMemory,
+                    )
+                };
+
+                let rx_transfer = rx_transfer.start(&dma_rx);
+
+                // Set DMA bit since we are using it
+                self.qspi.cr.modify(|_, w| w.dmaen().set_bit());
+
+                // Block until done
+                match rx_transfer.wait(&dma_rx) {
+                    Err((_, e)) => Err(Error::DmaError(e)),
+                    Ok(_) => Ok(()),
+                }
+            }
+            None => Err(Error::BadParam),
+        }
+    }
+
     /// Polling indirect read. Can also be used to perform transactions with no data.
-    pub fn polling_read(&mut self, buf: &mut [u8], transaction: QspiTransaction) {
+    pub fn polling_read(
+        &mut self,
+        buf: &mut [u8],
+        transaction: QspiTransaction,
+    ) -> Result<(), Error> {
         // Clear DMA bit since we are not using it
         self.qspi.cr.modify(|_, w| w.dmaen().clear_bit());
 
@@ -94,10 +169,17 @@ impl Qspi {
             }
             None => (),
         };
+
+        Ok(())
     }
 
     /// Polling indirect write. `start_idx` is the offset in `buf` to start writing to.
-    pub fn polling_write(&mut self, buf: &[u8], transaction: QspiTransaction, start_idx: usize) {
+    pub fn polling_write(
+        &mut self,
+        buf: &[u8],
+        transaction: QspiTransaction,
+        start_idx: usize,
+    ) -> Result<(), Error> {
         // Clear DMA bit since we are not using it
         self.qspi.cr.modify(|_, w| w.dmaen().clear_bit());
 
@@ -129,6 +211,8 @@ impl Qspi {
             }
             None => (),
         };
+
+        Ok(())
     }
 
     /// Map from QspiTransaction to QSPI registers.
@@ -171,4 +255,12 @@ impl Qspi {
             };
         }
     }
+
+    /// Get data register address.
+    fn dr_address(&self) -> u32 {
+        &self.qspi.dr as *const _ as _
+    }
 }
+
+/// Token used for DMA transfers.
+pub struct RxTx<I>(PhantomData<I>);

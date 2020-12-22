@@ -10,11 +10,13 @@ extern crate panic_semihosting;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
 use stm32f7xx_hal::{
+    dma::{Handle, Stream7, DMA},
     gpio::{GpioExt, Speed},
-    pac::{self, GPIOB, GPIOD, GPIOE, QUADSPI, RCC},
+    pac::{self, DMA2, GPIOB, GPIOD, GPIOE, QUADSPI, RCC},
     prelude::*,
     qspi::{Qspi, QspiTransaction, QspiWidth},
     rcc::{HSEClock, HSEClockMode, RccExt},
+    state,
 };
 
 #[entry]
@@ -31,16 +33,24 @@ fn main() -> ! {
         pac_periph.QUADSPI,
     );
 
-    // Ramp up clocks to 216 MHz
+    // Init clocks
     let hse_cfg = HSEClock::new(25.mhz(), HSEClockMode::Oscillator);
-    rcc.constrain().cfgr.hse(hse_cfg).sysclk(216.mhz()).freeze();
+    let mut rcc = rcc.constrain();
+
+    // Setup DMA
+    let dma = DMA::new(pac_periph.DMA2);
+    let stream = dma.streams.stream7;
+    let dma = dma.handle.enable(&mut rcc);
+
+    // Ramp up clocks to 216 MHz
+    rcc.cfgr.hse(hse_cfg).sysclk(216.mhz()).freeze();
 
     // Check that we can communicate with the flash device
     flash_driver::check_id(&mut qspi_driver);
 
     // Create a set of buffers for a memory at address `ADDR` of size `LEN` bytes
-    const ADDR: u32 = 0x7003;
-    const LEN: usize = 4121;
+    const ADDR: u32 = 0x7000;
+    const LEN: usize = 4096;
     let mut read_buffer: [u8; LEN] = [0; LEN];
     let mut write_buffer: [u8; LEN] = [0; LEN];
     for i in 0..LEN {
@@ -52,14 +62,27 @@ fn main() -> ! {
     assert!(LEN <= num_erase as usize);
     assert!(addr_erase <= ADDR);
 
-    flash_driver::read(&mut qspi_driver, &mut read_buffer, ADDR, LEN);
+    flash_driver::read(&mut qspi_driver, &mut read_buffer, ADDR, LEN, None);
     for i in 0..LEN {
         assert!(read_buffer[i] == 0xFF);
     }
 
+    // Test read DMA
+    let mut read_buffer_dma: [u8; LEN] = [0; LEN];
+    flash_driver::read(
+        &mut qspi_driver,
+        &mut read_buffer_dma,
+        ADDR,
+        LEN,
+        Some((&dma, stream)),
+    );
+    for i in 0..LEN {
+        assert!(read_buffer_dma[i] == 0xFF);
+    }
+
     // Test write + read
     flash_driver::write(&mut qspi_driver, ADDR, &mut write_buffer, LEN);
-    flash_driver::read(&mut qspi_driver, &mut read_buffer, ADDR, LEN);
+    flash_driver::read(&mut qspi_driver, &mut read_buffer, ADDR, LEN, None);
     for i in 0..LEN {
         if write_buffer[i] != read_buffer[i] {
             panic!(
@@ -80,6 +103,9 @@ fn main() -> ! {
 #[allow(dead_code)]
 mod flash_driver {
     use super::*;
+
+    // Helper for packing DMA info.
+    pub type DmaInfo<'a> = Option<(&'a Handle<DMA2, state::Enabled>, Stream7<DMA2>)>;
 
     // Device constants
     const CMD_READ_ID: u8 = 0x9F;
@@ -155,7 +181,9 @@ mod flash_driver {
         };
 
         let mut device_id = [0, 0, 0];
-        qspi_driver.polling_read(&mut device_id, transaction);
+        qspi_driver
+            .polling_read(&mut device_id, transaction)
+            .unwrap();
 
         hprintln!("Device ID:").unwrap();
         hprintln!("\t{:X}", device_id[0]).unwrap();
@@ -170,8 +198,8 @@ mod flash_driver {
         }
     }
 
-    /// Blocking read.
-    pub fn read(qspi_driver: &mut Qspi, dst: &mut [u8], src: u32, len: usize) {
+    /// Blocking read. Can be DMA or polling depending on `dma_info`.
+    pub fn read(qspi_driver: &mut Qspi, dst: &mut [u8], src: u32, len: usize, dma_info: DmaInfo) {
         assert!(len > 0);
         assert!(src + (len as u32) <= DEVICE_MAX_ADDRESS);
 
@@ -185,7 +213,12 @@ mod flash_driver {
             data_len: Some(len),
         };
 
-        qspi_driver.polling_read(dst, transaction);
+        match dma_info {
+            Some((dma_handle, dma_stream)) => qspi_driver
+                .dma_read(dst, transaction, dma_handle, dma_stream)
+                .unwrap(),
+            None => qspi_driver.polling_read(dst, transaction).unwrap(),
+        }
     }
 
     /// Blocking write.
@@ -219,7 +252,9 @@ mod flash_driver {
                 data_len: Some(size),
             };
 
-            qspi_driver.polling_write(src, transaction, outer_idx);
+            qspi_driver
+                .polling_write(src, transaction, outer_idx)
+                .unwrap();
             poll_status(qspi_driver);
 
             curr_addr += size as u32;
@@ -254,7 +289,7 @@ mod flash_driver {
             };
 
             let mut dummy = [0];
-            qspi_driver.polling_read(&mut dummy, transaction);
+            qspi_driver.polling_read(&mut dummy, transaction).unwrap();
 
             num_erased_bytes += DEVICE_SUBSECTOR_SIZE;
             addr += DEVICE_SUBSECTOR_SIZE;
@@ -279,7 +314,9 @@ mod flash_driver {
 
         let mut status = [0];
         while status[0] & 0x80 == 0 {
-            qspi_driver.polling_read(&mut status, transaction.clone());
+            qspi_driver
+                .polling_read(&mut status, transaction.clone())
+                .unwrap();
         }
     }
 
@@ -296,6 +333,6 @@ mod flash_driver {
         };
 
         let mut dummy = [0];
-        qspi_driver.polling_read(&mut dummy, transaction)
+        qspi_driver.polling_read(&mut dummy, transaction).unwrap()
     }
 }
