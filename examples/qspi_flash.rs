@@ -62,27 +62,14 @@ fn main() -> ! {
     assert!(LEN <= num_erase as usize);
     assert!(addr_erase <= ADDR);
 
-    flash_driver::read(&mut qspi_driver, &mut read_buffer, ADDR, LEN, None);
+    flash_driver::read(&mut qspi_driver, &mut read_buffer, ADDR, LEN);
     for i in 0..LEN {
         assert!(read_buffer[i] == 0xFF);
     }
 
-    // Test read DMA
-    let mut read_buffer_dma: [u8; LEN] = [0; LEN];
-    flash_driver::read(
-        &mut qspi_driver,
-        &mut read_buffer_dma,
-        ADDR,
-        LEN,
-        Some((&dma, stream)),
-    );
-    for i in 0..LEN {
-        assert!(read_buffer_dma[i] == 0xFF);
-    }
-
     // Test write + read
     flash_driver::write(&mut qspi_driver, ADDR, &mut write_buffer, LEN);
-    flash_driver::read(&mut qspi_driver, &mut read_buffer, ADDR, LEN, None);
+    flash_driver::read(&mut qspi_driver, &mut read_buffer, ADDR, LEN);
     for i in 0..LEN {
         if write_buffer[i] != read_buffer[i] {
             panic!(
@@ -96,6 +83,33 @@ fn main() -> ! {
 
     hprintln!("Flash device memory test successful!").unwrap();
 
+    // Repeat the same test as above but using DMA for reads and writes
+    let (num_erase, addr_erase) = flash_driver::erase(&mut qspi_driver, ADDR, LEN);
+    assert!(LEN <= num_erase as usize);
+    assert!(addr_erase <= ADDR);
+
+    let stream =
+        flash_driver::read_dma(&mut qspi_driver, &mut read_buffer, ADDR, LEN, &dma, stream);
+    for i in 0..LEN {
+        assert!(read_buffer[i] == 0xFF);
+    }
+
+    let stream =
+        flash_driver::write_dma(&mut qspi_driver, ADDR, &mut write_buffer, LEN, &dma, stream);
+    flash_driver::read_dma(&mut qspi_driver, &mut read_buffer, ADDR, LEN, &dma, stream);
+    for i in 0..LEN {
+        if write_buffer[i] != read_buffer[i] {
+            panic!(
+                "Error: Mismatch at address {:X}. Expected {:X} but read {:X}",
+                ADDR + i as u32,
+                write_buffer[i],
+                read_buffer[i]
+            );
+        }
+    }
+
+    hprintln!("Flash device memory DMA test successful!").unwrap();
+
     loop {}
 }
 
@@ -103,9 +117,6 @@ fn main() -> ! {
 #[allow(dead_code)]
 mod flash_driver {
     use super::*;
-
-    // Helper for packing DMA info.
-    pub type DmaInfo<'a> = Option<(&'a Handle<DMA2, state::Enabled>, Stream7<DMA2>)>;
 
     // Device constants
     const CMD_READ_ID: u8 = 0x9F;
@@ -198,8 +209,15 @@ mod flash_driver {
         }
     }
 
-    /// Blocking read. Can be DMA or polling depending on `dma_info`.
-    pub fn read(qspi_driver: &mut Qspi, dst: &mut [u8], src: u32, len: usize, dma_info: DmaInfo) {
+    /// Blocking DMA read.
+    pub fn read_dma(
+        qspi_driver: &mut Qspi,
+        dst: &[u8],
+        src: u32,
+        len: usize,
+        dma: &Handle<DMA2, state::Enabled>,
+        stream: Stream7<DMA2>,
+    ) -> Stream7<DMA2> {
         assert!(len > 0);
         assert!(src + (len as u32) <= DEVICE_MAX_ADDRESS);
 
@@ -213,12 +231,78 @@ mod flash_driver {
             data_len: Some(len),
         };
 
-        match dma_info {
-            Some((dma_handle, dma_stream)) => qspi_driver
-                .dma_read(dst, transaction, dma_handle, dma_stream)
-                .unwrap(),
-            None => qspi_driver.polling_read(dst, transaction).unwrap(),
+        qspi_driver.dma_read(dst, transaction, dma, stream).unwrap()
+    }
+
+    /// Blocking DMA write.
+    pub fn write_dma(
+        qspi_driver: &mut Qspi,
+        dst: u32,
+        src: &[u8],
+        len: usize,
+        dma: &Handle<DMA2, state::Enabled>,
+        stream: Stream7<DMA2>,
+    ) -> Stream7<DMA2> {
+        assert!(len > 0);
+        assert!(dst + (len as u32) <= DEVICE_MAX_ADDRESS);
+
+        let mut outer_idx: usize = 0;
+        let mut curr_addr: u32 = dst;
+        let mut curr_len: usize = len;
+        let mut curr_stream = stream;
+
+        // Constraints for writes: (1) Must be <= 256 bytes, (2) must not cross a page boundry
+        while curr_len > 0 {
+            write_enable(qspi_driver);
+
+            let start_page = curr_addr - (curr_addr % DEVICE_PAGE_SIZE);
+            let end_page = start_page + DEVICE_PAGE_SIZE;
+            let size: usize = if curr_addr + (curr_len as u32) > end_page {
+                (end_page - curr_addr) as usize
+            } else {
+                curr_len
+            };
+
+            let transaction = QspiTransaction {
+                iwidth: QspiWidth::SING,
+                awidth: QspiWidth::SING,
+                dwidth: QspiWidth::QUAD,
+                instruction: CMD_MEM_PROGRAM,
+                address: Some(curr_addr & DEVICE_MAX_ADDRESS),
+                dummy: 0,
+                data_len: Some(size),
+            };
+
+            let buf = unsafe { core::slice::from_raw_parts(&src[outer_idx] as *const u8, size) };
+            curr_stream = qspi_driver
+                .dma_write(buf, transaction, dma, curr_stream)
+                .unwrap();
+            poll_status(qspi_driver);
+
+            outer_idx += size;
+            curr_addr += size as u32;
+            curr_len -= size;
         }
+
+        curr_stream
+    }
+
+    /// Blocking read.
+    pub fn read(qspi_driver: &mut Qspi, dst: &mut [u8], src: u32, len: usize) {
+        assert!(len > 0);
+        assert!(src + (len as u32) <= DEVICE_MAX_ADDRESS);
+
+        let transaction = QspiTransaction {
+            iwidth: QspiWidth::SING,
+            awidth: QspiWidth::SING,
+            dwidth: QspiWidth::QUAD,
+            instruction: CMD_MEM_READ,
+            address: Some(src & DEVICE_MAX_ADDRESS),
+            dummy: 8,
+            data_len: Some(len),
+        };
+
+        qspi_driver.polling_read(dst, transaction).unwrap();
     }
 
     /// Blocking write.
@@ -252,14 +336,13 @@ mod flash_driver {
                 data_len: Some(size),
             };
 
-            qspi_driver
-                .polling_write(src, transaction, outer_idx)
-                .unwrap();
+            let buf = unsafe { core::slice::from_raw_parts(&src[outer_idx] as *const u8, size) };
+            qspi_driver.polling_write(buf, transaction).unwrap();
             poll_status(qspi_driver);
 
+            outer_idx += size;
             curr_addr += size as u32;
             curr_len -= size;
-            outer_idx += size;
         }
     }
 
