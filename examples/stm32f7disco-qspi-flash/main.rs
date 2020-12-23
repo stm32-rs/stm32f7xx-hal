@@ -42,7 +42,7 @@ fn main() -> ! {
     // Setup DMA
     let dma = DMA::new(pac_periph.DMA2);
     let stream = dma.streams.stream7;
-    let dma = dma.handle.enable(&mut rcc);
+    let dma = dma.handle.enable(&mut rcc.ahb1);
 
     // Ramp up clocks to 216 MHz
     rcc.cfgr.hse(hse_cfg).sysclk(216.mhz()).freeze();
