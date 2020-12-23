@@ -16,7 +16,7 @@ use embedded_hal::{
 use crate::{
     gpio::{self, Alternate, AF5, AF6, AF7},
     pac::{self, spi1::cr2},
-    rcc::Rcc,
+    rcc::{sealed::RccBus, Enable},
     state,
 };
 
@@ -31,7 +31,7 @@ pub struct Spi<I, P, State> {
 
 impl<I, P> Spi<I, P, state::Disabled>
 where
-    I: Instance,
+    I: Instance + Enable,
     P: Pins<I>,
 {
     /// Create a new instance of the SPI API
@@ -46,17 +46,17 @@ where
     /// Initialize the SPI peripheral
     pub fn enable<Word>(
         self,
-        rcc: &mut Rcc,
+        apb: &mut <I as RccBus>::Bus,
         clock_divider: ClockDivider,
         mode: Mode,
     ) -> Spi<I, P, Enabled<Word>>
     where
         Word: SupportedWordSize,
     {
+        I::enable(apb);
         let cpol = mode.polarity == Polarity::IdleHigh;
         let cpha = mode.phase == Phase::CaptureOnSecondTransition;
 
-        self.spi.enable_clock(rcc);
         self.spi.configure::<Word>(clock_divider.into(), cpol, cpha);
 
         Spi {
@@ -228,7 +228,6 @@ where
 ///
 /// Users of this crate should not implement this trait.
 pub trait Instance {
-    fn enable_clock(&self, rcc: &mut Rcc);
     fn configure<Word>(&self, br: u8, cpol: bool, cpha: bool)
     where
         Word: SupportedWordSize;
@@ -282,10 +281,6 @@ macro_rules! impl_instance {
     ) => {
         $(
             impl Instance for $name {
-                fn enable_clock(&self, rcc: &mut Rcc) {
-                    rcc.$bus.rstr().modify(|_, w| w.$reset().clear_bit());
-                    rcc.$bus.enr().modify(|_, w| w.$enable().enabled());
-                }
 
                 // I don't like putting this much code into the macro, but I
                 // have to: There are two different SPI variants in the PAC, and

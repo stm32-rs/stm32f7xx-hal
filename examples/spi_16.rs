@@ -34,7 +34,7 @@ fn main() -> ! {
 
     // Initialize SPI
     let mut spi = Spi::new(p.SPI1, (sck, spi::NoMiso, mosi)).enable::<u16>(
-        &mut rcc,
+        &mut rcc.apb2,
         spi::ClockDivider::DIV32,
         embedded_hal::spi::MODE_0,
     );

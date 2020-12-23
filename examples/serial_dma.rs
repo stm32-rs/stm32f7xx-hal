@@ -33,7 +33,7 @@ fn main() -> ! {
     let mut rx_stream = dma.streams.stream1;
     let mut tx_stream = dma.streams.stream3;
 
-    let dma = dma.handle.enable(&mut rcc);
+    let dma = dma.handle.enable(&mut rcc.ahb1);
 
     let clocks = rcc.cfgr.sysclk(216.mhz()).freeze();
 

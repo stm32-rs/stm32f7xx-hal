@@ -17,7 +17,7 @@ use crate::{
         Interrupt, DMA1, DMA2, NVIC,
     },
     qspi,
-    rcc::Rcc,
+    rcc::{sealed::RccBus, Enable, Reset},
     serial, spi, state,
 };
 
@@ -32,7 +32,7 @@ pub struct DMA<I> {
 
 impl<I> DMA<I>
 where
-    I: Instance,
+    I: Instance + Enable + Reset,
 {
     /// Creates a new instance of `DMA`
     ///
@@ -56,7 +56,7 @@ pub struct Handle<I, State> {
 
 impl<I> Handle<I, state::Disabled>
 where
-    I: Instance,
+    I: Instance + Reset + Enable,
 {
     fn new(instance: I) -> Self {
         Self {
@@ -66,8 +66,9 @@ where
     }
 
     /// Initializes the DMA instance
-    pub fn enable(self, rcc: &mut Rcc) -> Handle<I, state::Enabled> {
-        I::enable(rcc);
+    pub fn enable(self, apb: &mut <I as RccBus>::Bus) -> Handle<I, state::Enabled> {
+        I::reset(apb);
+        I::enable(apb);
 
         Handle {
             dma: self.dma,
@@ -603,26 +604,20 @@ impl_channel!(
 ///
 /// This is an internal trait. End users neither need to implement it, nor use
 /// it directly.
-pub trait Instance {
-    fn enable(rcc: &mut Rcc);
-}
+pub trait Instance {}
 
 macro_rules! impl_instance {
-    ($($name:ty, $reset_reg:ident, $enable_reg:ident;)*) => {
+    ($($name:ty;)*) => {
         $(
             impl Instance for $name {
-                fn enable(rcc: &mut Rcc) {
-                    rcc.ahb1.rstr().modify(|_, w| w.$reset_reg().clear_bit());
-                    rcc.ahb1.enr().modify(|_, w| w.$enable_reg().enabled());
-                }
             }
         )*
     }
 }
 
 impl_instance!(
-    DMA1, dma1rst, dma1en;
-    DMA2, dma2rst, dma2en;
+    DMA1;
+    DMA2;
 );
 
 /// Used by [`Transfer::enable_interrupts`] to identify DMA interrupts
