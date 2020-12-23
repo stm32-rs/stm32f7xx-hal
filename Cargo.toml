@@ -131,5 +131,5 @@ required-features = ["stm32f723", "rt", "synopsys-usb-otg"]
 name = "rng"
 
 [[example]]
-name = "qspi_flash"
+name = "stm32f7disco-qspi-flash"
 required-features = ["stm32f746", "rt"]

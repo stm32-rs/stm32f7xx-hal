@@ -34,12 +34,10 @@ pub enum Error {
     BadParam,
     /// DMA error.
     DmaError(dma::Error),
-
-    #[doc(hidden)]
-    _Extensible,
 }
 
 /// QSPI transactions contain configurable instruction, address, and data fields.
+/// Use these constants for the `*width` fields in `QspiTransaction`.
 pub struct QspiWidth;
 
 #[allow(dead_code)]
