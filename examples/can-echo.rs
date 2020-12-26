@@ -9,30 +9,26 @@ use panic_halt as _;
 use bxcan::filter::Mask32;
 use cortex_m_rt::entry;
 use nb::block;
-use stm32f7xx_hal::{can::Can, pac, prelude::*};
+use stm32f7xx_hal::{
+    can::Can, 
+    pac, 
+    prelude::*,
+    rcc::{HSEClock, HSEClockMode},
+};
 
 #[entry]
 fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
 
     // To meet CAN clock accuracy requirements an external crystal or ceramic
     // resonator must be used. The blue pill has a 8MHz external crystal.
     // Other boards might have a crystal with another frequency or none at all.
-    rcc.cfgr.use_hse(8.mhz()).freeze(&mut flash.acr);
-
-    let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+    rcc.cfgr.hse(HSEClock::new(8.mhz(), HSEClockMode::Bypass)).freeze();
 
     let mut can1 = {
         let can = Can::new(dp.CAN1, &mut rcc.apb1);
-
-        let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
-        let rx = gpioa.pa11.into_floating_input(&mut gpioa.crh);
-        let tx = gpioa.pa12.into_alternate_push_pull(&mut gpioa.crh);
-        can.assign_pins((tx, rx), &mut afio.mapr);
-
         bxcan::Can::new(can)
     };
     can1.configure(|config| {
@@ -47,11 +43,6 @@ fn main() -> ! {
 
     let _can2 = {
         let can = Can::new(dp.CAN2, &mut rcc.apb1);
-
-        let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
-        let rx = gpiob.pb5.into_floating_input(&mut gpiob.crl);
-        let tx = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
-        can.assign_pins((tx, rx), &mut afio.mapr);
 
         let mut can2 = bxcan::Can::new(can);
         can2.configure(|config| {
