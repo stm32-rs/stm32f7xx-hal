@@ -10,8 +10,8 @@ use bxcan::filter::Mask32;
 use cortex_m_rt::entry;
 use nb::block;
 use stm32f7xx_hal::{
-    can::Can, 
-    pac, 
+    can::Can,
+    pac,
     prelude::*,
     rcc::{HSEClock, HSEClockMode},
 };
@@ -25,7 +25,9 @@ fn main() -> ! {
     // To meet CAN clock accuracy requirements an external crystal or ceramic
     // resonator must be used. The blue pill has a 8MHz external crystal.
     // Other boards might have a crystal with another frequency or none at all.
-    rcc.cfgr.hse(HSEClock::new(8.mhz(), HSEClockMode::Bypass)).freeze();
+    rcc.cfgr
+        .hse(HSEClock::new(8.mhz(), HSEClockMode::Bypass))
+        .freeze();
 
     let mut can1 = {
         let can = Can::new(dp.CAN1, &mut rcc.apb1);
