@@ -71,6 +71,9 @@ pub use stm32f7::stm32f7x9 as pac;
 #[cfg(feature = "rt")]
 pub use crate::pac::interrupt;
 
+#[cfg(all(feature = "device-selected", feature = "has-can"))]
+pub mod can;
+
 #[cfg(feature = "device-selected")]
 pub mod delay;
 

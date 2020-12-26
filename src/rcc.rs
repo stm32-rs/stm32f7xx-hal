@@ -996,6 +996,12 @@ bus! {
     DMA2D => (AHB1, dma2den, dma2drst),
 }
 
+#[cfg(feature = "has-can")]
+bus! {
+    CAN1 => (APB1, can1en, can1rst),
+    CAN2 => (APB1, can2en, can2rst),
+}
+
 #[cfg(test)]
 mod tests {
     use super::{FreqRequest, CFGR};
