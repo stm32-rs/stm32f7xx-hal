@@ -16,6 +16,7 @@ use crate::{
         dma2::{self, st::cr},
         Interrupt, DMA1, DMA2, NVIC,
     },
+    qspi,
     rcc::{sealed::RccBus, Enable, Reset},
     serial, spi, state,
 };
@@ -436,6 +437,9 @@ impl_target!(
     // USART6 for DMA2, stream 7, channel 5 is unsupported
     serial::Tx<pac::UART7>,  DMA1, Stream1, Channel5, DMA1_STREAM1;
     serial::Tx<pac::UART8>,  DMA1, Stream0, Channel5, DMA1_STREAM0;
+
+    // QUADSPI is half-duplex, uses one channel for both send/receive
+    qspi::RxTx<pac::QUADSPI>, DMA2, Stream7, Channel3, DMA2_STREAM7;
 );
 
 #[cfg(any(
