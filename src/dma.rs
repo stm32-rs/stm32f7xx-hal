@@ -290,6 +290,14 @@ where
             .is_enabled()
     }
 
+    /// Try to cancel an in process transfer. Check is_active to verify cancellation
+    pub fn cancel(&self, handle: &Handle<T::Instance, state::Enabled>) {
+        handle.dma.st[T::Stream::number()]
+        .cr
+        .write(|w| w.en()
+        .disabled());    
+    }
+
     /// Waits for the transfer to end
     ///
     /// This method will block if the transfer is still ongoing. If you want
