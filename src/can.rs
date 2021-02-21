@@ -19,7 +19,7 @@
 //! | TX       | PB6     | PB13  |
 //! | RX       | PB5     | PB12  |
 
-use crate::gpio::gpiob::{PB5, PB6, PB8, PB9, PB12, PB13};
+use crate::gpio::gpiob::{PB12, PB13, PB5, PB6, PB8, PB9};
 use crate::gpio::{
     gpioa::{PA11, PA12},
     Alternate, AF9,
@@ -66,7 +66,7 @@ where
     Instance: crate::rcc::Enable<Bus = APB1>,
 {
     /// Creates a CAN interaface.
-    pub fn new<P>(can: Instance, apb: &mut APB1, _pins: P) -> Can<Instance> 
+    pub fn new<P>(can: Instance, apb: &mut APB1, _pins: P) -> Can<Instance>
     where
         P: Pins<Instance = Instance>,
     {
