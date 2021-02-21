@@ -94,6 +94,7 @@ pub mod gpio;
         feature = "stm32f730",
         feature = "stm32f732",
         feature = "stm32f733",
+        feature = "stm32f746",
         feature = "stm32f767",
     )
 ))]
@@ -107,6 +108,7 @@ pub mod otg_fs;
         feature = "stm32f730",
         feature = "stm32f732",
         feature = "stm32f733",
+        feature = "stm32f746",
         feature = "stm32f767",
     )
 ))]
@@ -141,6 +143,9 @@ pub mod i2c;
 
 #[cfg(feature = "device-selected")]
 pub mod rng;
+
+#[cfg(feature = "device-selected")]
+pub mod qspi;
 
 #[cfg(feature = "ltdc")]
 pub mod ltdc;

@@ -41,7 +41,7 @@ fn main() -> ! {
     let gpioc = pac_periph.GPIOC.split();
     let mut button = gpioc.pc13.into_floating_input();
     button.make_interrupt_source(&mut syscfg, &mut rcc);
-    button.trigger_on_edge(&mut exti, Edge::RISING);
+    button.trigger_on_edge(&mut exti, Edge::Rising);
     button.enable_interrupt(&mut exti);
 
     // Freeze clocks
