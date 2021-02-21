@@ -31,7 +31,12 @@ fn main() -> ! {
         .hse(HSEClock::new(8.mhz(), HSEClockMode::Bypass))
         .freeze();
 
-    let can = Can::new(dp.CAN1, &mut rcc.apb1);
+    let gpioa = dp.GPIOA.split();
+
+    let rx = gpioa.pa11.into_alternate_af9();
+    let tx = gpioa.pa12.into_alternate_af9();
+
+    let can = Can::new(dp.CAN1, &mut rcc.apb1, (tx, rx));
 
     let mut can = bxcan::Can::new(can);
 

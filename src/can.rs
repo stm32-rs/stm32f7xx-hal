@@ -3,7 +3,7 @@
 //! ## Alternate function remapping
 //!
 //! TX: Alternate Push-Pull Output
-//! RX: Input Floating Input
+//! RX: Alternate AF9 Alternate
 //!
 //! ### CAN1
 //!
@@ -19,10 +19,10 @@
 //! | TX       | PB6     | PB13  |
 //! | RX       | PB5     | PB12  |
 
-use crate::gpio::gpiob::{PB5, PB6};
+use crate::gpio::gpiob::{PB5, PB6, PB8, PB9, PB12, PB13};
 use crate::gpio::{
     gpioa::{PA11, PA12},
-    Alternate, Floating, Input, PushPull,
+    Alternate, AF9,
 };
 use crate::pac::CAN1;
 use crate::pac::CAN2;
@@ -36,13 +36,23 @@ pub trait Pins: sealed::Sealed {
     type Instance;
 }
 
-impl sealed::Sealed for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {}
-impl Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
+impl sealed::Sealed for (PA12<Alternate<AF9>>, PA11<Alternate<AF9>>) {}
+impl Pins for (PA12<Alternate<AF9>>, PA11<Alternate<AF9>>) {
     type Instance = CAN1;
 }
 
-impl sealed::Sealed for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {}
-impl Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
+impl sealed::Sealed for (PB9<Alternate<AF9>>, PB8<Alternate<AF9>>) {}
+impl Pins for (PB9<Alternate<AF9>>, PB8<Alternate<AF9>>) {
+    type Instance = CAN1;
+}
+
+impl sealed::Sealed for (PB6<Alternate<AF9>>, PB5<Alternate<AF9>>) {}
+impl Pins for (PB6<Alternate<AF9>>, PB5<Alternate<AF9>>) {
+    type Instance = CAN2;
+}
+
+impl sealed::Sealed for (PB13<Alternate<AF9>>, PB12<Alternate<AF9>>) {}
+impl Pins for (PB13<Alternate<AF9>>, PB12<Alternate<AF9>>) {
     type Instance = CAN2;
 }
 
@@ -56,7 +66,10 @@ where
     Instance: crate::rcc::Enable<Bus = APB1>,
 {
     /// Creates a CAN interaface.
-    pub fn new(can: Instance, apb: &mut APB1) -> Can<Instance> {
+    pub fn new<P>(can: Instance, apb: &mut APB1, _pins: P) -> Can<Instance> 
+    where
+        P: Pins<Instance = Instance>,
+    {
         Instance::enable(apb);
         Can { _peripheral: can }
     }
