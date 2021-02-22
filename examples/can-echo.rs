@@ -45,7 +45,7 @@ fn main() -> ! {
     can1.configure(|config| {
         // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
-		config.set_bit_timing(0x001e_000b);
+        config.set_bit_timing(0x001e_000b);
     });
 
     // Configure filters so that can frames can be received.
@@ -62,7 +62,7 @@ fn main() -> ! {
         can2.configure(|config| {
             // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
             // Value was calculated with http://www.bittiming.can-wiki.info/
-		    config.set_bit_timing(0x001e_000b);
+            config.set_bit_timing(0x001e_000b);
         });
 
         // A total of 28 filters are shared between the two CAN instances.

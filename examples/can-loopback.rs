@@ -47,7 +47,7 @@ fn main() -> ! {
     can.configure(|config| {
         // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
-		config.set_bit_timing(0x001e_000b);
+        config.set_bit_timing(0x001e_000b);
         config.set_loopback(true);
         config.set_silent(true);
     });
