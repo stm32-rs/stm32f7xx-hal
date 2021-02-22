@@ -27,8 +27,11 @@ fn main() -> ! {
 
     // To meet CAN clock accuracy requirements, an external crystal or ceramic
     // resonator must be used.
-    rcc.cfgr
-        .hse(HSEClock::new(8.mhz(), HSEClockMode::Bypass))
+    let _clocks = rcc
+        .cfgr
+        .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
+        .sysclk(216.mhz())
+        .hclk(216.mhz())
         .freeze();
 
     let gpioa = dp.GPIOA.split();
@@ -42,9 +45,9 @@ fn main() -> ! {
 
     // Use loopback mode: No pins need to be assigned to peripheral.
     can.configure(|config| {
-        // APB1 (PCLK1): 8MHz, Bit rate: 500Bit/s, Sample Point 87.5%
+        // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
-        config.set_bit_timing(0x001c_0000);
+		config.set_bit_timing(0x001e_000b);
         config.set_loopback(true);
         config.set_silent(true);
     });

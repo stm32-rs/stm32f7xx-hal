@@ -25,8 +25,11 @@ fn main() -> ! {
     // To meet CAN clock accuracy requirements an external crystal or ceramic
     // resonator must be used. The blue pill has a 8MHz external crystal.
     // Other boards might have a crystal with another frequency or none at all.
-    rcc.cfgr
-        .hse(HSEClock::new(8.mhz(), HSEClockMode::Bypass))
+    let _clocks = rcc
+        .cfgr
+        .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
+        .sysclk(216.mhz())
+        .hclk(216.mhz())
         .freeze();
 
     let gpioa = dp.GPIOA.split();
@@ -40,9 +43,9 @@ fn main() -> ! {
         bxcan::Can::new(can)
     };
     can1.configure(|config| {
-        // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
+        // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
-        config.set_bit_timing(0x001c_0003);
+		config.set_bit_timing(0x001e_000b);
     });
 
     // Configure filters so that can frames can be received.
@@ -57,9 +60,9 @@ fn main() -> ! {
 
         let mut can2 = bxcan::Can::new(can);
         can2.configure(|config| {
-            // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
+            // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
             // Value was calculated with http://www.bittiming.can-wiki.info/
-            config.set_bit_timing(0x001c_0003);
+		    config.set_bit_timing(0x001e_000b);
         });
 
         // A total of 28 filters are shared between the two CAN instances.
