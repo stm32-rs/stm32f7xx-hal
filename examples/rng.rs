@@ -17,6 +17,6 @@ fn main() -> ! {
     let val = rng.get_rand().unwrap();
     hprintln!("random value {}", val).unwrap();
     loop {
-        core::sync::atomic::spin_loop_hint();
+        core::hint::spin_loop();
     }
 }
