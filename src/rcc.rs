@@ -937,6 +937,8 @@ bus! {
     SPI1 => (APB2, spi1en, spi1rst),
     SPI2 => (APB1, spi2en, spi2rst),
     SPI3 => (APB1, spi3en, spi3rst),
+    SPI4 => (APB2, spi4en, spi4rst),
+    SPI5 => (APB2, spi5en, spi5rst),
 
     USART1 => (APB2, usart1en, usart1rst),
     USART2 => (APB1, usart2en, uart2rst),
