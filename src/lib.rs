@@ -86,6 +86,9 @@ pub mod fmc;
 #[cfg(feature = "device-selected")]
 pub mod gpio;
 
+#[cfg(feature = "device-selected")]
+pub mod dac;
+
 #[cfg(all(
     feature = "usb_fs",
     any(
