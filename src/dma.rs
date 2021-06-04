@@ -264,6 +264,7 @@ where
     /// Consumes this instance of `Transfer` and returns another instance with
     /// its type state set to indicate the transfer has been started.
     pub fn start(self, handle: &Handle<T::Instance, state::Enabled>) -> Transfer<T, B, Started> {
+        T::Stream::clear_status_flags(&handle.dma);
         atomic::fence(Ordering::SeqCst);
 
         handle.dma.st[T::Stream::number()]
