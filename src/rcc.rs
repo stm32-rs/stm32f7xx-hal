@@ -729,15 +729,27 @@ impl CFGR {
                 VOSscale::PwrScale1 => w.vos().scale1(),
             });
 
-            if config.overdrive {
-                pwr.cr1.modify(|_, w| w.oden().set_bit());
-            }
-
             // Enable PLL
             rcc.cr.modify(|_, w| w.pllon().on());
 
             // Wait for PLL to stabilise
             while rcc.cr.read().pllrdy().is_not_ready() {}
+
+            //Over-drive
+            if config.overdrive {
+                // Entering Over-drive mode
+                //enable the Over-drive mode
+                pwr.cr1.modify(|_, w| w.oden().set_bit());
+
+                //wait for the ODRDY flag to be set
+                while !pwr.csr1.read().odrdy().bit_is_set() {}
+
+                //switch the voltage regulator from Normal mode to Over-drive mode
+                pwr.cr1.modify(|_, w| w.odswen().set_bit());
+
+                //Wait for the ODSWRDY flag in the PWR_CSR1 to be set.
+                while !pwr.csr1.read().odswrdy().bit_is_set() {}
+            }
         }
 
         if self.use_pll48clk {
