@@ -639,8 +639,8 @@ impl CFGR {
             return;
         }
         
-        /* We check if (pllm, plln, pllp) allow to obtain the requested Sysclk, 
-           so that we don't have to calculate them */
+        // We check if (pllm, plln, pllp) allow to obtain the requested Sysclk,
+        // so that we don't have to calculate them
         let p_ok = (sysclk as u64)
             == (base_clk as u64 * self.plln as u64
                 / self.pllm as u64
