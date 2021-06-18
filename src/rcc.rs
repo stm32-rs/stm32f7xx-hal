@@ -638,7 +638,7 @@ impl CFGR {
             self.use_pll = false;
             return;
         }
-        
+
         // We check if (pllm, plln, pllp) allow to obtain the requested Sysclk,
         // so that we don't have to calculate them
         let p_ok = (sysclk as u64)
