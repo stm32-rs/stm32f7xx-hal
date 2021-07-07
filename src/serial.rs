@@ -8,11 +8,11 @@ use core::ptr;
 use as_slice::{AsMutSlice, AsSlice};
 
 use crate::dma;
+use crate::embedded_time::rate::Extensions as _;
 use crate::hal::prelude::*;
 use crate::hal::serial;
 use crate::pac;
 use crate::state;
-use crate::time::U32Ext;
 use nb::block;
 
 #[cfg(any(feature = "device-selected",))]
@@ -30,8 +30,8 @@ use crate::gpio::{
     Alternate, AF7, AF8,
 };
 
+use crate::embedded_time::rate::BytesPerSecond;
 use crate::rcc::Clocks;
-use crate::time::Bps;
 
 /// Serial error
 #[derive(Debug)]
@@ -429,7 +429,7 @@ where
 
 /// USART configuration
 pub struct Config {
-    pub baud_rate: Bps,
+    pub baud_rate: BytesPerSecond,
     pub oversampling: Oversampling,
     pub character_match: Option<u8>,
 }
@@ -442,7 +442,7 @@ pub enum Oversampling {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            baud_rate: 115_200.bps(),
+            baud_rate: 115_200.Bps(),
             oversampling: Oversampling::By16,
             character_match: None,
         }
