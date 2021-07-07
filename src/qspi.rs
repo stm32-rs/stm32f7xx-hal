@@ -212,27 +212,24 @@ impl Qspi {
         self.setup_transaction(QspiMode::INDIRECT_READ, &transaction);
 
         // If the transaction has data, read it word-by-word from the data register
-        match transaction.data_len {
-            Some(len) => {
-                let mut idx: usize = 0;
-                while idx < len {
-                    // Check if there are bytes in the FIFO
-                    let num_bytes = self.qspi.sr.read().flevel().bits();
-                    if num_bytes > 0 {
-                        // Read a word
-                        let word = self.qspi.dr.read().data().bits();
+        if let Some(len) = transaction.data_len {
+            let mut idx: usize = 0;
+            while idx < len {
+                // Check if there are bytes in the FIFO
+                let num_bytes = self.qspi.sr.read().flevel().bits();
+                if num_bytes > 0 {
+                    // Read a word
+                    let word = self.qspi.dr.read().data().bits();
 
-                        // Unpack the word
-                        let num_unpack = if num_bytes >= 4 { 4 } else { num_bytes };
-                        for i in 0..num_unpack {
-                            buf[idx] = ((word & (0xFF << (i * 8))) >> (i * 8)).try_into().unwrap();
-                            idx += 1;
-                        }
+                    // Unpack the word
+                    let num_unpack = if num_bytes >= 4 { 4 } else { num_bytes };
+                    for i in 0..num_unpack {
+                        buf[idx] = ((word & (0xFF << (i * 8))) >> (i * 8)).try_into().unwrap();
+                        idx += 1;
                     }
                 }
             }
-            None => (),
-        };
+        }
 
         Ok(())
     }
@@ -246,30 +243,27 @@ impl Qspi {
         self.setup_transaction(QspiMode::INDIRECT_WRITE, &transaction);
 
         // If the transaction has data, write it word-by-word to the data register
-        match transaction.data_len {
-            Some(len) => {
-                let mut idx: usize = 0;
-                while idx < len {
-                    // Check if the FIFO is empty
-                    let num_bytes = self.qspi.sr.read().flevel().bits();
-                    if num_bytes == 0 {
-                        // Pack the word
-                        let mut word: u32 = 0;
-                        let num_pack = if (len - idx) >= 4 { 4 } else { len - idx };
-                        for i in 0..num_pack {
-                            word |= (buf[idx] as u32) << (i * 8);
-                            idx += 1;
-                        }
+        if let Some(len) = transaction.data_len {
+            let mut idx: usize = 0;
+            while idx < len {
+                // Check if the FIFO is empty
+                let num_bytes = self.qspi.sr.read().flevel().bits();
+                if num_bytes == 0 {
+                    // Pack the word
+                    let mut word: u32 = 0;
+                    let num_pack = if (len - idx) >= 4 { 4 } else { len - idx };
+                    for i in 0..num_pack {
+                        word |= (buf[idx] as u32) << (i * 8);
+                        idx += 1;
+                    }
 
-                        // Write a word
-                        unsafe {
-                            self.qspi.dr.write(|w| w.data().bits(word));
-                        }
+                    // Write a word
+                    unsafe {
+                        self.qspi.dr.write(|w| w.data().bits(word));
                     }
                 }
             }
-            None => (),
-        };
+        }
 
         Ok(())
     }
@@ -281,10 +275,9 @@ impl Qspi {
             self.qspi.fcr.write(|w| w.bits(0x1B));
 
             // Update data length, if applicable
-            match transaction.data_len {
-                Some(len) => self.qspi.dlr.write(|w| w.bits(len as u32 - 1)),
-                None => (),
-            };
+            if let Some(len) = transaction.data_len {
+                self.qspi.dlr.write(|w| w.bits(len as u32 - 1));
+            }
 
             // Update CCR register with metadata
             self.qspi.ccr.write_with_zero(|w| {
@@ -307,10 +300,9 @@ impl Qspi {
             });
 
             // Update address register, if applicable
-            match transaction.address {
-                Some(addr) => self.qspi.ar.write(|w| w.bits(addr)),
-                None => (),
-            };
+            if let Some(addr) = transaction.address {
+                self.qspi.ar.write(|w| w.bits(addr));
+            }
         }
     }
 
