@@ -122,9 +122,9 @@ impl Flash {
     /// Returns an error if the flash is locked or busy.
     fn check_locked_or_busy(&self) -> Result<(), Error> {
         if self.is_locked() {
-            return Err(Error::Locked);
+            Err(Error::Locked)
         } else if self.is_busy() {
-            return Err(Error::Busy);
+            Err(Error::Busy)
         } else {
             Ok(())
         }

@@ -217,10 +217,10 @@ fn blocking_i2c<I2C, SCL, SDA>(
     data_timeout_us: u32,
 ) -> BlockingI2c<I2C, SCL, SDA> {
     let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
-    return BlockingI2c {
+    BlockingI2c {
         nb: i2c,
         data_timeout: data_timeout_us * sysclk_mhz,
-    };
+    }
 }
 
 // hddat and vddat are removed because SDADEL is always going to be 0 in this implementation so
