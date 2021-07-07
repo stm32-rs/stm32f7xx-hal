@@ -639,6 +639,21 @@ impl CFGR {
             return;
         }
 
+        // We check if (pllm, plln, pllp) allow to obtain the requested Sysclk,
+        // so that we don't have to calculate them
+        let p_ok = (sysclk as u64)
+            == (base_clk as u64 * self.plln as u64
+                / self.pllm as u64
+                / match self.pllp {
+                    PLLP::Div2 => 2,
+                    PLLP::Div4 => 4,
+                    PLLP::Div6 => 6,
+                    PLLP::Div8 => 8,
+                });
+        if p_ok && q.is_none() {
+            return;
+        }
+
         if let Some((m, n, p, q)) = CFGR::calculate_mnpq(base_clk, FreqRequest { p, q }) {
             self.pllm = m as u8;
             self.plln = n as u16;
