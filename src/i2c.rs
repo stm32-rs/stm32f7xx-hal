@@ -441,8 +441,8 @@ macro_rules! hal {
                                 presc:  ((timing_r & 0xf000_0000) >> 28 ) as u8,
                                 scldel: ((timing_r & 0x00f0_0000) >> 20 ) as u8 ,
                                 sdadel: ((timing_r & 0x000f_0000) >> 16 ) as u8,
-                                sclh:   ((timing_r & 0x0000_ff00) >> 08 ) as u8,
-                                scll:   ((timing_r & 0x0000_00ff) >> 00 ) as u8,
+                                sclh:   ((timing_r & 0x0000_ff00) >> 8 ) as u8,
+                                scll:   ((timing_r & 0x0000_00ff) >> 0 ) as u8,
                             }
                         }
                     };
