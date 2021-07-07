@@ -22,6 +22,7 @@ use cast::u16;
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum Error {
     /// Bus error
     Bus,
@@ -36,9 +37,8 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
-    #[doc(hidden)]
-    _Extensible,
 }
+
 /// SPI mode. The user should make sure that the requested frequency can be
 /// generated considering the buses clocks.
 #[derive(Debug, PartialEq)]
