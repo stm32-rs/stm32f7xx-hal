@@ -57,6 +57,8 @@ where
         rcc.apb1rstr.write(|w| w.dacrst().clear_bit());
 
         // NOTE(unsafe) ZST, doesn't need initialization.
+        assert!(mem::size_of::<PINS::Output>() == 0);
+        #[allow(clippy::uninit_assumed_init)]
         mem::MaybeUninit::uninit().assume_init()
     }
 }
