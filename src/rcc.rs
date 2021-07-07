@@ -179,7 +179,7 @@ impl HSEClock {
     {
         let f: u32 = freq.into().0;
 
-        assert!(4_000_000 <= f && f <= 26_000_000);
+        assert!((4_000_000..=26_000_000).contains(&f));
         HSEClock { freq: f, mode }
     }
 }
@@ -273,7 +273,7 @@ impl CFGR {
     {
         let f: u32 = sysclk.into().0;
 
-        assert!(12_500_000 <= f && f <= 216_000_000);
+        assert!((12_500_000..=216_000_000).contains(&f));
 
         self.sysclk = Some(f);
         self
@@ -286,7 +286,7 @@ impl CFGR {
         F: Into<Hertz>,
     {
         let f: u32 = freq.into().0;
-        assert!(12_500_000 <= f && f <= 54_000_000);
+        assert!((12_500_000..=54_000_000).contains(&f));
 
         self.pclk1 = Some(f);
         self
@@ -299,7 +299,7 @@ impl CFGR {
         F: Into<Hertz>,
     {
         let f: u32 = freq.into().0;
-        assert!(12_500_000 <= f && f <= 108_000_000);
+        assert!((12_500_000..=108_000_000).contains(&f));
 
         self.pclk2 = Some(f);
         self
@@ -319,14 +319,14 @@ impl CFGR {
 
     /// Set common PLL divider
     pub fn pllm(mut self, pllm: u8) -> Self {
-        assert!(pllm >= 2 && pllm <= 63);
+        assert!((2..=63).contains(&pllm));
         self.pllm = pllm;
         self
     }
 
     /// Set PLL multiplication
     pub fn plln(mut self, plln: u16) -> Self {
-        assert!(plln >= 50 && plln <= 432);
+        assert!((50..=432).contains(&plln));
         self.plln = plln;
         self
     }
@@ -339,7 +339,7 @@ impl CFGR {
 
     /// Set PLL divider for 48 MHz clock
     pub fn pllq(mut self, pllq: u8) -> Self {
-        assert!(pllq >= 2 && pllq <= 15);
+        assert!((2..=15).contains(&pllq));
         self.pllq = pllq;
         self
     }
@@ -372,7 +372,7 @@ impl CFGR {
             pll48clk_valid = {
                 let pll48clk =
                     base_clk as u64 * self.plln as u64 / self.pllm as u64 / self.pllq as u64;
-                pll48clk >= 48_000_000 - 120_000 && pll48clk <= 48_000_000 + 120_000
+                (48_000_000 - 120_000..=48_000_000 + 120_000).contains(&pll48clk)
             };
         }
         // SYSCLK, must be <= 216 Mhz. By default, HSI/HSE frequency is chosen
