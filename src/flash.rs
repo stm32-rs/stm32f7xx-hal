@@ -105,11 +105,7 @@ impl Flash {
     /// Programs a block of flash memory.
     ///
     /// This method blocks until the block is programed or an error occurred.
-    pub fn blocking_program<'a, 'b>(
-        &'a mut self,
-        start_offset: usize,
-        data: &'b [u8],
-    ) -> Result<(), Error> {
+    pub fn blocking_program(&mut self, start_offset: usize, data: &[u8]) -> Result<(), Error> {
         let mut sequence = self.program(start_offset, data)?;
         block!(sequence.wait())
     }
