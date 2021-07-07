@@ -6,9 +6,9 @@
 use stm32_fmc::FmcPeripheral;
 use stm32_fmc::{AddressPinSet, PinsSdram, Sdram, SdramChip, SdramPinSet, SdramTargetBank};
 
+use crate::embedded_time::rate::Hertz;
 use crate::pac as stm32;
 use crate::rcc::Clocks;
-use crate::time::Hertz;
 
 use crate::gpio::gpioa::PA7;
 use crate::gpio::gpiob::{PB5, PB6, PB7};
