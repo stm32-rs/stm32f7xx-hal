@@ -24,6 +24,7 @@ compile_error!(
 );
 
 pub(crate) use embedded_hal as hal;
+pub use embedded_time;
 
 #[cfg(feature = "stm32f722")]
 pub use stm32f7::stm32f7x2 as pac;
