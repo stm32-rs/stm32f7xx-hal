@@ -579,7 +579,7 @@ impl CFGR {
                 }
                 if div.is_some() {
                     p = div;
-                    if let None = freq_req.q {
+                    if freq_req.q.is_none() {
                         break;
                     }
                 } else {
