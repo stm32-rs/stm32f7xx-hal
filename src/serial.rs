@@ -118,7 +118,7 @@ where
 
                 let usart_div = 2 * clocks.sysclk().0 / config.baud_rate.0;
 
-                0xfff0 & usart_div | 0x0008 & 0 | 0x0007 & ((usart_div & 0x000f) >> 1)
+                0xfff0 & usart_div | 0x0007 & ((usart_div & 0x000f) >> 1)
             }
             Oversampling::By16 => {
                 usart.cr1.modify(|_, w| w.over8().clear_bit());
