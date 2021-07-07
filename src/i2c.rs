@@ -306,7 +306,7 @@ fn calculate_timing(
     let mut presc: u8;
     // if ratio is > (scll+sclh)*presc. that frequancy is not possible to generate. so
     // minimum frequancy possible is generated
-    if product > 8192 as f32 {
+    if product > 8192_f32 {
         // TODO: should we panic or use minimum allowed frequancy
         scl_l = 0x7fu8;
         scl_h = 0x7fu8;
