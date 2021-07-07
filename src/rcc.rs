@@ -515,7 +515,7 @@ impl CFGR {
         };
         // For every frequency higher than 180 need to enable overdrive
         // Follows by DS Table 16.
-        config.overdrive = if sysclk <= 180_000_000 { false } else { true };
+        config.overdrive = sysclk > 180_000_000;
 
         let clocks = Clocks {
             hclk: Hertz(hclk),
