@@ -225,7 +225,7 @@ impl Qspi {
                         // Unpack the word
                         let num_unpack = if num_bytes >= 4 { 4 } else { num_bytes };
                         for i in 0..num_unpack {
-                            buf[idx] = ((word & (0xFF << i * 8)) >> i * 8).try_into().unwrap();
+                            buf[idx] = ((word & (0xFF << (i * 8))) >> (i * 8)).try_into().unwrap();
                             idx += 1;
                         }
                     }
