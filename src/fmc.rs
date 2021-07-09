@@ -65,7 +65,7 @@ use crate::gpio::{Alternate, AF12};
 
 /// Storage type for Flexible Memory Controller and its clocks
 pub struct FMC {
-    _fmc: stm32::FMC,
+    pub fmc: stm32::FMC,
     hclk: Hertz,
 }
 
@@ -105,7 +105,7 @@ impl FmcExt for stm32::FMC {
     /// New FMC instance
     fn fmc(self, clocks: &Clocks) -> FMC {
         FMC {
-            _fmc: self,
+            fmc: self,
             hclk: clocks.hclk(),
         }
     }
