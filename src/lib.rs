@@ -153,6 +153,9 @@ pub mod rng;
 #[cfg(feature = "device-selected")]
 pub mod qspi;
 
+#[cfg(feature = "device-selected")]
+pub mod adc;
+
 #[cfg(feature = "ltdc")]
 pub mod ltdc;
 
