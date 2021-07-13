@@ -59,7 +59,56 @@ where
 {
 }
 
-#[cfg(any(feature = "device-selected",))]
+mod f7xx_pins {
+    //table 13 in stm32f765bg.pdf
+    use super::{PinRx, PinTx};
+    use crate::gpio::{
+        gpioa::{PA11, PA12, PA15, PA8},
+        gpiob::{PB12, PB13, PB14, PB15, PB3, PB4, PB5, PB6, PB8, PB9},
+        gpiod::{PD0, PD1},
+        gpioh::{PH13, PH14},
+        gpioi::PI9,
+        Alternate, AF1, AF12, AF4, AF6, AF7, AF8,
+    };
+    use crate::pac::{UART4, UART5, UART7, USART1};
+    impl PinTx<USART1> for PB14<Alternate<AF4>> {}
+    impl PinRx<USART1> for PB15<Alternate<AF4>> {}
+
+    impl PinTx<UART4> for PA11<Alternate<AF6>> {}
+    impl PinRx<UART4> for PA12<Alternate<AF6>> {}
+
+    impl PinTx<UART4> for PD1<Alternate<AF8>> {}
+    impl PinRx<UART4> for PD0<Alternate<AF8>> {}
+
+    impl PinTx<UART4> for PH13<Alternate<AF8>> {}
+    impl PinRx<UART4> for PH14<Alternate<AF8>> {}
+
+    impl PinRx<UART4> for PI9<Alternate<AF8>> {}
+
+    impl PinTx<UART5> for PB6<Alternate<AF1>> {}
+    impl PinRx<UART5> for PB5<Alternate<AF1>> {}
+
+    impl PinTx<UART5> for PB9<Alternate<AF7>> {}
+    impl PinRx<UART5> for PB8<Alternate<AF7>> {}
+
+    impl PinTx<UART5> for PB13<Alternate<AF8>> {}
+    impl PinRx<UART5> for PB12<Alternate<AF8>> {}
+
+    impl PinTx<UART7> for PA15<Alternate<AF12>> {}
+    impl PinRx<UART7> for PA8<Alternate<AF12>> {}
+
+    impl PinTx<UART7> for PB4<Alternate<AF12>> {}
+    impl PinRx<UART7> for PB3<Alternate<AF12>> {}
+}
+
+#[cfg(any(
+    feature = "stm32f765",
+    feature = "stm32f767",
+    feature = "stm32f768",
+    feature = "stm32f769"
+))]
+pub use f7xx_pins::*;
+
 impl PinTx<USART1> for PA9<Alternate<AF7>> {}
 impl PinTx<USART1> for PB6<Alternate<AF7>> {}
 impl PinTx<USART2> for PA2<Alternate<AF7>> {}
@@ -75,7 +124,6 @@ impl PinTx<USART6> for PG14<Alternate<AF8>> {}
 impl PinTx<UART7> for PE8<Alternate<AF8>> {}
 impl PinTx<UART7> for PF7<Alternate<AF8>> {}
 
-#[cfg(any(feature = "device-selected",))]
 impl PinRx<USART1> for PA10<Alternate<AF7>> {}
 impl PinRx<USART1> for PB7<Alternate<AF7>> {}
 impl PinRx<USART2> for PA3<Alternate<AF7>> {}
