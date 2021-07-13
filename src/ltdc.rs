@@ -357,6 +357,9 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
     }
 
     /// Draw hardware accelerated rectangle
+    ///
+    /// # Safety
+    ///
     /// TODO: use safer DMA transfers
     pub unsafe fn draw_rectangle(
         &mut self,

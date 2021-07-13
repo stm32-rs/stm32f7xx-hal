@@ -105,11 +105,7 @@ impl Flash {
     /// Programs a block of flash memory.
     ///
     /// This method blocks until the block is programed or an error occurred.
-    pub fn blocking_program<'a, 'b>(
-        &'a mut self,
-        start_offset: usize,
-        data: &'b [u8],
-    ) -> Result<(), Error> {
+    pub fn blocking_program(&mut self, start_offset: usize, data: &[u8]) -> Result<(), Error> {
         let mut sequence = self.program(start_offset, data)?;
         block!(sequence.wait())
     }
@@ -122,9 +118,9 @@ impl Flash {
     /// Returns an error if the flash is locked or busy.
     fn check_locked_or_busy(&self) -> Result<(), Error> {
         if self.is_locked() {
-            return Err(Error::Locked);
+            Err(Error::Locked)
         } else if self.is_busy() {
-            return Err(Error::Busy);
+            Err(Error::Busy)
         } else {
             Ok(())
         }

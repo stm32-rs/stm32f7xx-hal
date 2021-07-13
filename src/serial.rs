@@ -35,6 +35,7 @@ use crate::time::Bps;
 
 /// Serial error
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Framing error
     Framing,
@@ -44,8 +45,6 @@ pub enum Error {
     Overrun,
     /// Parity check error
     Parity,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 pub trait Pins<USART> {}
@@ -167,7 +166,7 @@ where
 
                 let usart_div = 2 * clocks.sysclk().0 / config.baud_rate.0;
 
-                0xfff0 & usart_div | 0x0008 & 0 | 0x0007 & ((usart_div & 0x000f) >> 1)
+                0xfff0 & usart_div | 0x0007 & ((usart_div & 0x000f) >> 1)
             }
             Oversampling::By16 => {
                 usart.cr1.modify(|_, w| w.over8().clear_bit());
@@ -508,11 +507,7 @@ where
     Tx<USART>: serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        let _ = s
-            .as_bytes()
-            .into_iter()
-            .map(|c| block!(self.write(*c)))
-            .last();
+        let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
         Ok(())
     }
 }
