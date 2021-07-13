@@ -3,8 +3,8 @@ use core::cmp::min;
 #[cfg_attr(test, allow(unused_imports))]
 use micromath::F32Ext;
 
+use crate::embedded_time::rate::Hertz;
 use crate::pac::{rcc, FLASH, PWR, RCC};
-use crate::time::Hertz;
 
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {

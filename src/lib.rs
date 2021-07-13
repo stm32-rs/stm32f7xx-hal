@@ -24,6 +24,7 @@ compile_error!(
 );
 
 pub(crate) use embedded_hal as hal;
+pub use embedded_time;
 
 #[cfg(feature = "stm32f722")]
 pub use stm32f7::stm32f7x2 as pac;
@@ -134,9 +135,6 @@ pub mod serial;
 
 #[cfg(feature = "device-selected")]
 pub mod spi;
-
-#[cfg(feature = "device-selected")]
-pub mod time;
 
 #[cfg(feature = "device-selected")]
 pub mod timer;
