@@ -153,6 +153,9 @@ pub mod rng;
 #[cfg(feature = "device-selected")]
 pub mod qspi;
 
+#[cfg(any(feature = "stm32f765", feature = "stm32f767", feature = "stm32f769"))]
+pub mod adc;
+
 #[cfg(feature = "ltdc")]
 pub mod ltdc;
 
