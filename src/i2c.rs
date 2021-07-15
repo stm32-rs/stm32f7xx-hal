@@ -4,7 +4,6 @@
 // NB : this implementation started as a modified copy of https://github.com/stm32-rs/stm32f1xx-hal/blob/master/src/i2c.rs
 
 use crate::embedded_time::rate::Hertz;
-#[cfg_attr(test, allow(unused_imports))]
 use crate::gpio::gpioa::PA8;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::gpioc::PC9;
