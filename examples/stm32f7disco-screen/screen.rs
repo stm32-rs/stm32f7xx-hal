@@ -10,8 +10,8 @@ use embedded_graphics::{
 use stm32f7xx_hal::{
     ltdc::{DisplayConfig, DisplayController, Layer, PixelFormat, SupportedWord},
     pac::{DMA2D, LTDC},
+    prelude::*,
     rcc::{HSEClock, HSEClockMode},
-    time::U32Ext,
 };
 
 /// STM32F7-DISCO board display
@@ -42,7 +42,7 @@ impl<T: 'static + SupportedWord> Stm32F7DiscoDisplay<T> {
             dma2d,
             PixelFormat::RGB565,
             DISCO_SCREEN_CONFIG,
-            Some(&HSEClock::new(25.mhz(), HSEClockMode::Bypass)),
+            Some(&HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass)),
         );
 
         Stm32F7DiscoDisplay { controller }

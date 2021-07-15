@@ -5,12 +5,12 @@
 
 use crate::pac;
 
+use crate::embedded_time::rate::Hertz;
 use crate::gpio::{
     gpioa::{PA11, PA12},
     Alternate, AF10,
 };
 use crate::rcc::Clocks;
-use crate::time::Hertz;
 
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;
