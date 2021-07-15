@@ -13,7 +13,6 @@ use crate::gpio::{Alternate, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
-use micromath::F32Ext;
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 
@@ -276,6 +275,12 @@ fn calculate_timing(
     an_filter: bool,
     dnf: u8,
 ) -> I2cTiming {
+    // We get an "unused" warning here when running `cargo test`. I haven't
+    // looked into it, but I suspect that is only used when `std` isn't
+    // available, which would explain that behavior.
+    #[cfg(not(test))]
+    use micromath::F32Ext as _;
+
     // frequency limit check
     assert!(scl_freq <= spec.freq_max);
     // T_sync or delay introduced in SCL
