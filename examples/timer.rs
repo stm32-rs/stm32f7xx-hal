@@ -32,7 +32,7 @@ fn main() -> ! {
     unsafe {
         NVIC::unmask(pac::Interrupt::TIM2);
     }
-    let mut timer = Timer::tim2(dp.TIM2, 1.hz(), clocks, &mut rcc.apb1);
+    let mut timer = Timer::tim2(dp.TIM2, 1.Hz(), clocks, &mut rcc.apb1);
     timer.listen(Event::TimeOut);
 
     loop {}

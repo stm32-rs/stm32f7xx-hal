@@ -27,9 +27,9 @@ fn main() -> ! {
     // Other boards might have a crystal with another frequency or none at all.
     let _clocks = rcc
         .cfgr
-        .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
-        .sysclk(216.mhz())
-        .hclk(216.mhz())
+        .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
+        .sysclk(216_000_000.Hz())
+        .hclk(216_000_000.Hz())
         .freeze();
 
     let gpioa = dp.GPIOA.split();

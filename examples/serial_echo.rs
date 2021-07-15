@@ -23,7 +23,7 @@ fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
     let rcc = p.RCC.constrain();
-    let clocks = rcc.cfgr.sysclk(216.mhz()).freeze();
+    let clocks = rcc.cfgr.sysclk(216_000_000.Hz()).freeze();
 
     let gpioa = p.GPIOA.split();
     let gpiob = p.GPIOB.split();
@@ -36,7 +36,7 @@ fn main() -> ! {
         (tx, rx),
         clocks,
         serial::Config {
-            baud_rate: 115_200.bps(),
+            baud_rate: 115_200.Bps(),
             oversampling: serial::Oversampling::By16,
             character_match: None,
         },
