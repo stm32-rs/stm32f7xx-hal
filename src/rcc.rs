@@ -1033,6 +1033,8 @@ bus! {
 
 #[cfg(test)]
 mod tests {
+    use crate::prelude::*;
+
     use super::{FreqRequest, CFGR};
 
     fn build_request(sysclk: u32, use_pll48clk: bool) -> FreqRequest {
@@ -1135,7 +1137,6 @@ mod tests {
     #[test]
     fn test_rcc_calc1() {
         use super::{HSEClock, HSEClockMode, PLLP};
-        use crate::time::U32Ext;
 
         let cfgr = CFGR {
             hse: None,
@@ -1152,10 +1153,10 @@ mod tests {
         };
 
         let mut cfgr = cfgr
-            .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
+            .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
             .use_pll()
             .use_pll48clk()
-            .sysclk(216.mhz());
+            .sysclk(216_000_000.Hz());
         cfgr.pll_configure();
 
         assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
@@ -1168,7 +1169,6 @@ mod tests {
     #[test]
     fn test_rcc_calc2() {
         use super::{HSEClock, HSEClockMode, PLLP};
-        use crate::time::U32Ext;
 
         let cfgr = CFGR {
             hse: None,
@@ -1185,9 +1185,9 @@ mod tests {
         };
 
         let mut cfgr = cfgr
-            .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
+            .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
             .use_pll48clk()
-            .sysclk(216.mhz());
+            .sysclk(216_000_000.Hz());
         cfgr.pll_configure();
 
         assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
@@ -1200,7 +1200,6 @@ mod tests {
     #[test]
     fn test_rcc_calc3() {
         use super::{HSEClock, HSEClockMode, PLLP};
-        use crate::time::U32Ext;
 
         let cfgr = CFGR {
             hse: None,
@@ -1217,7 +1216,7 @@ mod tests {
         };
 
         let mut cfgr = cfgr
-            .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
+            .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
             .use_pll48clk()
             .set_defaults();
         cfgr.pll_configure();
