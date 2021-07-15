@@ -1,3 +1,5 @@
+pub use embedded_time::{duration::Extensions as _, rate::Extensions as _};
+
 #[cfg(feature = "fmc")]
 pub use crate::fmc::FmcExt as _stm327xx_hal_fmc_FmcExt;
 
