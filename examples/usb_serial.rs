@@ -34,10 +34,10 @@ fn main() -> ! {
 
     let clocks = rcc
         .cfgr
-        .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
+        .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
         .use_pll()
         .use_pll48clk()
-        .sysclk(216.mhz())
+        .sysclk(216_000_000.Hz())
         .freeze();
 
     #[cfg(feature = "usb_fs")]

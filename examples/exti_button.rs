@@ -45,7 +45,7 @@ fn main() -> ! {
     button.enable_interrupt(&mut exti);
 
     // Freeze clocks
-    rcc.constrain().cfgr.sysclk(216.mhz()).freeze();
+    rcc.constrain().cfgr.sysclk(216_000_000.Hz()).freeze();
 
     // Save information needed by the interrupt handler to the global variable
     free(|cs| {

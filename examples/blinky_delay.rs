@@ -22,7 +22,7 @@ fn main() -> ! {
     let rcc = p.RCC.constrain();
 
     // Configure clock and freeze it
-    let clocks = rcc.cfgr.sysclk(216.mhz()).freeze();
+    let clocks = rcc.cfgr.sysclk(216_000_000.Hz()).freeze();
 
     // Get delay provider
     let mut delay = Delay::new(cp.SYST, clocks);

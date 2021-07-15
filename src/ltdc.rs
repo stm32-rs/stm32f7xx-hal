@@ -343,7 +343,7 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
     /// Draw a pixel at position (x,y) on the given layer
     pub fn draw_pixel(&mut self, layer: Layer, x: usize, y: usize, color: T) {
         if x >= self.config.active_width as usize || y >= self.config.active_height as usize {
-            loop {}
+            panic!("Invalid (x,y) pixel position");
         }
 
         match layer {
@@ -357,6 +357,9 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
     }
 
     /// Draw hardware accelerated rectangle
+    ///
+    /// # Safety
+    ///
     /// TODO: use safer DMA transfers
     pub unsafe fn draw_rectangle(
         &mut self,

@@ -36,7 +36,7 @@ fn main() -> ! {
     );
 
     // Init clocks
-    let hse_cfg = HSEClock::new(25.mhz(), HSEClockMode::Oscillator);
+    let hse_cfg = HSEClock::new(25_000_000.Hz(), HSEClockMode::Oscillator);
     let mut rcc = rcc.constrain();
 
     // Setup DMA
@@ -45,7 +45,7 @@ fn main() -> ! {
     let dma = dma.handle.enable(&mut rcc.ahb1);
 
     // Ramp up clocks to 216 MHz
-    rcc.cfgr.hse(hse_cfg).sysclk(216.mhz()).freeze();
+    rcc.cfgr.hse(hse_cfg).sysclk(216_000_000.Hz()).freeze();
 
     // Check that we can communicate with the flash device
     mt25q.check_id();

@@ -8,11 +8,11 @@ use core::ptr;
 use as_slice::{AsMutSlice, AsSlice};
 
 use crate::dma;
+use crate::embedded_time::rate::Extensions as _;
 use crate::hal::prelude::*;
 use crate::hal::serial;
 use crate::pac;
 use crate::state;
-use crate::time::U32Ext;
 use nb::block;
 
 #[cfg(any(feature = "device-selected",))]
@@ -30,11 +30,12 @@ use crate::gpio::{
     Alternate, AF7, AF8,
 };
 
+use crate::embedded_time::rate::BytesPerSecond;
 use crate::rcc::Clocks;
-use crate::time::Bps;
 
 /// Serial error
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Framing error
     Framing,
@@ -44,8 +45,6 @@ pub enum Error {
     Overrun,
     /// Parity check error
     Parity,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 pub trait Pins<USART> {}
@@ -59,7 +58,56 @@ where
 {
 }
 
-#[cfg(any(feature = "device-selected",))]
+mod f7xx_pins {
+    //table 13 in stm32f765bg.pdf
+    use super::{PinRx, PinTx};
+    use crate::gpio::{
+        gpioa::{PA11, PA12, PA15, PA8},
+        gpiob::{PB12, PB13, PB14, PB15, PB3, PB4, PB5, PB6, PB8, PB9},
+        gpiod::{PD0, PD1},
+        gpioh::{PH13, PH14},
+        gpioi::PI9,
+        Alternate, AF1, AF12, AF4, AF6, AF7, AF8,
+    };
+    use crate::pac::{UART4, UART5, UART7, USART1};
+    impl PinTx<USART1> for PB14<Alternate<AF4>> {}
+    impl PinRx<USART1> for PB15<Alternate<AF4>> {}
+
+    impl PinTx<UART4> for PA11<Alternate<AF6>> {}
+    impl PinRx<UART4> for PA12<Alternate<AF6>> {}
+
+    impl PinTx<UART4> for PD1<Alternate<AF8>> {}
+    impl PinRx<UART4> for PD0<Alternate<AF8>> {}
+
+    impl PinTx<UART4> for PH13<Alternate<AF8>> {}
+    impl PinRx<UART4> for PH14<Alternate<AF8>> {}
+
+    impl PinRx<UART4> for PI9<Alternate<AF8>> {}
+
+    impl PinTx<UART5> for PB6<Alternate<AF1>> {}
+    impl PinRx<UART5> for PB5<Alternate<AF1>> {}
+
+    impl PinTx<UART5> for PB9<Alternate<AF7>> {}
+    impl PinRx<UART5> for PB8<Alternate<AF7>> {}
+
+    impl PinTx<UART5> for PB13<Alternate<AF8>> {}
+    impl PinRx<UART5> for PB12<Alternate<AF8>> {}
+
+    impl PinTx<UART7> for PA15<Alternate<AF12>> {}
+    impl PinRx<UART7> for PA8<Alternate<AF12>> {}
+
+    impl PinTx<UART7> for PB4<Alternate<AF12>> {}
+    impl PinRx<UART7> for PB3<Alternate<AF12>> {}
+}
+
+#[cfg(any(
+    feature = "stm32f765",
+    feature = "stm32f767",
+    feature = "stm32f768",
+    feature = "stm32f769"
+))]
+pub use f7xx_pins::*;
+
 impl PinTx<USART1> for PA9<Alternate<AF7>> {}
 impl PinTx<USART1> for PB6<Alternate<AF7>> {}
 impl PinTx<USART2> for PA2<Alternate<AF7>> {}
@@ -75,7 +123,6 @@ impl PinTx<USART6> for PG14<Alternate<AF8>> {}
 impl PinTx<UART7> for PE8<Alternate<AF8>> {}
 impl PinTx<UART7> for PF7<Alternate<AF8>> {}
 
-#[cfg(any(feature = "device-selected",))]
 impl PinRx<USART1> for PA10<Alternate<AF7>> {}
 impl PinRx<USART1> for PB7<Alternate<AF7>> {}
 impl PinRx<USART2> for PA3<Alternate<AF7>> {}
@@ -119,7 +166,7 @@ where
 
                 let usart_div = 2 * clocks.sysclk().0 / config.baud_rate.0;
 
-                0xfff0 & usart_div | 0x0008 & 0 | 0x0007 & ((usart_div & 0x000f) >> 1)
+                0xfff0 & usart_div | 0x0007 & ((usart_div & 0x000f) >> 1)
             }
             Oversampling::By16 => {
                 usart.cr1.modify(|_, w| w.over8().clear_bit());
@@ -382,7 +429,7 @@ where
 
 /// USART configuration
 pub struct Config {
-    pub baud_rate: Bps,
+    pub baud_rate: BytesPerSecond,
     pub oversampling: Oversampling,
     pub character_match: Option<u8>,
 }
@@ -395,7 +442,7 @@ pub enum Oversampling {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            baud_rate: 115_200.bps(),
+            baud_rate: 115_200.Bps(),
             oversampling: Oversampling::By16,
             character_match: None,
         }
@@ -460,11 +507,7 @@ where
     Tx<USART>: serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        let _ = s
-            .as_bytes()
-            .into_iter()
-            .map(|c| block!(self.write(*c)))
-            .last();
+        let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
         Ok(())
     }
 }

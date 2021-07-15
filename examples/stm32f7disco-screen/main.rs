@@ -87,9 +87,9 @@ fn main() -> ! {
     gpioh.ph1.into_floating_input();
     let _clocks = rcc_hal
         .cfgr
-        .hse(HSEClock::new(25.mhz(), HSEClockMode::Bypass))
-        .sysclk(216.mhz())
-        .hclk(216.mhz())
+        .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
+        .sysclk(216_000_000.Hz())
+        .hclk(216_000_000.Hz())
         .freeze();
 
     // LCD enable: set it low first to avoid LCD bleed while setting up timings

@@ -264,6 +264,7 @@ where
     /// Consumes this instance of `Transfer` and returns another instance with
     /// its type state set to indicate the transfer has been started.
     pub fn start(self, handle: &Handle<T::Instance, state::Enabled>) -> Transfer<T, B, Started> {
+        T::Stream::clear_status_flags(&handle.dma);
         atomic::fence(Ordering::SeqCst);
 
         handle.dma.st[T::Stream::number()]
@@ -288,6 +289,13 @@ where
             .read()
             .en()
             .is_enabled()
+    }
+
+    /// Try to cancel an in process transfer. Check is_active to verify cancellation
+    pub fn cancel(&self, handle: &Handle<T::Instance, state::Enabled>) {
+        handle.dma.st[T::Stream::number()]
+            .cr
+            .write(|w| w.en().disabled());
     }
 
     /// Waits for the transfer to end
@@ -568,7 +576,7 @@ impl_stream!(
 /// This is an internal trait. End users neither need to implement it, nor use
 /// it directly.
 pub trait Channel {
-    fn select<'r>(w: &'r mut dma2::st::cr::W) -> &'r mut dma2::st::cr::W;
+    fn select(w: &mut dma2::st::cr::W) -> &mut dma2::st::cr::W;
 }
 
 macro_rules! impl_channel {

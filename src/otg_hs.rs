@@ -10,7 +10,7 @@ use crate::gpio::{
     Alternate, AF12,
 };
 use crate::rcc::Clocks;
-use crate::time::Hertz;
+use embedded_time::rate::Hertz;
 
 #[cfg(feature = "usb_hs_phy")]
 use synopsys_usb_otg::PhyType;

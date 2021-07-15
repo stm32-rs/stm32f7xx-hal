@@ -35,7 +35,7 @@ fn main() -> ! {
 
     let dma = dma.handle.enable(&mut rcc.ahb1);
 
-    let clocks = rcc.cfgr.sysclk(216.mhz()).freeze();
+    let clocks = rcc.cfgr.sysclk(216_000_000.Hz()).freeze();
 
     let gpiod = p.GPIOD.split();
 
@@ -47,7 +47,7 @@ fn main() -> ! {
         (tx, rx),
         clocks,
         serial::Config {
-            baud_rate: 115_200.bps(),
+            baud_rate: 115_200.Bps(),
             oversampling: serial::Oversampling::By16,
             character_match: None,
         },

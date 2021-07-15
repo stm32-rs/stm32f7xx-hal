@@ -3,6 +3,7 @@
 
 // NB : this implementation started as a modified copy of https://github.com/stm32-rs/stm32f1xx-hal/blob/master/src/i2c.rs
 
+use crate::embedded_time::rate::Hertz;
 #[cfg_attr(test, allow(unused_imports))]
 use crate::gpio::gpioa::PA8;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
@@ -13,7 +14,6 @@ use crate::gpio::{Alternate, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
-use crate::time::Hertz;
 use micromath::F32Ext;
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
@@ -22,6 +22,7 @@ use cast::u16;
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum Error {
     /// Bus error
     Bus,
@@ -36,9 +37,8 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
-    #[doc(hidden)]
-    _Extensible,
 }
+
 /// SPI mode. The user should make sure that the requested frequency can be
 /// generated considering the buses clocks.
 #[derive(Debug, PartialEq)]
@@ -217,10 +217,10 @@ fn blocking_i2c<I2C, SCL, SDA>(
     data_timeout_us: u32,
 ) -> BlockingI2c<I2C, SCL, SDA> {
     let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
-    return BlockingI2c {
+    BlockingI2c {
         nb: i2c,
         data_timeout: data_timeout_us * sysclk_mhz,
-    };
+    }
 }
 
 // hddat and vddat are removed because SDADEL is always going to be 0 in this implementation so
@@ -306,7 +306,7 @@ fn calculate_timing(
     let mut presc: u8;
     // if ratio is > (scll+sclh)*presc. that frequancy is not possible to generate. so
     // minimum frequancy possible is generated
-    if product > 8192 as f32 {
+    if product > 8192_f32 {
         // TODO: should we panic or use minimum allowed frequancy
         scl_l = 0x7fu8;
         scl_h = 0x7fu8;
@@ -441,8 +441,8 @@ macro_rules! hal {
                                 presc:  ((timing_r & 0xf000_0000) >> 28 ) as u8,
                                 scldel: ((timing_r & 0x00f0_0000) >> 20 ) as u8 ,
                                 sdadel: ((timing_r & 0x000f_0000) >> 16 ) as u8,
-                                sclh:   ((timing_r & 0x0000_ff00) >> 08 ) as u8,
-                                scll:   ((timing_r & 0x0000_00ff) >> 00 ) as u8,
+                                sclh:   ((timing_r & 0x0000_ff00) >> 8 ) as u8,
+                                scll:   ((timing_r & 0x0000_00ff) >> 0 ) as u8,
                             }
                         }
                     };

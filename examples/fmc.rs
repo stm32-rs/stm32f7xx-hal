@@ -43,7 +43,7 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     // Get the delay provider.
-    let clocks = dp.RCC.constrain().cfgr.sysclk(216.mhz()).freeze();
+    let clocks = dp.RCC.constrain().cfgr.sysclk(216_000_000.Hz()).freeze();
     let mut delay = Delay::new(cp.SYST, clocks);
 
     // IO
