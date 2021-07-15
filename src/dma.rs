@@ -576,7 +576,7 @@ impl_stream!(
 /// This is an internal trait. End users neither need to implement it, nor use
 /// it directly.
 pub trait Channel {
-    fn select<'r>(w: &'r mut dma2::st::cr::W) -> &'r mut dma2::st::cr::W;
+    fn select(w: &mut dma2::st::cr::W) -> &mut dma2::st::cr::W;
 }
 
 macro_rules! impl_channel {

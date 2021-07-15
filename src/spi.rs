@@ -678,10 +678,7 @@ where
         self,
         rx_handle: &dma::Handle<Rx::Instance, state::Enabled>,
         tx_handle: &dma::Handle<Tx::Instance, state::Enabled>,
-    ) -> Result<
-        TransferResources<Word, I, P, Rx, Tx, Buffer>,
-        (TransferResources<Word, I, P, Rx, Tx, Buffer>, dma::Error),
-    > {
+    ) -> WaitResult<Word, I, P, Rx, Tx, Buffer> {
         let (rx_res, rx_err) = match self.rx.wait(rx_handle) {
             Ok(res) => (res, None),
             Err((res, err)) => (res, Some(err)),
@@ -708,6 +705,12 @@ where
         Ok(res)
     }
 }
+
+/// Returned by [`Transfer::wait`]
+pub type WaitResult<Word, I, P, Rx, Tx, Buffer> = Result<
+    TransferResources<Word, I, P, Rx, Tx, Buffer>,
+    (TransferResources<Word, I, P, Rx, Tx, Buffer>, dma::Error),
+>;
 
 /// The resources that an ongoing transfer needs exclusive access to
 pub struct TransferResources<Word, I, P, Rx: dma::Target, Tx: dma::Target, Buffer> {
