@@ -1,7 +1,11 @@
 //! Quadrature Encoder Interface API
 
 use crate::rcc::APB1;
+#[cfg(feature = "stm32f767")]
 use stm32f7::stm32f7x7::{TIM2, TIM3, TIM4, TIM5};
+
+#[cfg(feature = "stm32f769")]
+use stm32f7::stm32f7x9::{TIM2, TIM3, TIM4, TIM5};
 
 #[derive(Debug)]
 pub enum Direction {
