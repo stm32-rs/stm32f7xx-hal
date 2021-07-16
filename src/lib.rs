@@ -154,6 +154,9 @@ pub mod qspi;
 #[cfg(any(feature = "stm32f765", feature = "stm32f767", feature = "stm32f769"))]
 pub mod adc;
 
+#[cfg(any(feature = "stm32f767", feature = "stm32f769"))]
+pub mod qei;
+
 #[cfg(feature = "ltdc")]
 pub mod ltdc;
 
