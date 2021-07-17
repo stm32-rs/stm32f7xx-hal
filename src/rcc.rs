@@ -1094,6 +1094,8 @@ bus! {
 mod tests {
     use crate::prelude::*;
 
+    use crate::embedded_time::rate::Hertz;
+
     use super::{FreqRequest, CFGR};
 
     fn build_request(sysclk: u32, use_pll48clk: bool) -> FreqRequest {
@@ -1218,7 +1220,7 @@ mod tests {
             .sysclk(216_000_000.Hz());
         cfgr.pll_configure();
 
-        assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
+        assert_eq!(cfgr.hse.unwrap().freq, Hertz(25_000_000u32));
 
         let (clocks, _config) = cfgr.calculate_clocks();
         assert_eq!(clocks.sysclk().0, 216_000_000);
@@ -1249,7 +1251,7 @@ mod tests {
             .sysclk(216_000_000.Hz());
         cfgr.pll_configure();
 
-        assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
+        assert_eq!(cfgr.hse.unwrap().freq, Hertz(25_000_000u32));
 
         let (clocks, _config) = cfgr.calculate_clocks();
         assert_eq!(clocks.sysclk().0, 216_000_000);
@@ -1280,7 +1282,7 @@ mod tests {
             .set_defaults();
         cfgr.pll_configure();
 
-        assert_eq!(cfgr.hse.unwrap().freq, 25_000_000);
+        assert_eq!(cfgr.hse.unwrap().freq, Hertz(25_000_000u32));
 
         let (clocks, _config) = cfgr.calculate_clocks();
         assert_eq!(clocks.sysclk().0, 216_000_000);
