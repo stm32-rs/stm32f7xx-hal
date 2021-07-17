@@ -1,10 +1,17 @@
-use core::cmp::min;
+//! Reset and clock control.
 
+use core::{cmp::min, convert::TryInto};
+
+use embedded_time::fixed_point::FixedPoint;
 #[cfg_attr(test, allow(unused_imports))]
 use micromath::F32Ext;
 
 use crate::embedded_time::rate::Hertz;
 use crate::pac::{rcc, FLASH, PWR, RCC};
+
+const MAX_HERTZ: Hertz = Hertz(u32::MAX);
+/// Typical output frequency of the HSI oscillator.
+const HSI_FREQUENCY: Hertz = Hertz(16_000_000);
 
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
@@ -155,37 +162,50 @@ impl BDCR {
     }
 }
 
-/// HSE Clock modes
-///     * `Oscillator`: Use of an external crystal/ceramic resonator
-///     * `Bypass`: Use of an external user clock
+/// HSE clock mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HSEClockMode {
+    /// Enable HSE oscillator to use external crystal or ceramic resonator.
     Oscillator,
+    /// Bypass HSE oscillator to use external clock source.
     Bypass,
 }
 
-/// HSE Clock
+/// HSE Clock.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HSEClock {
-    pub freq: u32,
-    pub mode: HSEClockMode,
+    /// Input frequency.
+    pub(crate) freq: Hertz,
+    /// Mode.
+    mode: HSEClockMode,
 }
 
 impl HSEClock {
-    /// Provide HSE frequency. Must be between 4 and 26 MHz
+    /// Provide HSE frequency.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the frequency is outside the valid range. The frequency must be between
+    /// 4 MHz and 26 MHz in oscillator mode and between 1 MHz and 50 MHz in bypass mode.
     pub fn new<F>(freq: F, mode: HSEClockMode) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
     {
-        let f: u32 = freq.into().0;
+        let freq = freq.try_into().unwrap_or(MAX_HERTZ);
 
-        assert!((4_000_000..=26_000_000).contains(&f));
-        HSEClock { freq: f, mode }
+        let valid_range = match mode {
+            // Source: Datasheet DS12536 Rev 2, Table 38
+            HSEClockMode::Oscillator => Hertz(4_000_000u32)..=Hertz(26_000_000),
+            // Source: Datasheet DS12536 Rev 2, Table 40
+            HSEClockMode::Bypass => Hertz(1_000_000)..=Hertz(50_000_000),
+        };
+        assert!(valid_range.contains(&freq));
+
+        HSEClock { freq, mode }
     }
 }
 
-const HSI: u32 = 16_000_000; // Hz
-
+/// PLL P division factors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PLLP {
     Div2 = 0b00,
@@ -207,21 +227,6 @@ impl Default for VOSscale {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct CFGR {
-    hse: Option<HSEClock>,
-    hclk: Option<u32>,
-    sysclk: Option<u32>,
-    pclk1: Option<u32>,
-    pclk2: Option<u32>,
-    use_pll: bool,
-    use_pll48clk: bool,
-    pllm: u8,
-    plln: u16,
-    pllp: PLLP,
-    pllq: u8,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 struct InternalRCCConfig {
     hpre: u8,
@@ -238,40 +243,62 @@ struct FreqRequest {
     q: Option<(u32, u32)>,
 }
 
+/// Clock configuration register.
+#[derive(Debug, PartialEq, Eq)]
+pub struct CFGR {
+    hse: Option<HSEClock>,
+    hclk: Option<u32>,
+    sysclk: Option<u32>,
+    pclk1: Option<u32>,
+    pclk2: Option<u32>,
+    use_pll: bool,
+    use_pll48clk: bool,
+    pllm: u8,
+    plln: u16,
+    pllp: PLLP,
+    pllq: u8,
+}
+
 impl CFGR {
-    /// Declare an HSE clock if available.
+    /// Configures the HSE oscillator.
     pub fn hse(mut self, hse: HSEClock) -> Self {
-        assert!(
-            hse.mode != HSEClockMode::Bypass || (hse.freq >= 4_000_000 && hse.freq <= 26_000_000)
-        );
         self.hse = Some(hse);
         self
     }
 
-    /// Set HCLK Clock (AHB bus, core, memory and DMA.
-    /// Specified frequency must be <= 216 MHz
+    /// Sets HCLK frequency.
+    ///
+    /// The HCLK is used for the AHB bus, core, memory and DMA.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the frequency is larger than 216 MHz.
     pub fn hclk<F>(mut self, freq: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
     {
-        let f: u32 = freq.into().0;
+        let f: u32 = freq.try_into().unwrap_or(MAX_HERTZ).0;
         assert!(f <= 216_000_000);
 
         self.hclk = Some(f);
         self
     }
 
-    /// Configure the system clock settings.
+    /// Sets the SYSCLK frequency.
     ///
-    /// This sets the sysclk frequency and sets up the USB clock if defined.
+    /// This sets the SYSCLK frequency and sets up the USB clock if defined.
     /// The provided frequency must be between 12.5 Mhz and 216 Mhz.
-    /// 12.5 Mhz is the VCO minimum frequency and sysclk PLLP divider limitation.
+    /// 12.5 Mhz is the VCO minimum frequency and SYSCLK PLLP divider limitation.
     /// If the ethernet peripheral is on, the user should set a frequency higher than 25 Mhz.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the frequency is not between 12.5 MHz and 216 MHz.
     pub fn sysclk<F>(mut self, sysclk: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
     {
-        let f: u32 = sysclk.into().0;
+        let f: u32 = sysclk.try_into().unwrap_or(MAX_HERTZ).0;
 
         assert!((12_500_000..=216_000_000).contains(&f));
 
@@ -279,65 +306,86 @@ impl CFGR {
         self
     }
 
-    /// Set PCLK1 Clock (APB1 clock). Must be <= 54 Mhz. By default, max
-    /// frequency is chosen
+    /// Sets the PCLK1 clock (APB1 clock).
+    ///
+    /// If this method isn't called the maximum allowed frequency is used for PCLK1.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the frequency is not between 12.5 MHz and 54 MHz.
     pub fn pclk1<F>(mut self, freq: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
     {
-        let f: u32 = freq.into().0;
+        let f: u32 = freq.try_into().unwrap_or(MAX_HERTZ).0;
         assert!((12_500_000..=54_000_000).contains(&f));
 
         self.pclk1 = Some(f);
         self
     }
 
-    /// Set PCLK2 Clock (APB2 clock). Must be <= 108 Mhz. By default, max
-    /// frequency is chosen
+    /// Sets PCLK2 clock (APB2 clock).
+    ///
+    /// If this method isn't called the maximum allowed frequency is used for PCLK2.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the frequency is not between 12.5 MHz and 108 MHz.
     pub fn pclk2<F>(mut self, freq: F) -> Self
     where
-        F: Into<Hertz>,
+        F: TryInto<Hertz>,
     {
-        let f: u32 = freq.into().0;
+        let f: u32 = freq.try_into().unwrap_or(MAX_HERTZ).0;
         assert!((12_500_000..=108_000_000).contains(&f));
 
         self.pclk2 = Some(f);
         self
     }
 
-    /// Use PLL as clock source
+    /// Sets the SYSCLK clock source to the main PLL.
     pub fn use_pll(mut self) -> Self {
         self.use_pll = true;
         self
     }
 
-    /// Use PLL48 as clock source for USB clock
+    /// Sets the 48 MHz clock source to the main PLL.
     pub fn use_pll48clk(mut self) -> Self {
         self.use_pll48clk = true;
         self
     }
 
-    /// Set common PLL divider
+    /// Sets the common PLL division factor.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the division factor isn't between 2 and 63.
     pub fn pllm(mut self, pllm: u8) -> Self {
         assert!((2..=63).contains(&pllm));
         self.pllm = pllm;
         self
     }
 
-    /// Set PLL multiplication
+    /// Sets the PLL multiplication factor for the main PLL.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the multiplication factor isn't between 50 and 432.
     pub fn plln(mut self, plln: u16) -> Self {
         assert!((50..=432).contains(&plln));
         self.plln = plln;
         self
     }
 
-    /// Set PLL divider
+    /// Sets the PLL division factor for the main PLL.
     pub fn pllp(mut self, pllp: PLLP) -> Self {
         self.pllp = pllp;
         self
     }
 
-    /// Set PLL divider for 48 MHz clock
+    /// Sets the PLL division factor for the 48 MHz clock.
+    /// # Panics
+    ///
+    /// Panics if the division factor isn't between 2 and 15.
     pub fn pllq(mut self, pllq: u8) -> Self {
         assert!((2..=15).contains(&pllq));
         self.pllq = pllq;
@@ -348,10 +396,13 @@ impl CFGR {
     fn calculate_clocks(&self) -> (Clocks, InternalRCCConfig) {
         let mut config = InternalRCCConfig::default();
 
-        let base_clk = match self.hse.as_ref() {
-            Some(hse) => hse.freq,
-            None => HSI,
-        } as u64;
+        let base_clk = u64::from(
+            match self.hse.as_ref() {
+                Some(hse) => hse.freq,
+                None => HSI_FREQUENCY,
+            }
+            .integer(),
+        );
 
         let mut sysclk = base_clk;
 
@@ -525,7 +576,7 @@ impl CFGR {
             timclk1: Hertz(timclk1),
             timclk2: Hertz(timclk2),
             pll48clk_valid,
-            hse: self.hse.map(|hse| Hertz(hse.freq)),
+            hse: self.hse.map(|hse| hse.freq),
         };
 
         (clocks, config)
@@ -612,8 +663,9 @@ impl CFGR {
     fn pll_configure(&mut self) {
         let base_clk = match self.hse.as_ref() {
             Some(hse) => hse.freq,
-            None => HSI,
-        };
+            None => HSI_FREQUENCY,
+        }
+        .integer();
 
         let sysclk = if let Some(clk) = self.sysclk {
             clk
@@ -675,10 +727,11 @@ impl CFGR {
         }
     }
 
-    /// Configure the default clock settings.
-    /// Set sysclk as 216 Mhz and setup USB clock if defined.
+    /// Configures the default clock settings.
+    ///
+    /// Set SYSCLK as 216 Mhz and setup USB clock if defined.
     pub fn set_defaults(self) -> Self {
-        self.sysclk(Hertz(216_000_000))
+        self.sysclk(Hertz(216_000_000u32))
     }
 
     /// Configure the "mandatory" clocks (`sysclk`, `hclk`, `pclk1` and `pclk2')
@@ -864,8 +917,14 @@ impl Clocks {
     }
 }
 
+/// Trait to get the frequency of a bus.
 pub trait GetBusFreq {
+    /// Returns the frequency of the bus.
     fn get_frequency(clocks: &Clocks) -> Hertz;
+
+    /// Returns the timer frequency of the bus.
+    ///
+    /// Timers on an APB bus run at twice the bus speed if the APB prescaler is >= 2.
     fn get_timer_frequency(clocks: &Clocks) -> Hertz {
         Self::get_frequency(clocks)
     }
