@@ -275,9 +275,8 @@ fn calculate_timing(
     an_filter: bool,
     dnf: u8,
 ) -> I2cTiming {
-    // We get an "unused" warning here when running `cargo test`. I haven't
-    // looked into it, but I suspect that is only used when `std` isn't
-    // available, which would explain that behavior.
+    // This dependency is not used when `cargo test`ing. More info:
+    // https://docs.rs/micromath/1.1.1/micromath/index.html#unused-import-warnings-when-linking-std
     #[cfg(not(test))]
     use micromath::F32Ext as _;
 
