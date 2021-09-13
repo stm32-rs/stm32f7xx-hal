@@ -9,6 +9,7 @@
 
 extern crate panic_semihosting;
 
+use core::pin::Pin;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
 use stm32f7xx_hal::{
@@ -57,7 +58,7 @@ fn main() -> ! {
 }
 
 fn memory_example_polling(mt25q: &mut mt25q::Mt25q) {
-    // Create a set of buffers for a memory at address `ADDR` of size `LEN` bytes
+    // Create a set of buffers in RAM that will mirror flash memory at address `ADDR` of size `LEN`
     const ADDR: u32 = 0x7003;
     const LEN: usize = 1035;
     let mut read_buffer: [u8; LEN] = [0; LEN];
@@ -66,7 +67,10 @@ fn memory_example_polling(mt25q: &mut mt25q::Mt25q) {
         write_buffer[i] = i as u8;
     }
 
-    // Test erase + read
+    ///////////////////////
+    // Test erase + read //
+    ///////////////////////
+
     let (num_erase, addr_erase) = mt25q.erase(ADDR, LEN);
     assert!(LEN <= num_erase as usize);
     assert!(addr_erase <= ADDR);
@@ -76,7 +80,10 @@ fn memory_example_polling(mt25q: &mut mt25q::Mt25q) {
         assert!(read_buffer[i] == 0xFF);
     }
 
-    // Test write + read
+    ///////////////////////
+    // Test write + read //
+    ///////////////////////
+
     mt25q.write(ADDR, &mut write_buffer, LEN);
     mt25q.read(&mut read_buffer, ADDR, LEN);
     for i in 0..LEN {
@@ -98,36 +105,72 @@ fn memory_example_dma(
     dma: &Handle<DMA2, state::Enabled>,
     stream: Stream7<DMA2>,
 ) {
-    // Create a set of buffers for a memory at address `ADDR` of size `LEN` bytes
+    // Create a buffer in RAM that will mirror flash memory at address `ADDR` of size `LEN`
     const ADDR: u32 = 0x7000;
-    const LEN: usize = 4096;
-    let mut read_buffer: [u8; LEN] = [0; LEN];
-    let mut write_buffer: [u8; LEN] = [0; LEN];
-    for i in 0..LEN {
-        write_buffer[i] = i as u8;
+    const LEN: usize = mt25q::SUBSECTOR_SIZE as usize;
+    static mut READ_BUFFER: [u8; LEN] = [0; LEN];
+
+    // Temporary working memory
+    const PAGE_SIZE: usize = mt25q::PAGE_SIZE as usize;
+    static mut PAGE_BUFFER: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
+
+    // Set the page buffer to some random data
+    unsafe {
+        for i in 0..PAGE_SIZE {
+            PAGE_BUFFER[i] = i as u8;
+        }
     }
 
-    // Test erase + read
+    // Create pinned versions for DMA transfers
+    let mut stream = stream;
+    let mut read_buffer = unsafe { Pin::new(&mut READ_BUFFER) };
+    let mut page_buffer = unsafe { Pin::new(&mut PAGE_BUFFER) };
+
+    ///////////////////////
+    // Test erase + read //
+    ///////////////////////
+
     let (num_erase, addr_erase) = mt25q.erase(ADDR, LEN);
     assert!(LEN <= num_erase as usize);
     assert!(addr_erase <= ADDR);
 
-    let stream = mt25q.read_dma(&mut read_buffer, ADDR, LEN, dma, stream);
+    let read_resources = mt25q.read_dma(read_buffer, ADDR, LEN, dma, stream);
     for i in 0..LEN {
-        assert!(read_buffer[i] == 0xFF);
+        assert!(read_resources.buffer[i] == 0xFF);
     }
 
-    // Test write + read
-    let stream = mt25q.write_dma(ADDR, &mut write_buffer, LEN, dma, stream);
-    mt25q.read_dma(&mut read_buffer, ADDR, LEN, dma, stream);
+    stream = read_resources.stream;
+    read_buffer = read_resources.buffer;
+
+    ///////////////////////
+    // Test write + read //
+    ///////////////////////
+
+    // For writing with DMA, caller must break the writes down into flash memory pages.
+    // Note that since ADDR is page aligned and LEN is a multiple of the page size some
+    // page boundry math is ignored here. See the polling write function in the `mt25q`
+    // driver for a more advanced example dealing with unaligned page boundries.
+    let mut curr_addr: u32 = ADDR;
+    let mut bytes_written: usize = 0;
+    while bytes_written < LEN {
+        let write_resources = mt25q.write_page_dma(curr_addr, page_buffer, PAGE_SIZE, dma, stream);
+        stream = write_resources.stream;
+        page_buffer = write_resources.buffer;
+        bytes_written += PAGE_SIZE;
+        curr_addr += PAGE_SIZE as u32;
+    }
+
+    mt25q.read_dma(read_buffer, ADDR, LEN, dma, stream);
     for i in 0..LEN {
-        if write_buffer[i] != read_buffer[i] {
-            panic!(
-                "Error: Mismatch at address {:X}. Expected {:X} but read {:X}",
-                ADDR + i as u32,
-                write_buffer[i],
-                read_buffer[i]
-            );
+        unsafe {
+            if PAGE_BUFFER[i % PAGE_SIZE] != READ_BUFFER[i] {
+                panic!(
+                    "Error: Mismatch at address {:X}. Expected {:X} but read {:X}",
+                    ADDR + i as u32,
+                    PAGE_BUFFER[i % PAGE_SIZE],
+                    READ_BUFFER[i]
+                );
+            }
         }
     }
 

@@ -1,10 +1,14 @@
 //! QUADSPI driver for the STM32F7. Supports INDIRECT mode only, using DMA or polling I/O.
 
+use as_slice::AsSlice;
+use core::convert::TryInto;
+use core::marker::PhantomData;
+use core::ops::Deref;
+use core::pin::Pin;
+
 use crate::dma;
 use crate::pac::{QUADSPI, RCC};
 use crate::state;
-use as_slice::AsSlice;
-use core::{convert::TryInto, marker::PhantomData, pin::Pin};
 
 /// The QSPI driver interface.
 pub struct Qspi {
@@ -32,8 +36,6 @@ pub struct QspiTransaction {
 pub enum Error {
     /// Bad input parameters.
     BadParam,
-    /// DMA error.
-    DmaError(dma::Error),
 }
 
 /// QSPI transactions contain configurable instruction, address, and data fields.
@@ -85,18 +87,19 @@ impl Qspi {
         Qspi { qspi, adsize }
     }
 
-    /// DMA read. Wrapper around the HAL DMA driver. Performs QSPI register programming then creates a
-    /// DMA transfer from peripheral to memory. Blocks until transfer is complete. Returns the stream
-    /// handle so it can be reused in future calls.
-    pub fn dma_read(
+    /// DMA read. Wrapper around the HAL DMA driver. Performs QSPI register programming, creates a
+    /// DMA transfer from peripheral to memory, and starts the transfer. Caller can use the DMA
+    /// `wait` API to block until the transfer is complete.
+    pub fn read_all<B>(
         &mut self,
-        buf: &[u8],
+        data: Pin<B>,
         transaction: QspiTransaction,
         dma: &dma::Handle<<RxTx<QUADSPI> as dma::Target>::Instance, state::Enabled>,
         stream: <RxTx<QUADSPI> as dma::Target>::Stream,
-    ) -> Result<<RxTx<QUADSPI> as dma::Target>::Stream, Error>
+    ) -> Result<dma::Transfer<RxTx<QUADSPI>, B, dma::Started>, Error>
     where
-        RxTx<QUADSPI>: dma::Target,
+        B: Deref + 'static,
+        B::Target: AsSlice<Element = u8>,
     {
         // Only use DMA with data, for command only use `polling_read`
         match transaction.data_len {
@@ -111,16 +114,11 @@ impl Qspi {
 
                 // Setup DMA transfer
                 let rx_token = RxTx(PhantomData);
-                let rx_buffer = dma::PtrBuffer {
-                    ptr: buf.as_slice().as_ptr(),
-                    len: data_len,
-                };
-
                 let rx_transfer = unsafe {
                     dma::Transfer::new(
                         dma,
                         stream,
-                        Pin::new(rx_buffer),
+                        data,
                         rx_token,
                         self.dr_address(),
                         dma::Direction::PeripheralToMemory,
@@ -132,28 +130,25 @@ impl Qspi {
                 // Set DMA bit since we are using it
                 self.qspi.cr.modify(|_, w| w.dmaen().set_bit());
 
-                // Block until done
-                match rx_transfer.wait(&dma) {
-                    Err((_, e)) => Err(Error::DmaError(e)),
-                    Ok(res) => Ok(res.stream),
-                }
+                Ok(rx_transfer)
             }
             None => Err(Error::BadParam),
         }
     }
 
-    /// DMA write. Wrapper around the HAL DMA driver. Performs QSPI register programming then creates a
-    /// DMA transfer from memory to peripheral. Blocks until transfer is complete. Returns the stream
-    /// handle so it can be reused in future calls.
-    pub fn dma_write(
+    /// DMA write. Wrapper around the HAL DMA driver. Performs QSPI register programming, creates a
+    /// DMA transfer from memory to peripheral, and starts the transfer. Caller can use the DMA
+    /// `wait` API to block until the transfer is complete.
+    pub fn write_all<B>(
         &mut self,
-        buf: &[u8],
+        data: Pin<B>,
         transaction: QspiTransaction,
         dma: &dma::Handle<<RxTx<QUADSPI> as dma::Target>::Instance, state::Enabled>,
         stream: <RxTx<QUADSPI> as dma::Target>::Stream,
-    ) -> Result<<RxTx<QUADSPI> as dma::Target>::Stream, Error>
+    ) -> Result<dma::Transfer<RxTx<QUADSPI>, B, dma::Started>, Error>
     where
-        RxTx<QUADSPI>: dma::Target,
+        B: Deref + 'static,
+        B::Target: AsSlice<Element = u8>,
     {
         // Only use DMA with data, for command only use `polling_write`
         match transaction.data_len {
@@ -168,16 +163,11 @@ impl Qspi {
 
                 // Setup DMA transfer
                 let tx_token = RxTx(PhantomData);
-                let tx_buffer = dma::PtrBuffer {
-                    ptr: buf.as_slice().as_ptr(),
-                    len: data_len,
-                };
-
                 let tx_transfer = unsafe {
                     dma::Transfer::new(
                         dma,
                         stream,
-                        Pin::new(tx_buffer),
+                        data,
                         tx_token,
                         self.dr_address(),
                         dma::Direction::MemoryToPeripheral,
@@ -189,22 +179,14 @@ impl Qspi {
                 // Set DMA bit since we are using it
                 self.qspi.cr.modify(|_, w| w.dmaen().set_bit());
 
-                // Block until done
-                match tx_transfer.wait(&dma) {
-                    Err((_, e)) => Err(Error::DmaError(e)),
-                    Ok(res) => Ok(res.stream),
-                }
+                Ok(tx_transfer)
             }
             None => Err(Error::BadParam),
         }
     }
 
     /// Polling indirect read. Can also be used to perform transactions with no data.
-    pub fn polling_read(
-        &mut self,
-        buf: &mut [u8],
-        transaction: QspiTransaction,
-    ) -> Result<(), Error> {
+    pub fn read(&mut self, buf: &mut [u8], transaction: QspiTransaction) -> Result<(), Error> {
         // Clear DMA bit since we are not using it
         self.qspi.cr.modify(|_, w| w.dmaen().clear_bit());
 
@@ -235,7 +217,7 @@ impl Qspi {
     }
 
     /// Polling indirect write.
-    pub fn polling_write(&mut self, buf: &[u8], transaction: QspiTransaction) -> Result<(), Error> {
+    pub fn write(&mut self, buf: &[u8], transaction: QspiTransaction) -> Result<(), Error> {
         // Clear DMA bit since we are not using it
         self.qspi.cr.modify(|_, w| w.dmaen().clear_bit());
 

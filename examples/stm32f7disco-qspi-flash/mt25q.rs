@@ -1,11 +1,14 @@
-//! Basic driver for the MT25QL128ABA. Demonstrates how a flash driver can be
-//! written using the QSPI driver in the HAL.
+//! Basic driver for the MT25QL128ABA. Demonstrates how the QSPI HAL
+//! driver can be used to create a driver for a QSPI flash memory chip.
 
+use as_slice::AsSlice;
+use core::ops::Deref;
+use core::pin::Pin;
 use stm32f7xx_hal::{
-    dma::{Handle, Stream7},
+    dma::{Handle, Stream7, TransferResources},
     gpio::{GpioExt, Speed},
     pac::{DMA2, GPIOB, GPIOD, GPIOE, QUADSPI, RCC},
-    qspi::{Qspi, QspiTransaction, QspiWidth},
+    qspi::{Qspi, QspiTransaction, QspiWidth, RxTx},
     state,
 };
 
@@ -19,8 +22,8 @@ const ID_MANF: u8 = 0x20;
 const ID_MEMT: u8 = 0xBA;
 const ID_MEMC: u8 = 0x18;
 const MAX_ADDR: u32 = 0x00FF_FFFF;
-const SUBSECTOR_SIZE: u32 = 4096;
-const PAGE_SIZE: u32 = 256;
+pub const SUBSECTOR_SIZE: u32 = 4096;
+pub const PAGE_SIZE: u32 = 256;
 
 pub struct Mt25q {
     driver: Qspi,
@@ -86,7 +89,7 @@ impl Mt25q {
         };
 
         let mut id = [0, 0, 0];
-        self.driver.polling_read(&mut id, transaction).unwrap();
+        self.driver.read(&mut id, transaction).unwrap();
 
         if id[0] != ID_MANF || id[1] != ID_MEMT || id[2] != ID_MEMC {
             panic!("Error: Device ID mismatch!");
@@ -94,14 +97,21 @@ impl Mt25q {
     }
 
     /// Blocking DMA read.
-    pub fn read_dma(
+    ///
+    /// NOTE: This function could be easily modified for non-blocking by returning
+    /// the handle to the ongoing DMA `Transfer`.
+    pub fn read_dma<B>(
         &mut self,
-        dst: &[u8],
+        dst: Pin<B>,
         src: u32,
         len: usize,
         dma: &Handle<DMA2, state::Enabled>,
         stream: Stream7<DMA2>,
-    ) -> Stream7<DMA2> {
+    ) -> TransferResources<RxTx<QUADSPI>, B>
+    where
+        B: Deref + 'static,
+        B::Target: AsSlice<Element = u8>,
+    {
         assert!(len > 0);
         assert!(src + (len as u32) <= MAX_ADDR);
 
@@ -115,61 +125,63 @@ impl Mt25q {
             data_len: Some(len),
         };
 
-        self.driver.dma_read(dst, transaction, dma, stream).unwrap()
+        // Start the DMA read
+        let rx_transfer = self.driver.read_all(dst, transaction, dma, stream).unwrap();
+
+        // Wait for DMA read to finish
+        rx_transfer.wait(&dma).unwrap()
     }
 
-    /// Blocking DMA write.
-    pub fn write_dma(
+    /// Blocking DMA page write.
+    ///
+    /// NOTE: This function could be easily modified for non-blocking by returning
+    /// the handle to the ongoing DMA `Transfer`. However for this flash chip it
+    /// would not be very useful, since writes are limited by page size. The only
+    /// way to acheive non-blocking writes would be to use interrupts to reload DMA
+    /// for each page.
+    pub fn write_page_dma<B>(
         &mut self,
         dst: u32,
-        src: &[u8],
+        src: Pin<B>,
         len: usize,
         dma: &Handle<DMA2, state::Enabled>,
         stream: Stream7<DMA2>,
-    ) -> Stream7<DMA2> {
+    ) -> TransferResources<RxTx<QUADSPI>, B>
+    where
+        B: Deref + 'static,
+        B::Target: AsSlice<Element = u8>,
+    {
         assert!(len > 0);
         assert!(dst + (len as u32) <= MAX_ADDR);
 
-        let mut outer_idx: usize = 0;
-        let mut curr_addr: u32 = dst;
-        let mut curr_len: usize = len;
-        let mut curr_stream = stream;
-
         // Constraints for writes: (1) Must be <= 256 bytes, (2) must not cross a page boundry
-        while curr_len > 0 {
-            self.write_enable();
+        assert!(len as u32 <= PAGE_SIZE);
+        assert!(dst % PAGE_SIZE == 0);
 
-            let start_page = curr_addr - (curr_addr % PAGE_SIZE);
-            let end_page = start_page + PAGE_SIZE;
-            let size: usize = if curr_addr + (curr_len as u32) > end_page {
-                (end_page - curr_addr) as usize
-            } else {
-                curr_len
-            };
+        self.write_enable();
 
-            let transaction = QspiTransaction {
-                iwidth: QspiWidth::SING,
-                awidth: QspiWidth::SING,
-                dwidth: QspiWidth::QUAD,
-                instruction: CMD_MEM_PROGRAM,
-                address: Some(curr_addr & MAX_ADDR),
-                dummy: 0,
-                data_len: Some(size),
-            };
+        let transaction = QspiTransaction {
+            iwidth: QspiWidth::SING,
+            awidth: QspiWidth::SING,
+            dwidth: QspiWidth::QUAD,
+            instruction: CMD_MEM_PROGRAM,
+            address: Some(dst & MAX_ADDR),
+            dummy: 0,
+            data_len: Some(len),
+        };
 
-            let buf = unsafe { core::slice::from_raw_parts(&src[outer_idx] as *const u8, size) };
-            curr_stream = self
-                .driver
-                .dma_write(buf, transaction, dma, curr_stream)
-                .unwrap();
-            self.poll_status();
+        // Start the DMA write
+        let tx_transfer = self
+            .driver
+            .write_all(src, transaction, dma, stream)
+            .unwrap();
 
-            outer_idx += size;
-            curr_addr += size as u32;
-            curr_len -= size;
-        }
+        // Wait for DMA write to finish
+        let resources = tx_transfer.wait(&dma).unwrap();
 
-        curr_stream
+        self.poll_status();
+
+        resources
     }
 
     /// Blocking polling read.
@@ -187,7 +199,7 @@ impl Mt25q {
             data_len: Some(len),
         };
 
-        self.driver.polling_read(dst, transaction).unwrap();
+        self.driver.read(dst, transaction).unwrap();
     }
 
     /// Blocking polling write.
@@ -222,7 +234,7 @@ impl Mt25q {
             };
 
             let buf = unsafe { core::slice::from_raw_parts(&src[outer_idx] as *const u8, size) };
-            self.driver.polling_write(buf, transaction).unwrap();
+            self.driver.write(buf, transaction).unwrap();
             self.poll_status();
 
             outer_idx += size;
@@ -257,7 +269,7 @@ impl Mt25q {
             };
 
             let mut dummy = [0];
-            self.driver.polling_read(&mut dummy, transaction).unwrap();
+            self.driver.read(&mut dummy, transaction).unwrap();
 
             num_erased_bytes += SUBSECTOR_SIZE;
             addr += SUBSECTOR_SIZE;
@@ -282,9 +294,7 @@ impl Mt25q {
 
         let mut status = [0];
         while status[0] & 0x80 == 0 {
-            self.driver
-                .polling_read(&mut status, transaction.clone())
-                .unwrap();
+            self.driver.read(&mut status, transaction.clone()).unwrap();
         }
     }
 
@@ -301,6 +311,6 @@ impl Mt25q {
         };
 
         let mut dummy = [0];
-        self.driver.polling_read(&mut dummy, transaction).unwrap()
+        self.driver.read(&mut dummy, transaction).unwrap()
     }
 }
