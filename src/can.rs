@@ -22,7 +22,7 @@
 use crate::gpio::gpiob::{PB12, PB13, PB5, PB6, PB8, PB9};
 use crate::gpio::{
     gpioa::{PA11, PA12},
-    Alternate, AF9,
+    Alternate,
 };
 use crate::pac::CAN1;
 use crate::pac::CAN2;
@@ -36,23 +36,23 @@ pub trait Pins: sealed::Sealed {
     type Instance;
 }
 
-impl sealed::Sealed for (PA12<Alternate<AF9>>, PA11<Alternate<AF9>>) {}
-impl Pins for (PA12<Alternate<AF9>>, PA11<Alternate<AF9>>) {
+impl sealed::Sealed for (PA12<Alternate<9>>, PA11<Alternate<9>>) {}
+impl Pins for (PA12<Alternate<9>>, PA11<Alternate<9>>) {
     type Instance = CAN1;
 }
 
-impl sealed::Sealed for (PB9<Alternate<AF9>>, PB8<Alternate<AF9>>) {}
-impl Pins for (PB9<Alternate<AF9>>, PB8<Alternate<AF9>>) {
+impl sealed::Sealed for (PB9<Alternate<9>>, PB8<Alternate<9>>) {}
+impl Pins for (PB9<Alternate<9>>, PB8<Alternate<9>>) {
     type Instance = CAN1;
 }
 
-impl sealed::Sealed for (PB6<Alternate<AF9>>, PB5<Alternate<AF9>>) {}
-impl Pins for (PB6<Alternate<AF9>>, PB5<Alternate<AF9>>) {
+impl sealed::Sealed for (PB6<Alternate<9>>, PB5<Alternate<9>>) {}
+impl Pins for (PB6<Alternate<9>>, PB5<Alternate<9>>) {
     type Instance = CAN2;
 }
 
-impl sealed::Sealed for (PB13<Alternate<AF9>>, PB12<Alternate<AF9>>) {}
-impl Pins for (PB13<Alternate<AF9>>, PB12<Alternate<AF9>>) {
+impl sealed::Sealed for (PB13<Alternate<9>>, PB12<Alternate<9>>) {}
+impl Pins for (PB13<Alternate<9>>, PB12<Alternate<9>>) {
     type Instance = CAN2;
 }
 

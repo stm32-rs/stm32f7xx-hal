@@ -38,37 +38,37 @@ impl Mt25q {
 
         let _qspi_d0 = gpiod
             .pd11
-            .into_alternate_af9()
+            .into_alternate::<9>()
             .internal_pull_up(true)
             .set_speed(Speed::VeryHigh);
 
         let _qspi_d1 = gpiod
             .pd12
-            .into_alternate_af9()
+            .into_alternate::<9>()
             .internal_pull_up(true)
             .set_speed(Speed::VeryHigh);
 
         let _qspi_d2 = gpioe
             .pe2
-            .into_alternate_af9()
+            .into_alternate::<9>()
             .internal_pull_up(true)
             .set_speed(Speed::VeryHigh);
 
         let _qspi_d3 = gpiod
             .pd13
-            .into_alternate_af9()
+            .into_alternate::<9>()
             .internal_pull_up(true)
             .set_speed(Speed::VeryHigh);
 
         let _qspi_clk = gpiob
             .pb2
-            .into_alternate_af9()
+            .into_alternate::<9>()
             .internal_pull_up(true)
             .set_speed(Speed::VeryHigh);
 
         let _qspi_ncs = gpiob
             .pb6
-            .into_alternate_af10()
+            .into_alternate::<10>()
             .internal_pull_up(true)
             .set_speed(Speed::VeryHigh);
 

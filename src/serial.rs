@@ -27,7 +27,7 @@ use crate::gpio::{
     gpioe::{PE7, PE8},
     gpiof::{PF6, PF7},
     gpiog::{PG14, PG9},
-    Alternate, AF7, AF8,
+    Alternate,
 };
 
 use crate::embedded_time::rate::BytesPerSecond;
@@ -67,37 +67,37 @@ mod f7xx_pins {
         gpiod::{PD0, PD1},
         gpioh::{PH13, PH14},
         gpioi::PI9,
-        Alternate, AF1, AF12, AF4, AF6, AF7, AF8,
+        Alternate,
     };
     use crate::pac::{UART4, UART5, UART7, USART1};
-    impl PinTx<USART1> for PB14<Alternate<AF4>> {}
-    impl PinRx<USART1> for PB15<Alternate<AF4>> {}
+    impl PinTx<USART1> for PB14<Alternate<4>> {}
+    impl PinRx<USART1> for PB15<Alternate<4>> {}
 
-    impl PinTx<UART4> for PA11<Alternate<AF6>> {}
-    impl PinRx<UART4> for PA12<Alternate<AF6>> {}
+    impl PinTx<UART4> for PA11<Alternate<6>> {}
+    impl PinRx<UART4> for PA12<Alternate<6>> {}
 
-    impl PinTx<UART4> for PD1<Alternate<AF8>> {}
-    impl PinRx<UART4> for PD0<Alternate<AF8>> {}
+    impl PinTx<UART4> for PD1<Alternate<8>> {}
+    impl PinRx<UART4> for PD0<Alternate<8>> {}
 
-    impl PinTx<UART4> for PH13<Alternate<AF8>> {}
-    impl PinRx<UART4> for PH14<Alternate<AF8>> {}
+    impl PinTx<UART4> for PH13<Alternate<8>> {}
+    impl PinRx<UART4> for PH14<Alternate<8>> {}
 
-    impl PinRx<UART4> for PI9<Alternate<AF8>> {}
+    impl PinRx<UART4> for PI9<Alternate<8>> {}
 
-    impl PinTx<UART5> for PB6<Alternate<AF1>> {}
-    impl PinRx<UART5> for PB5<Alternate<AF1>> {}
+    impl PinTx<UART5> for PB6<Alternate<1>> {}
+    impl PinRx<UART5> for PB5<Alternate<1>> {}
 
-    impl PinTx<UART5> for PB9<Alternate<AF7>> {}
-    impl PinRx<UART5> for PB8<Alternate<AF7>> {}
+    impl PinTx<UART5> for PB9<Alternate<7>> {}
+    impl PinRx<UART5> for PB8<Alternate<7>> {}
 
-    impl PinTx<UART5> for PB13<Alternate<AF8>> {}
-    impl PinRx<UART5> for PB12<Alternate<AF8>> {}
+    impl PinTx<UART5> for PB13<Alternate<8>> {}
+    impl PinRx<UART5> for PB12<Alternate<8>> {}
 
-    impl PinTx<UART7> for PA15<Alternate<AF12>> {}
-    impl PinRx<UART7> for PA8<Alternate<AF12>> {}
+    impl PinTx<UART7> for PA15<Alternate<12>> {}
+    impl PinRx<UART7> for PA8<Alternate<12>> {}
 
-    impl PinTx<UART7> for PB4<Alternate<AF12>> {}
-    impl PinRx<UART7> for PB3<Alternate<AF12>> {}
+    impl PinTx<UART7> for PB4<Alternate<12>> {}
+    impl PinRx<UART7> for PB3<Alternate<12>> {}
 }
 
 #[cfg(any(
@@ -108,35 +108,35 @@ mod f7xx_pins {
 ))]
 pub use f7xx_pins::*;
 
-impl PinTx<USART1> for PA9<Alternate<AF7>> {}
-impl PinTx<USART1> for PB6<Alternate<AF7>> {}
-impl PinTx<USART2> for PA2<Alternate<AF7>> {}
-impl PinTx<USART2> for PD5<Alternate<AF7>> {}
-impl PinTx<USART3> for PB10<Alternate<AF7>> {}
-impl PinTx<USART3> for PC10<Alternate<AF7>> {}
-impl PinTx<USART3> for PD8<Alternate<AF7>> {}
-impl PinTx<UART4> for PA0<Alternate<AF8>> {}
-impl PinTx<UART4> for PC10<Alternate<AF8>> {}
-impl PinTx<UART5> for PC12<Alternate<AF8>> {}
-impl PinTx<USART6> for PC6<Alternate<AF8>> {}
-impl PinTx<USART6> for PG14<Alternate<AF8>> {}
-impl PinTx<UART7> for PE8<Alternate<AF8>> {}
-impl PinTx<UART7> for PF7<Alternate<AF8>> {}
+impl PinTx<USART1> for PA9<Alternate<7>> {}
+impl PinTx<USART1> for PB6<Alternate<7>> {}
+impl PinTx<USART2> for PA2<Alternate<7>> {}
+impl PinTx<USART2> for PD5<Alternate<7>> {}
+impl PinTx<USART3> for PB10<Alternate<7>> {}
+impl PinTx<USART3> for PC10<Alternate<7>> {}
+impl PinTx<USART3> for PD8<Alternate<7>> {}
+impl PinTx<UART4> for PA0<Alternate<8>> {}
+impl PinTx<UART4> for PC10<Alternate<8>> {}
+impl PinTx<UART5> for PC12<Alternate<8>> {}
+impl PinTx<USART6> for PC6<Alternate<8>> {}
+impl PinTx<USART6> for PG14<Alternate<8>> {}
+impl PinTx<UART7> for PE8<Alternate<8>> {}
+impl PinTx<UART7> for PF7<Alternate<8>> {}
 
-impl PinRx<USART1> for PA10<Alternate<AF7>> {}
-impl PinRx<USART1> for PB7<Alternate<AF7>> {}
-impl PinRx<USART2> for PA3<Alternate<AF7>> {}
-impl PinRx<USART2> for PD6<Alternate<AF7>> {}
-impl PinRx<USART3> for PB11<Alternate<AF7>> {}
-impl PinRx<USART3> for PC11<Alternate<AF7>> {}
-impl PinRx<USART3> for PD9<Alternate<AF7>> {}
-impl PinRx<UART4> for PA1<Alternate<AF8>> {}
-impl PinRx<UART4> for PC11<Alternate<AF8>> {}
-impl PinRx<UART5> for PD2<Alternate<AF8>> {}
-impl PinRx<USART6> for PC7<Alternate<AF8>> {}
-impl PinRx<USART6> for PG9<Alternate<AF8>> {}
-impl PinRx<UART7> for PE7<Alternate<AF8>> {}
-impl PinRx<UART7> for PF6<Alternate<AF8>> {}
+impl PinRx<USART1> for PA10<Alternate<7>> {}
+impl PinRx<USART1> for PB7<Alternate<7>> {}
+impl PinRx<USART2> for PA3<Alternate<7>> {}
+impl PinRx<USART2> for PD6<Alternate<7>> {}
+impl PinRx<USART3> for PB11<Alternate<7>> {}
+impl PinRx<USART3> for PC11<Alternate<7>> {}
+impl PinRx<USART3> for PD9<Alternate<7>> {}
+impl PinRx<UART4> for PA1<Alternate<8>> {}
+impl PinRx<UART4> for PC11<Alternate<8>> {}
+impl PinRx<UART5> for PD2<Alternate<8>> {}
+impl PinRx<USART6> for PC7<Alternate<8>> {}
+impl PinRx<USART6> for PG9<Alternate<8>> {}
+impl PinRx<UART7> for PE7<Alternate<8>> {}
+impl PinRx<UART7> for PF6<Alternate<8>> {}
 
 /// Serial abstraction
 pub struct Serial<USART, PINS> {

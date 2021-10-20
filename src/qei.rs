@@ -76,29 +76,29 @@ impl Default for QeiOptions {
 ///
 /// Make sure that pin_ch1 and pin_ch2 are used in the corresponding alternative mode.
 /// ----------------------------------
-///   TIMx |  PIN_CH1   |  PIN_CH2   |
-/// -------|------------|------------|
-///   TIM2 | PA0\<AF1>  | PB3\<AF1>  |
-///   TIM2 | PA0\<AF1>  | PA1\<AF1>  |
-///   TIM2 | PA5\<AF1>  | PB3\<AF1>  |
-///   TIM2 | PA5\<AF1>  | PA1\<AF1>  |
-///   TIM2 | PA15\<AF1> | PB3\<AF1>  |
-///   TIM2 | PA15\<AF1> | PA1\<AF1>  |
-///   TIM3 | PA6\<AF2>  | PA7\<AF2>  |
-///   TIM3 | PA6\<AF2>  | PB5\<AF2>  |
-///   TIM3 | PA6\<AF2>  | PC7\<AF2>  |
-///   TIM3 | PB4\<AF2>  | PA7\<AF2>  |
-///   TIM3 | PB4\<AF2>  | PB5\<AF2>  |
-///   TIM3 | PB4\<AF2>  | PC7\<AF2>  |
-///   TIM3 | PC6\<AF2>  | PA7\<AF2>  |
-///   TIM3 | PC6\<AF2>  | PB5\<AF2>  |
-///   TIM3 | PC6\<AF2>  | PC7\<AF2>  |
-///   TIM4 | PB6\<AF2>  | PB7\<AF2>  |
-///   TIM4 | PB6\<AF2>  | PD13\<AF2> |
-///   TIM4 | PD12\<AF2> | PB7\<AF2>  |
-///   TIM4 | PD12\<AF2> | PD13\<AF2> |
-///   TIM4 | PD12\<AF2> | PD13\<AF2> |
-///   TIM5 | PA0\<AF2>  | PA1\<AF2>  |
+///   TIMx | PIN_CH1  | PIN_CH2  |
+/// -------|----------|----------|
+///   TIM2 | PA0 \ 1  | PB3 \ 1  |
+///   TIM2 | PA0 \ 1  | PA1 \ 1  |
+///   TIM2 | PA5 \ 1  | PB3 \ 1  |
+///   TIM2 | PA5 \ 1  | PA1 \ 1  |
+///   TIM2 | PA15 \ 1 | PB3 \ 1  |
+///   TIM2 | PA15 \ 1 | PA1 \ 1  |
+///   TIM3 | PA6 \ 2  | PA7 \ 2  |
+///   TIM3 | PA6 \ 2  | PB5 \ 2  |
+///   TIM3 | PA6 \ 2  | PC7 \ 2  |
+///   TIM3 | PB4 \ 2  | PA7 \ 2  |
+///   TIM3 | PB4 \ 2  | PB5 \ 2  |
+///   TIM3 | PB4 \ 2  | PC7 \ 2  |
+///   TIM3 | PC6 \ 2  | PA7 \ 2  |
+///   TIM3 | PC6 \ 2  | PB5 \ 2  |
+///   TIM3 | PC6 \ 2  | PC7 \ 2  |
+///   TIM4 | PB6 \ 2  | PB7 \ 2  |
+///   TIM4 | PB6 \ 2  | PD13 \ 2 |
+///   TIM4 | PD12 \ 2 | PB7 \ 2  |
+///   TIM4 | PD12 \ 2 | PD13 \ 2 |
+///   TIM4 | PD12 \ 2 | PD13 \ 2 |
+///   TIM5 | PA0 \ 2  | PA1 \ 2  |
 pub struct Qei<PIN1, PIN2, TIM> {
     tim: TIM,
     _pin_ch1: PIN1,

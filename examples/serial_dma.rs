@@ -39,8 +39,8 @@ fn main() -> ! {
 
     let gpiod = p.GPIOD.split();
 
-    let tx = gpiod.pd8.into_alternate_af7();
-    let rx = gpiod.pd9.into_alternate_af7();
+    let tx = gpiod.pd8.into_alternate();
+    let rx = gpiod.pd9.into_alternate();
 
     let serial = Serial::new(
         p.USART3,

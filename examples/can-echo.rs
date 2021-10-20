@@ -36,8 +36,8 @@ fn main() -> ! {
     let gpiob = dp.GPIOB.split();
 
     let mut can1 = {
-        let rx = gpioa.pa11.into_alternate_af9();
-        let tx = gpioa.pa12.into_alternate_af9();
+        let rx = gpioa.pa11.into_alternate();
+        let tx = gpioa.pa12.into_alternate();
 
         let can = Can::new(dp.CAN1, &mut rcc.apb1, (tx, rx));
         bxcan::Can::new(can)
@@ -53,8 +53,8 @@ fn main() -> ! {
     filters.enable_bank(0, Mask32::accept_all());
 
     let _can2 = {
-        let rx = gpiob.pb5.into_alternate_af9();
-        let tx = gpiob.pb6.into_alternate_af9();
+        let rx = gpiob.pb5.into_alternate();
+        let tx = gpiob.pb6.into_alternate();
 
         let can = Can::new(dp.CAN2, &mut rcc.apb1, (tx, rx));
 

@@ -8,7 +8,7 @@ use crate::pac;
 use crate::embedded_time::rate::Hertz;
 use crate::gpio::{
     gpioa::{PA11, PA12},
-    Alternate, AF10,
+    Alternate,
 };
 use crate::rcc::Clocks;
 
@@ -19,8 +19,8 @@ pub struct USB {
     pub usb_global: pac::OTG_FS_GLOBAL,
     pub usb_device: pac::OTG_FS_DEVICE,
     pub usb_pwrclk: pac::OTG_FS_PWRCLK,
-    pub pin_dm: PA11<Alternate<AF10>>,
-    pub pin_dp: PA12<Alternate<AF10>>,
+    pub pin_dm: PA11<Alternate<10>>,
+    pub pin_dp: PA12<Alternate<10>>,
     pub hclk: Hertz,
 }
 
@@ -32,7 +32,7 @@ impl USB {
         usb_global: pac::OTG_FS_GLOBAL,
         usb_device: pac::OTG_FS_DEVICE,
         usb_pwrclk: pac::OTG_FS_PWRCLK,
-        pins: (PA11<Alternate<AF10>>, PA12<Alternate<AF10>>),
+        pins: (PA11<Alternate<10>>, PA12<Alternate<10>>),
         clocks: Clocks,
     ) -> Self {
         Self {

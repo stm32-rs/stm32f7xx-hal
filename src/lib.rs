@@ -180,3 +180,10 @@ pub mod state {
     /// Indicates that a peripheral is disabled
     pub struct Disabled;
 }
+
+#[cfg(feature = "device-selected")]
+mod sealed {
+    pub trait Sealed {}
+}
+#[cfg(feature = "device-selected")]
+pub(crate) use sealed::Sealed;
