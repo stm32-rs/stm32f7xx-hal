@@ -40,6 +40,10 @@ impl RccExt for RCC {
                 plln: 50,
                 pllp: PLLP::Div2,
                 pllq: 2,
+                use_plli2s: false,
+                plli2sr: 2,
+                plli2sq: 2,
+                plli2sn: 192,
             },
         }
     }
@@ -257,6 +261,10 @@ pub struct CFGR {
     plln: u16,
     pllp: PLLP,
     pllq: u8,
+    use_plli2s: bool,
+    plli2sr: u8,
+    plli2sq: u8,
+    plli2sn: u16,
 }
 
 impl CFGR {
@@ -389,6 +397,42 @@ impl CFGR {
     pub fn pllq(mut self, pllq: u8) -> Self {
         assert!((2..=15).contains(&pllq));
         self.pllq = pllq;
+        self
+    }
+
+    /// Enables the Plli2S clock source.
+    pub fn use_plli2s(mut self) -> Self {
+        self.use_plli2s = true;
+        self
+    }
+
+    /// Sets the PLLI2SN multiplication factor for PLLI2S.
+    /// # Panics
+    ///
+    /// Panics if the multiplication factor isn't between 50 and 432.
+    pub fn plli2sn(mut self, plli2sn: u16) -> Self {
+        assert!((50..=432).contains(&plli2sn));
+        self.plli2sn = plli2sn;
+        self
+    }
+
+    /// Sets the PLLI2SQ division factor for PLLI2S.
+    /// # Panics
+    ///
+    /// Panics if the division factor isn't between 2 and 15.
+    pub fn plli2sq(mut self, plli2sq: u8) -> Self {
+        assert!((2..=15).contains(&plli2sq));
+        self.plli2sq = plli2sq;
+        self
+    }
+
+    /// Sets the PLLI2SR division factor for PLLI2S.
+    /// # Panics
+    ///
+    /// Panics if the division factor isn't between 2 and 7.
+    pub fn plli2sr(mut self, plli2sr: u8) -> Self {
+        assert!((2..=7).contains(&plli2sr));
+        self.plli2sr = plli2sr;
         self
     }
 
@@ -825,6 +869,26 @@ impl CFGR {
             rcc.dckcfgr2.modify(|_, w| w.ck48msel().bit(false));
         }
 
+        if self.use_plli2s {
+            let plli2sn_freq = match self.hse.as_ref() {
+                Some(hse) => hse.freq.integer() as u64 / self.pllm as u64 * self.plli2sn as u64,
+                None => 16_000_000 / self.pllm as u64 * self.plli2sn as u64,
+            };
+            let plli2sr_freq = plli2sn_freq / self.plli2sr as u64;
+            let plli2sq_freq = plli2sn_freq / self.plli2sq as u64;
+
+            assert!((192_000_000..=432_000_000).contains(&plli2sn_freq));
+            assert!(plli2sr_freq <= 216_000_000);
+            assert!(plli2sq_freq <= 216_000_000);
+
+            rcc.plli2scfgr.modify(|_, w| unsafe {
+                w.plli2sn().bits(self.plli2sn);
+                w.plli2sr().bits(self.plli2sr);
+                w.plli2sq().bits(self.plli2sq)
+            });
+            rcc.cr.modify(|_, w| w.plli2son().on());
+        }
+
         flash
             .acr
             .write(|w| w.latency().bits(config.flash_waitstates));
@@ -1211,6 +1275,10 @@ mod tests {
             plln: 50,
             pllp: PLLP::Div2,
             pllq: 2,
+            use_plli2s: false,
+            plli2sr: 2,
+            plli2sq: 2,
+            plli2sn: 192,
         };
 
         let mut cfgr = cfgr
@@ -1243,6 +1311,10 @@ mod tests {
             plln: 50,
             pllp: PLLP::Div2,
             pllq: 2,
+            use_plli2s: false,
+            plli2sr: 2,
+            plli2sq: 2,
+            plli2sn: 192,
         };
 
         let mut cfgr = cfgr
@@ -1274,6 +1346,10 @@ mod tests {
             plln: 50,
             pllp: PLLP::Div2,
             pllq: 2,
+            use_plli2s: false,
+            plli2sr: 2,
+            plli2sq: 2,
+            plli2sn: 192,
         };
 
         let mut cfgr = cfgr
@@ -1305,6 +1381,10 @@ mod tests {
             plln: 50,
             pllp: PLLP::Div2,
             pllq: 2,
+            use_plli2s: false,
+            plli2sr: 2,
+            plli2sq: 2,
+            plli2sn: 192,
         };
 
         cfgr.pll_configure();
