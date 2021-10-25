@@ -343,6 +343,8 @@ impl CFGR {
     }
 
     /// Sets the SYSCLK clock source to the main PLL.
+    ///
+    /// Note: `sysclk` must be specified or `use_pll48clk` must be set to true, otherwise `use_pll` is reset to false.
     pub fn use_pll(mut self) -> Self {
         self.use_pll = true;
         self
