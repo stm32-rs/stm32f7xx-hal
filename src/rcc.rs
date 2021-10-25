@@ -407,6 +407,7 @@ impl CFGR {
     }
 
     /// Sets the PLLI2SN multiplication factor for PLLI2S.
+    ///
     /// # Panics
     ///
     /// Panics if the multiplication factor isn't between 50 and 432.
@@ -417,6 +418,7 @@ impl CFGR {
     }
 
     /// Sets the PLLI2SQ division factor for PLLI2S.
+    ///
     /// # Panics
     ///
     /// Panics if the division factor isn't between 2 and 15.
@@ -427,6 +429,7 @@ impl CFGR {
     }
 
     /// Sets the PLLI2SR division factor for PLLI2S.
+    ///
     /// # Panics
     ///
     /// Panics if the division factor isn't between 2 and 7.
