@@ -21,10 +21,10 @@ fn main() -> ! {
 
     loop {
         for _ in 0..10_000 {
-            led.set_high().expect("GPIO can never fail");
+            led.set_high();
         }
         for _ in 0..10_000 {
-            led.set_low().expect("GPIO can never fail");
+            led.set_low();
         }
     }
 }

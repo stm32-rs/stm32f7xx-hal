@@ -49,39 +49,39 @@ fn main() -> ! {
     let gpioj = perif.GPIOJ.split();
     let gpiok = perif.GPIOK.split();
 
-    gpioe.pe4.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_B0
+    gpioe.pe4.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_B0
 
-    gpiog.pg12.into_alternate_af9().set_speed(Speed::VeryHigh); // LTCD_B4
+    gpiog.pg12.into_alternate::<9>().set_speed(Speed::VeryHigh); // LTCD_B4
 
-    gpioi.pi9.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_VSYNC
-    gpioi.pi10.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_HSYNC
-    gpioi.pi13.into_alternate_af14().set_speed(Speed::VeryHigh);
-    gpioi.pi14.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_CLK
-    gpioi.pi15.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_R0
+    gpioi.pi9.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_VSYNC
+    gpioi.pi10.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_HSYNC
+    gpioi.pi13.into_alternate::<14>().set_speed(Speed::VeryHigh);
+    gpioi.pi14.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_CLK
+    gpioi.pi15.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_R0
 
-    gpioj.pj0.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_R1
-    gpioj.pj1.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_R2
-    gpioj.pj2.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_R3
-    gpioj.pj3.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_R4
-    gpioj.pj4.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_R5
-    gpioj.pj5.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_R6
-    gpioj.pj6.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_R7
-    gpioj.pj7.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_G0
-    gpioj.pj8.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_G1
-    gpioj.pj9.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_G2
-    gpioj.pj10.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_G3
-    gpioj.pj11.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_G4
-    gpioj.pj13.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_B1
-    gpioj.pj14.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_B2
-    gpioj.pj15.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_B3
+    gpioj.pj0.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_R1
+    gpioj.pj1.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_R2
+    gpioj.pj2.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_R3
+    gpioj.pj3.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_R4
+    gpioj.pj4.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_R5
+    gpioj.pj5.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_R6
+    gpioj.pj6.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_R7
+    gpioj.pj7.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_G0
+    gpioj.pj8.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_G1
+    gpioj.pj9.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_G2
+    gpioj.pj10.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_G3
+    gpioj.pj11.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_G4
+    gpioj.pj13.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_B1
+    gpioj.pj14.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_B2
+    gpioj.pj15.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_B3
 
-    gpiok.pk0.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_G5
-    gpiok.pk1.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_G6
-    gpiok.pk2.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_G7
-    gpiok.pk4.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_B5
-    gpiok.pk5.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_B6
-    gpiok.pk6.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_D7
-    gpiok.pk7.into_alternate_af14().set_speed(Speed::VeryHigh); // LTCD_E
+    gpiok.pk0.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_G5
+    gpiok.pk1.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_G6
+    gpiok.pk2.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_G7
+    gpiok.pk4.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_B5
+    gpiok.pk5.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_B6
+    gpiok.pk6.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_D7
+    gpiok.pk7.into_alternate::<14>().set_speed(Speed::VeryHigh); // LTCD_E
 
     // HSE osc out in High Z
     gpioh.ph1.into_floating_input();
@@ -94,11 +94,11 @@ fn main() -> ! {
 
     // LCD enable: set it low first to avoid LCD bleed while setting up timings
     let mut disp_on = gpioi.pi12.into_push_pull_output();
-    disp_on.set_low().ok();
+    disp_on.set_low();
 
     // LCD backlight enable
     let mut backlight = gpiok.pk3.into_push_pull_output();
-    backlight.set_high().ok();
+    backlight.set_high();
 
     let mut display = screen::Stm32F7DiscoDisplay::new(perif.LTDC, perif.DMA2D);
     display
@@ -111,7 +111,7 @@ fn main() -> ! {
     let display = &mut display;
 
     // LCD enable: activate LCD !
-    disp_on.set_high().ok();
+    disp_on.set_high();
 
     let r = egrectangle!(
         top_left = (0, 0),

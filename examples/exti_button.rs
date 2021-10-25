@@ -62,11 +62,7 @@ fn main() -> ! {
         free(|cs| {
             if SEMAPHORE.borrow(cs).get() == false {
                 // Toggle debug LED
-                if let Ok(true) = led1.is_low() {
-                    led1.set_high().ok();
-                } else {
-                    led1.set_low().ok();
-                }
+                led1.toggle();
 
                 SEMAPHORE.borrow(cs).set(true);
             }

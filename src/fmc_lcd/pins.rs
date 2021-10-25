@@ -605,10 +605,10 @@ mod common_pins {
     };
     use crate::gpio::gpiof::{PF0, PF1, PF12, PF13, PF14, PF15, PF2, PF3, PF4, PF5};
     use crate::gpio::gpiog::{PG0, PG1, PG10, PG12, PG13, PG2, PG3, PG4, PG5, PG9};
-    use crate::gpio::{Alternate, AF12};
+    use crate::gpio::Alternate;
 
     // All FMC pins use AF12
-    type FmcAlternate = Alternate<AF12>;
+    type FmcAlternate = Alternate<12>;
 
     impl PinD2 for PD0<FmcAlternate> {}
     impl PinD3 for PD1<FmcAlternate> {}

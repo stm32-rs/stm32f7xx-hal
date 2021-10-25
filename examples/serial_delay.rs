@@ -32,8 +32,8 @@ fn main() -> ! {
     let gpioa = p.GPIOA.split();
     let gpiob = p.GPIOB.split();
 
-    let tx = gpioa.pa9.into_alternate_af7();
-    let rx = gpiob.pb7.into_alternate_af7();
+    let tx = gpioa.pa9.into_alternate();
+    let rx = gpiob.pb7.into_alternate();
 
     let serial = Serial::new(
         p.USART1,

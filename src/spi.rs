@@ -14,7 +14,7 @@ use embedded_hal::{
 };
 
 use crate::{
-    gpio::{self, Alternate, AF5, AF6, AF7},
+    gpio::{self, Alternate},
     pac::{self, spi1::cr2},
     rcc::{sealed::RccBus, Enable},
     state,
@@ -448,19 +448,19 @@ impl_instance!(
         regs: (apb2, spi1rst, spi1en),
         pins: {
             SCK: [
-                gpio::gpioa::PA5<Alternate<AF5>>,
-                gpio::gpiob::PB3<Alternate<AF5>>,
-                gpio::gpiog::PG11<Alternate<AF5>>,
+                gpio::gpioa::PA5<Alternate<5>>,
+                gpio::gpiob::PB3<Alternate<5>>,
+                gpio::gpiog::PG11<Alternate<5>>,
             ],
             MISO: [
-                gpio::gpioa::PA6<Alternate<AF5>>,
-                gpio::gpiob::PB4<Alternate<AF5>>,
-                gpio::gpiog::PG9<Alternate<AF5>>,
+                gpio::gpioa::PA6<Alternate<5>>,
+                gpio::gpiob::PB4<Alternate<5>>,
+                gpio::gpiog::PG9<Alternate<5>>,
             ],
             MOSI: [
-                gpio::gpioa::PA7<Alternate<AF5>>,
-                gpio::gpiob::PB5<Alternate<AF5>>,
-                gpio::gpiod::PD7<Alternate<AF5>>,
+                gpio::gpioa::PA7<Alternate<5>>,
+                gpio::gpiob::PB5<Alternate<5>>,
+                gpio::gpiod::PD7<Alternate<5>>,
             ],
         }
     }
@@ -468,22 +468,22 @@ impl_instance!(
         regs: (apb1, spi2rst, spi2en),
         pins: {
             SCK: [
-                gpio::gpioa::PA9<Alternate<AF5>>,
-                gpio::gpiob::PB10<Alternate<AF5>>,
-                gpio::gpiob::PB13<Alternate<AF5>>,
-                gpio::gpiod::PD3<Alternate<AF5>>,
-                gpio::gpioi::PI1<Alternate<AF5>>,
+                gpio::gpioa::PA9<Alternate<5>>,
+                gpio::gpiob::PB10<Alternate<5>>,
+                gpio::gpiob::PB13<Alternate<5>>,
+                gpio::gpiod::PD3<Alternate<5>>,
+                gpio::gpioi::PI1<Alternate<5>>,
             ],
             MISO: [
-                gpio::gpiob::PB14<Alternate<AF5>>,
-                gpio::gpioc::PC2<Alternate<AF5>>,
-                gpio::gpioi::PI2<Alternate<AF5>>,
+                gpio::gpiob::PB14<Alternate<5>>,
+                gpio::gpioc::PC2<Alternate<5>>,
+                gpio::gpioi::PI2<Alternate<5>>,
             ],
             MOSI: [
-                gpio::gpiob::PB15<Alternate<AF5>>,
-                gpio::gpioc::PC1<Alternate<AF5>>,
-                gpio::gpioc::PC3<Alternate<AF5>>,
-                gpio::gpioi::PI3<Alternate<AF5>>,
+                gpio::gpiob::PB15<Alternate<5>>,
+                gpio::gpioc::PC1<Alternate<5>>,
+                gpio::gpioc::PC3<Alternate<5>>,
+                gpio::gpioi::PI3<Alternate<5>>,
             ],
         }
     }
@@ -491,18 +491,18 @@ impl_instance!(
         regs: (apb1, spi3rst, spi3en),
         pins: {
             SCK: [
-                gpio::gpiob::PB3<Alternate<AF6>>,
-                gpio::gpioc::PC10<Alternate<AF6>>,
+                gpio::gpiob::PB3<Alternate<6>>,
+                gpio::gpioc::PC10<Alternate<6>>,
             ],
             MISO: [
-                gpio::gpiob::PB4<Alternate<AF6>>,
-                gpio::gpioc::PC11<Alternate<AF6>>,
+                gpio::gpiob::PB4<Alternate<6>>,
+                gpio::gpioc::PC11<Alternate<6>>,
             ],
             MOSI: [
-                gpio::gpiob::PB2<Alternate<AF7>>,
-                gpio::gpiob::PB5<Alternate<AF6>>,
-                gpio::gpioc::PC12<Alternate<AF6>>,
-                gpio::gpiod::PD6<Alternate<AF5>>,
+                gpio::gpiob::PB2<Alternate<7>>,
+                gpio::gpiob::PB5<Alternate<6>>,
+                gpio::gpioc::PC12<Alternate<6>>,
+                gpio::gpiod::PD6<Alternate<5>>,
             ],
         }
     }
@@ -510,16 +510,16 @@ impl_instance!(
         regs: (apb2, spi4rst, spi4en),
         pins: {
             SCK: [
-                gpio::gpioe::PE2<Alternate<AF5>>,
-                gpio::gpioe::PE12<Alternate<AF5>>,
+                gpio::gpioe::PE2<Alternate<5>>,
+                gpio::gpioe::PE12<Alternate<5>>,
             ],
             MISO: [
-                gpio::gpioe::PE5<Alternate<AF5>>,
-                gpio::gpioe::PE13<Alternate<AF5>>,
+                gpio::gpioe::PE5<Alternate<5>>,
+                gpio::gpioe::PE13<Alternate<5>>,
             ],
             MOSI: [
-                gpio::gpioe::PE6<Alternate<AF5>>,
-                gpio::gpioe::PE14<Alternate<AF5>>,
+                gpio::gpioe::PE6<Alternate<5>>,
+                gpio::gpioe::PE14<Alternate<5>>,
             ],
         }
     }
@@ -527,16 +527,16 @@ impl_instance!(
         regs: (apb2, spi5rst, spi5en),
         pins: {
             SCK: [
-                gpio::gpiof::PF7<Alternate<AF5>>,
-                gpio::gpioh::PH6<Alternate<AF5>>,
+                gpio::gpiof::PF7<Alternate<5>>,
+                gpio::gpioh::PH6<Alternate<5>>,
             ],
             MISO: [
-                gpio::gpiof::PF8<Alternate<AF5>>,
-                gpio::gpioh::PH7<Alternate<AF5>>,
+                gpio::gpiof::PF8<Alternate<5>>,
+                gpio::gpioh::PH7<Alternate<5>>,
             ],
             MOSI: [
-                gpio::gpiof::PF9<Alternate<AF5>>,
-                gpio::gpiof::PF11<Alternate<AF5>>,
+                gpio::gpiof::PF9<Alternate<5>>,
+                gpio::gpiof::PF11<Alternate<5>>,
             ],
         }
     }
@@ -558,13 +558,13 @@ impl_instance!(
         regs: (apb2, spi6rst, spi6en),
         pins: {
             SCK: [
-                gpio::gpiog::PG13<Alternate<AF5>>,
+                gpio::gpiog::PG13<Alternate<5>>,
             ],
             MISO: [
-                gpio::gpiog::PG12<Alternate<AF5>>,
+                gpio::gpiog::PG12<Alternate<5>>,
             ],
             MOSI: [
-                gpio::gpiog::PG14<Alternate<AF5>>,
+                gpio::gpiog::PG14<Alternate<5>>,
             ],
         }
     }

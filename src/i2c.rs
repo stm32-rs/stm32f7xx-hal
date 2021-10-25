@@ -9,7 +9,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::gpioc::PC9;
 use crate::gpio::gpiof::{PF0, PF1};
 use crate::gpio::gpioh::{PH4, PH5, PH7, PH8};
-use crate::gpio::{Alternate, AF4};
+use crate::gpio::AlternateOD;
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
@@ -73,21 +73,21 @@ pub trait PinScl<I2C> {}
 /// Marker trait to define SDA pins for an I2C interface.
 pub trait PinSda<I2C> {}
 
-impl PinScl<I2C1> for PB6<Alternate<AF4>> {}
-impl PinScl<I2C1> for PB8<Alternate<AF4>> {}
-impl PinScl<I2C2> for PB10<Alternate<AF4>> {}
-impl PinScl<I2C2> for PF1<Alternate<AF4>> {}
-impl PinScl<I2C2> for PH4<Alternate<AF4>> {}
-impl PinScl<I2C3> for PA8<Alternate<AF4>> {}
-impl PinScl<I2C3> for PH7<Alternate<AF4>> {}
+impl PinScl<I2C1> for PB6<AlternateOD<4>> {}
+impl PinScl<I2C1> for PB8<AlternateOD<4>> {}
+impl PinScl<I2C2> for PB10<AlternateOD<4>> {}
+impl PinScl<I2C2> for PF1<AlternateOD<4>> {}
+impl PinScl<I2C2> for PH4<AlternateOD<4>> {}
+impl PinScl<I2C3> for PA8<AlternateOD<4>> {}
+impl PinScl<I2C3> for PH7<AlternateOD<4>> {}
 
-impl PinSda<I2C1> for PB7<Alternate<AF4>> {}
-impl PinSda<I2C1> for PB9<Alternate<AF4>> {}
-impl PinSda<I2C2> for PB11<Alternate<AF4>> {}
-impl PinSda<I2C2> for PF0<Alternate<AF4>> {}
-impl PinSda<I2C2> for PH5<Alternate<AF4>> {}
-impl PinSda<I2C3> for PC9<Alternate<AF4>> {}
-impl PinSda<I2C3> for PH8<Alternate<AF4>> {}
+impl PinSda<I2C1> for PB7<AlternateOD<4>> {}
+impl PinSda<I2C1> for PB9<AlternateOD<4>> {}
+impl PinSda<I2C2> for PB11<AlternateOD<4>> {}
+impl PinSda<I2C2> for PF0<AlternateOD<4>> {}
+impl PinSda<I2C2> for PH5<AlternateOD<4>> {}
+impl PinSda<I2C3> for PC9<AlternateOD<4>> {}
+impl PinSda<I2C3> for PH8<AlternateOD<4>> {}
 
 /// I2C peripheral operating in master mode
 pub struct I2c<I2C, SCL, SDA> {

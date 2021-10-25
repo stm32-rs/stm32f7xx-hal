@@ -36,8 +36,8 @@ fn main() -> ! {
 
     let gpioa = dp.GPIOA.split();
 
-    let rx = gpioa.pa11.into_alternate_af9();
-    let tx = gpioa.pa12.into_alternate_af9();
+    let rx = gpioa.pa11.into_alternate();
+    let tx = gpioa.pa12.into_alternate();
 
     let can = Can::new(dp.CAN1, &mut rcc.apb1, (tx, rx));
 

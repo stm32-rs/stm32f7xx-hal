@@ -31,9 +31,9 @@ fn main() -> ! {
 
     // Prepare pins for SPI
     let mut ncs = gpioc.pc9.into_push_pull_output();
-    let sck = gpioc.pc10.into_alternate_af6();
-    let miso = gpioc.pc11.into_alternate_af6();
-    let mosi = gpioc.pc12.into_alternate_af6();
+    let sck = gpioc.pc10.into_alternate();
+    let miso = gpioc.pc11.into_alternate();
+    let mosi = gpioc.pc12.into_alternate();
 
     // Prepare DMA streams
     let mut rx_stream = dma.streams.stream0;
@@ -42,7 +42,7 @@ fn main() -> ! {
     let dma = dma.handle.enable(&mut rcc.ahb1);
 
     // Set NCS pin to high (disabled) initially
-    ncs.set_high().unwrap();
+    ncs.set_high();
 
     // Initialize SPI
     let mut spi = Spi::new(p.SPI3, (sck, miso, mosi)).enable(
@@ -69,7 +69,7 @@ fn main() -> ! {
         let mut transfer = spi.transfer_all(buffer, &dma, &dma, rx_stream, tx_stream);
 
         // Start DMA transfer and wait for it to finish
-        ncs.set_low().unwrap();
+        ncs.set_low();
         let res = interrupt::free(|_| {
             transfer.enable_interrupts(
                 &dma,
@@ -88,7 +88,7 @@ fn main() -> ! {
 
             transfer.wait(&dma, &dma).unwrap()
         });
-        ncs.set_high().unwrap();
+        ncs.set_high();
 
         // Assign everything we've moved to the DMA transfer to the local
         // variables it came from, so it's available again in the next loop
@@ -100,11 +100,11 @@ fn main() -> ! {
 
         // The WHO_AM_I register should always return 0x71.
         if buffer[1] == 0x71 {
-            green.set_high().unwrap();
-            red.set_low().unwrap();
+            green.set_high();
+            red.set_low();
         } else {
-            red.set_high().unwrap();
-            green.set_low().unwrap();
+            red.set_high();
+            green.set_low();
         }
     }
 }
