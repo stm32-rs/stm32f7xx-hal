@@ -125,7 +125,7 @@ impl Qspi {
                     )
                 };
 
-                let rx_transfer = rx_transfer.start(&dma);
+                let rx_transfer = rx_transfer.start(dma);
 
                 // Set DMA bit since we are using it
                 self.qspi.cr.modify(|_, w| w.dmaen().set_bit());
@@ -174,7 +174,7 @@ impl Qspi {
                     )
                 };
 
-                let tx_transfer = tx_transfer.start(&dma);
+                let tx_transfer = tx_transfer.start(dma);
 
                 // Set DMA bit since we are using it
                 self.qspi.cr.modify(|_, w| w.dmaen().set_bit());
