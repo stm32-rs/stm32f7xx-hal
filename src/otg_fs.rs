@@ -10,7 +10,7 @@ use crate::gpio::{
     gpioa::{PA11, PA12},
     Alternate,
 };
-use crate::rcc::Clocks;
+use crate::rcc::{Clocks, Enable, Reset};
 
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;
@@ -56,15 +56,12 @@ unsafe impl UsbPeripheral for USB {
     const ENDPOINT_COUNT: usize = 6;
 
     fn enable() {
-        let rcc = unsafe { &*pac::RCC::ptr() };
-
-        cortex_m::interrupt::free(|_| {
+        cortex_m::interrupt::free(|_| unsafe {
             // Enable USB peripheral
-            rcc.ahb2enr.modify(|_, w| w.otgfsen().set_bit());
+            pac::OTG_FS_GLOBAL::enable_unchecked();
 
             // Reset USB peripheral
-            rcc.ahb2rstr.modify(|_, w| w.otgfsrst().set_bit());
-            rcc.ahb2rstr.modify(|_, w| w.otgfsrst().clear_bit());
+            pac::OTG_FS_GLOBAL::reset_unchecked();
         });
     }
 

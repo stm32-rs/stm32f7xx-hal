@@ -17,7 +17,7 @@ use crate::{
         Interrupt, DMA1, DMA2, NVIC,
     },
     qspi,
-    rcc::{sealed::RccBus, Enable, Reset},
+    rcc::{Enable, RccBus, Reset},
     serial, spi, state,
 };
 

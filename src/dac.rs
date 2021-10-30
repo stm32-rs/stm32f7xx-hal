@@ -1,8 +1,11 @@
-use crate::gpio::{
-    gpioa::{PA4, PA5},
-    Analog,
+use crate::pac::DAC;
+use crate::{
+    gpio::{
+        gpioa::{PA4, PA5},
+        Analog,
+    },
+    rcc::{Enable, Reset},
 };
-use crate::pac::{DAC, RCC};
 
 /// DAC Errors
 #[derive(Debug)]
@@ -46,15 +49,8 @@ where
     PINS: Pins<DAC>,
 {
     unsafe {
-        // NOTE(unsafe) this reference will only be used for atomic writes with no side effects.
-        let rcc = &(*RCC::ptr());
-        rcc.apb1enr.modify(|_, w| w.dacen().set_bit());
-
-        // Stall the pipeline to work around erratum 2.1.13 (DM00037591)
-        cortex_m::asm::dsb();
-
-        rcc.apb1rstr.write(|w| w.dacrst().set_bit());
-        rcc.apb1rstr.write(|w| w.dacrst().clear_bit());
+        DAC::enable_unchecked();
+        DAC::reset_unchecked();
 
         // NOTE(unsafe) ZST, doesn't need initialization.
         assert!(mem::size_of::<PINS::Output>() == 0);

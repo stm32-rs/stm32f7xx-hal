@@ -3,7 +3,7 @@ use micromath::F32Ext;
 
 use crate::{
     pac::{DMA2D, LTDC, RCC},
-    rcc::HSEClock,
+    rcc::{Enable, HSEClock, Reset},
 };
 
 /// Display configuration constants
@@ -59,9 +59,6 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         config: DisplayConfig,
         hse: Option<&HSEClock>,
     ) -> DisplayController<T> {
-        // TODO : change it to something safe ...
-        let rcc = unsafe { &(*RCC::ptr()) };
-
         // Screen constants
         let total_width: u16 =
             config.h_sync + config.h_back_porch + config.active_width + config.h_front_porch - 1;
@@ -70,17 +67,18 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         let lcd_clk: u32 =
             (total_width as u32) * (total_height as u32) * (config.frame_rate as u32);
 
-        // Enable LTDC
-        rcc.apb2enr.modify(|_, w| w.ltdcen().enabled());
-        // Reset LTDC peripheral
-        rcc.apb2rstr.modify(|_, w| w.ltdcrst().reset());
-        rcc.apb2rstr.modify(|_, w| w.ltdcrst().clear_bit());
+        // TODO : change it to something safe ...
+        unsafe {
+            // Enable LTDC
+            LTDC::enable_unchecked();
+            // Reset LTDC peripheral
+            LTDC::reset_unchecked();
 
-        // Enable DMA2D
-        rcc.ahb1enr.modify(|_, w| w.dma2den().enabled());
-        // Reset DMA2D
-        rcc.ahb1rstr.modify(|_, w| w.dma2drst().reset());
-        rcc.ahb1rstr.modify(|_, w| w.dma2drst().clear_bit());
+            // Enable DMA2D
+            DMA2D::enable_unchecked();
+            // Reset DMA2D
+            DMA2D::reset_unchecked();
+        }
 
         // Get base clock and PLLM divisor
         let base_clk: u32;
@@ -89,6 +87,7 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
             // If no HSE is provided, we use the HSI clock at 16 MHz
             None => base_clk = 16_000_000,
         }
+        let rcc = unsafe { &(*RCC::ptr()) };
         let pllm: u8 = rcc.pllcfgr.read().pllm().bits();
 
         // There are 24 combinations possible for a divisor with PLLR and DIVR

@@ -9,7 +9,7 @@ use crate::gpio::{
     gpiob::{PB14, PB15},
     Alternate,
 };
-use crate::rcc::Clocks;
+use crate::rcc::{Clocks, Enable, Reset};
 use embedded_time::rate::Hertz;
 
 #[cfg(feature = "usb_hs_phy")]
@@ -90,23 +90,20 @@ unsafe impl UsbPeripheral for USB {
     const ENDPOINT_COUNT: usize = 9;
 
     fn enable() {
-        let rcc = unsafe { &*pac::RCC::ptr() };
-
-        cortex_m::interrupt::free(|_| {
+        cortex_m::interrupt::free(|_| unsafe {
             // Enable USB peripheral
-            rcc.ahb1enr.modify(|_, w| w.otghsen().set_bit());
+            pac::OTG_HS_GLOBAL::enable_unchecked();
 
             // Reset USB peripheral
-            rcc.ahb1rstr.modify(|_, w| w.otghsrst().set_bit());
-            rcc.ahb1rstr.modify(|_, w| w.otghsrst().clear_bit());
+            pac::OTG_HS_GLOBAL::reset_unchecked();
 
             #[cfg(feature = "usb_hs_phy")]
             {
                 // Enable and reset HS PHY
+                let rcc = &*pac::RCC::ptr();
                 rcc.ahb1enr.modify(|_, w| w.otghsulpien().enabled());
-                rcc.apb2enr.modify(|_, w| w.usbphycen().enabled());
-                rcc.apb2rstr.modify(|_, w| w.usbphycrst().reset());
-                rcc.apb2rstr.modify(|_, w| w.usbphycrst().clear_bit());
+                pac::USBPHYC::enable_unchecked();
+                pac::USBPHYC::reset_unchecked();
             }
         });
     }

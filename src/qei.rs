@@ -1,6 +1,6 @@
 //! Quadrature Encoder Interface API
 
-use crate::rcc::APB1;
+use crate::rcc::{Enable, Reset, APB1};
 #[cfg(feature = "stm32f767")]
 use stm32f7::stm32f7x7::{TIM2, TIM3, TIM4, TIM5};
 
@@ -107,7 +107,7 @@ pub struct Qei<PIN1, PIN2, TIM> {
 
 // General-purpose timers (TIM2/TIM3/TIM4/TIM5) : Up, Down, Up/Down
 macro_rules! hal_qei {
-    ($fct:ident,$TIMX:ty, $bits:ty, $timen:ident, $timrst:ident) => {
+    ($fct:ident,$TIMX:ty, $bits:ty) => {
         //, $CH1:ident<$AFCH1:ty>, $CH2:ident<$AFCH2:ty>) => {
         impl<PIN1, PIN2> Qei<PIN1, PIN2, $TIMX> {
             //Qei<$CH1<Alternate<$AFCH1>>, $CH2<Alternate<$AFCH2>>, $TIM> {
@@ -119,9 +119,8 @@ macro_rules! hal_qei {
                 options: QeiOptions,
             ) -> Self {
                 // enable and reset peripheral to a clean slate state
-                apb1.enr().modify(|_, w| w.$timen().set_bit());
-                apb1.rstr().modify(|_, w| w.$timrst().set_bit());
-                apb1.rstr().modify(|_, w| w.$timrst().clear_bit());
+                <$TIMX>::enable(apb1);
+                <$TIMX>::reset(apb1);
 
                 // Configure TxC1 and TxC2 as captures
                 tim.ccmr1_output()
@@ -171,7 +170,7 @@ macro_rules! hal_qei {
     };
 }
 
-hal_qei! {qei_tim2, TIM2, u32, tim2en, tim2rst}
-hal_qei! {qei_tim3, TIM3, u16, tim3en, tim3rst}
-hal_qei! {qei_tim4, TIM4, u16, tim4en, tim4rst}
-hal_qei! {qei_tim5, TIM5, u32, tim5en, tim5rst}
+hal_qei! {qei_tim2, TIM2, u32}
+hal_qei! {qei_tim3, TIM3, u16}
+hal_qei! {qei_tim4, TIM4, u16}
+hal_qei! {qei_tim5, TIM5, u32}

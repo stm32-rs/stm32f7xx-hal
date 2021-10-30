@@ -8,6 +8,7 @@ use core::pin::Pin;
 
 use crate::dma;
 use crate::pac::{QUADSPI, RCC};
+use crate::rcc::Enable;
 use crate::state;
 
 /// The QSPI driver interface.
@@ -66,12 +67,12 @@ impl Qspi {
     /// Initialize and configure the QSPI flash driver.
     /// - `size` is log2(flash size in bytes), e.g. 16 MB = 24.
     /// - `adsize` is the number of bytes needed to specify the address (1, 2, 3, or 4).
-    pub fn new(rcc: &mut RCC, qspi: QUADSPI, size: u8, mut adsize: u8) -> Self {
+    pub fn new(_rcc: &mut RCC, qspi: QUADSPI, size: u8, mut adsize: u8) -> Self {
         assert!((1..=4).contains(&adsize));
         adsize -= 1;
 
         // Enable QUADSPI in RCC
-        rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+        unsafe { QUADSPI::enable_unchecked() };
 
         // Configure QSPI
         unsafe {

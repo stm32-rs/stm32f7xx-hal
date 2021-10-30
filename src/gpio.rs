@@ -52,7 +52,8 @@ use embedded_hal::digital::v2::{
     InputPin, IoPin, OutputPin, StatefulOutputPin, ToggleableOutputPin,
 };
 
-use crate::pac::{EXTI, RCC, SYSCFG};
+use crate::pac::{EXTI, SYSCFG};
+use crate::rcc::{Enable, APB2};
 
 mod convert;
 
@@ -160,7 +161,7 @@ impl<MODE> Interruptable for Input<MODE> {}
 
 /// External Interrupt Pin
 pub trait ExtiPin {
-    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, rcc: &mut RCC);
+    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2);
     fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
     fn enable_interrupt(&mut self, exti: &mut EXTI);
     fn disable_interrupt(&mut self, exti: &mut EXTI);
@@ -175,9 +176,9 @@ where
 {
     /// Make corresponding EXTI line sensitive to this pin
     #[inline(always)]
-    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, rcc: &mut RCC) {
+    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) {
         // SYSCFG clock must be enabled in order to do register writes
-        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+        SYSCFG::enable(apb2);
 
         let i = self.pin_id();
         let port = self.port_id() as u32;
@@ -584,12 +585,13 @@ impl<const P: char, const N: u8> IoPin<Self, Pin<Output<PushPull>, P, N>>
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $PEPin:ident, $port_id:expr, $PXn:ident, $iopxenr:ident, $iopxrstr:ident, [
+    ($GPIOX:ident, $gpiox:ident, $PEPin:ident, $port_id:expr, $PXn:ident, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty),)+
     ]) => {
         /// GPIO
         pub mod $gpiox {
-            use crate::pac::{$GPIOX, RCC};
+            use crate::rcc::{Enable, Reset};
+            use crate::pac::$GPIOX;
             use super::{
                 Floating, Input,
             };
@@ -606,11 +608,10 @@ macro_rules! gpio {
                 type Parts = Parts;
 
             fn split(self) -> Parts {
-                    // NOTE(unsafe) this reference will only be used for atomic writes with no side effects.
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    rcc.ahb1enr.modify(|_, w| w.$iopxenr().set_bit());
-                    rcc.ahb1rstr.modify(|_, w| w.$iopxrstr().set_bit());
-                    rcc.ahb1rstr.modify(|_, w| w.$iopxrstr().clear_bit());
+                    unsafe {
+                        <$GPIOX>::enable_unchecked();
+                        <$GPIOX>::reset_unchecked();
+                    }
 
                     Parts {
                         $(
@@ -630,7 +631,7 @@ macro_rules! gpio {
     }
 }
 
-gpio!(GPIOA, gpioa, PA, 'A', PAn, gpioaen, gpioarst, [
+gpio!(GPIOA, gpioa, PA, 'A', PAn, [
     PA0: (pa0, 0, Input<Floating>),
     PA1: (pa1, 1, Input<Floating>),
     PA2: (pa2, 2, Input<Floating>),
@@ -649,7 +650,7 @@ gpio!(GPIOA, gpioa, PA, 'A', PAn, gpioaen, gpioarst, [
     PA15: (pa15, 15, Input<Floating>),
 ]);
 
-gpio!(GPIOB, gpiob, PB, 'B', PBn, gpioben, gpiobrst, [
+gpio!(GPIOB, gpiob, PB, 'B', PBn, [
     PB0: (pb0, 0, Input<Floating>),
     PB1: (pb1, 1, Input<Floating>),
     PB2: (pb2, 2, Input<Floating>),
@@ -668,7 +669,7 @@ gpio!(GPIOB, gpiob, PB, 'B', PBn, gpioben, gpiobrst, [
     PB15: (pb15, 15, Input<Floating>),
 ]);
 
-gpio!(GPIOC, gpioc, PC, 'C', PCn, gpiocen, gpiocrst, [
+gpio!(GPIOC, gpioc, PC, 'C', PCn, [
     PC0: (pc0, 0, Input<Floating>),
     PC1: (pc1, 1, Input<Floating>),
     PC2: (pc2, 2, Input<Floating>),
@@ -687,7 +688,7 @@ gpio!(GPIOC, gpioc, PC, 'C', PCn, gpiocen, gpiocrst, [
     PC15: (pc15, 15, Input<Floating>),
 ]);
 
-gpio!(GPIOD, gpiod, PD, 'D', PDn, gpioden, gpiodrst, [
+gpio!(GPIOD, gpiod, PD, 'D', PDn, [
     PD0: (pd0, 0, Input<Floating>),
     PD1: (pd1, 1, Input<Floating>),
     PD2: (pd2, 2, Input<Floating>),
@@ -706,7 +707,7 @@ gpio!(GPIOD, gpiod, PD, 'D', PDn, gpioden, gpiodrst, [
     PD15: (pd15, 15, Input<Floating>),
 ]);
 
-gpio!(GPIOE, gpioe, PE, 'E', PEn, gpioeen, gpioerst, [
+gpio!(GPIOE, gpioe, PE, 'E', PEn, [
     PE0: (pe0, 0, Input<Floating>),
     PE1: (pe1, 1, Input<Floating>),
     PE2: (pe2, 2, Input<Floating>),
@@ -725,7 +726,7 @@ gpio!(GPIOE, gpioe, PE, 'E', PEn, gpioeen, gpioerst, [
     PE15: (pe15, 15, Input<Floating>),
 ]);
 
-gpio!(GPIOF, gpiof, PF, 'F', PFn, gpiofen, gpiofrst, [
+gpio!(GPIOF, gpiof, PF, 'F', PFn, [
     PF0: (pf0, 0, Input<Floating>),
     PF1: (pf1, 1, Input<Floating>),
     PF2: (pf2, 2, Input<Floating>),
@@ -744,7 +745,7 @@ gpio!(GPIOF, gpiof, PF, 'F', PFn, gpiofen, gpiofrst, [
     PF15: (pf15, 15, Input<Floating>),
 ]);
 
-gpio!(GPIOG, gpiog, PG, 'G', PGn, gpiogen, gpiogrst, [
+gpio!(GPIOG, gpiog, PG, 'G', PGn, [
     PG0: (pg0, 0, Input<Floating>),
     PG1: (pg1, 1, Input<Floating>),
     PG2: (pg2, 2, Input<Floating>),
@@ -763,7 +764,7 @@ gpio!(GPIOG, gpiog, PG, 'G', PGn, gpiogen, gpiogrst, [
     PG15: (pg15, 15, Input<Floating>),
 ]);
 
-gpio!(GPIOH, gpioh, PH, 'H', PHn, gpiohen, gpiohrst, [
+gpio!(GPIOH, gpioh, PH, 'H', PHn, [
     PH0: (ph0, 0, Input<Floating>),
     PH1: (ph1, 1, Input<Floating>),
     PH2: (ph2, 2, Input<Floating>),
@@ -782,7 +783,7 @@ gpio!(GPIOH, gpioh, PH, 'H', PHn, gpiohen, gpiohrst, [
     PH15: (ph15, 15, Input<Floating>),
 ]);
 
-gpio!(GPIOI, gpioi, PI, 'I', PIn, gpioien, gpioirst, [
+gpio!(GPIOI, gpioi, PI, 'I', PIn, [
     PI0: (pi0, 0, Input<Floating>),
     PI1: (pi1, 1, Input<Floating>),
     PI2: (pi2, 2, Input<Floating>),
@@ -802,7 +803,7 @@ gpio!(GPIOI, gpioi, PI, 'I', PIn, gpioien, gpioirst, [
 ]);
 
 #[cfg(feature = "gpioj")]
-gpio!(GPIOJ, gpioj, PJ, 'J', PJn, gpiojen, gpiojrst, [
+gpio!(GPIOJ, gpioj, PJ, 'J', PJn, [
     PJ0: (pj0, 0, Input<Floating>),
     PJ1: (pj1, 1, Input<Floating>),
     PJ2: (pj2, 2, Input<Floating>),
@@ -822,7 +823,7 @@ gpio!(GPIOJ, gpioj, PJ, 'J', PJn, gpiojen, gpiojrst, [
 ]);
 
 #[cfg(feature = "gpiok")]
-gpio!(GPIOK, gpiok, PK, 'K', PKn, gpioken, gpiokrst, [
+gpio!(GPIOK, gpiok, PK, 'K', PKn, [
     PK0: (pk0, 0, Input<Floating>),
     PK1: (pk1, 1, Input<Floating>),
     PK2: (pk2, 2, Input<Floating>),

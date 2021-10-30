@@ -1,8 +1,8 @@
 use core::cmp;
 use core::mem;
 
-use crate::pac::RCC;
-use crate::pac::RNG;
+use crate::pac::{RCC, RNG};
+use crate::rcc::{Enable, Reset};
 use core::num::NonZeroU32;
 use core::ops::Shl;
 use embedded_hal::blocking::rng::Read;
@@ -35,23 +35,23 @@ impl RngExt for RNG {
     /// Note that clocks must already be configured such that RNG_CLK is not less than 1/16 HCLK,
     /// otherwise all reads of the RNG would return a ClockError (CECS error).
     fn init(self) -> Rng {
-        let rcc = unsafe { &*RCC::ptr() };
-
         cortex_m::interrupt::free(|_| {
+            let rcc = unsafe { &*RCC::ptr() };
+
             // need set enable pll for this operation
             if rcc.cr.read().pllrdy().bit_is_clear() {
                 rcc.cr.modify(|_, w| w.pllon().set_bit());
                 // wait till pll is ready
                 while rcc.cr.read().pllrdy().bit_is_clear() {}
             }
-            // enable RNG_CLK (peripheral clock)
-            rcc.ahb2enr.modify(|_, w| w.rngen().enabled());
-            // give RNG_CLK time to start
-            let _ = rcc.ahb2enr.read().rngen().is_enabled();
-
-            // reset the RNG
-            rcc.ahb2rstr.modify(|_, w| w.rngrst().set_bit());
-            rcc.ahb2rstr.modify(|_, w| w.rngrst().clear_bit());
+            unsafe {
+                // enable RNG_CLK (peripheral clock)
+                RNG::enable_unchecked();
+                // give RNG_CLK time to start
+                RNG::is_enabled();
+                // reset the RNG
+                RNG::reset_unchecked();
+            }
 
             // enable the RNG peripheral
             self.cr.modify(|_, w| w.rngen().set_bit());
