@@ -44,6 +44,10 @@ impl RccExt for RCC {
                 plli2sr: 2,
                 plli2sq: 2,
                 plli2sn: 192,
+                mco1: MCO1::Hsi,
+                mco1pre: MCOPRE::Div1_no_div,
+                mco2: MCO2::Sysclk,
+                mco2pre: MCOPRE::Div1_no_div,
             },
         }
     }
@@ -218,6 +222,53 @@ pub enum PLLP {
     Div8 = 0b11,
 }
 
+/// MCO prescaler
+///
+/// Value on reset: No division
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MCOPRE {
+    /// No division
+    Div1_no_div,
+    /// Division by 2
+    Div2,
+    /// Division by 3
+    Div3,
+    /// Division by 4
+    Div4,
+    /// Division by 5
+    Div5,
+}
+
+/// Microcontroller clock output 1
+///
+/// Value on reset: HSI
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MCO1 {
+    /// HSI clock selected
+    Hsi,
+    /// LSE oscillator selected
+    Lse,
+    /// HSE oscillator clock selected
+    Hse,
+    /// PLL clock selected
+    Pll,
+}
+
+/// Microcontroller clock output 2
+///
+/// Value on reset: SYSCLK
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MCO2 {
+    /// System clock (SYSCLK) selected
+    Sysclk,
+    /// PLLI2S clock selected
+    Plli2s,
+    /// HSE oscillator clock selected
+    Hse,
+    /// PLL clock selected
+    Pll,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum VOSscale {
     PwrScale1,
@@ -265,6 +316,10 @@ pub struct CFGR {
     plli2sr: u8,
     plli2sq: u8,
     plli2sn: u16,
+    mco1: MCO1,
+    mco1pre: MCOPRE,
+    mco2: MCO2,
+    mco2pre: MCOPRE,
 }
 
 impl CFGR {
@@ -438,6 +493,30 @@ impl CFGR {
     pub fn plli2sr(mut self, plli2sr: u8) -> Self {
         assert!((2..=7).contains(&plli2sr));
         self.plli2sr = plli2sr;
+        self
+    }
+
+    /// Sets the MCO1 source
+    pub fn mco1(mut self, mco1: MCO1) -> Self {
+        self.mco1 = mco1;
+        self
+    }
+
+    /// Sets the MCO1 division factors
+    pub fn mco1pre(mut self, mco1pre: MCOPRE) -> Self {
+        self.mco1pre = mco1pre;
+        self
+    }
+
+    /// Sets the MCO2 source
+    pub fn mco2(mut self, mco2: MCO2) -> Self {
+        self.mco2 = mco2;
+        self
+    }
+
+    /// Sets the MCO2 division factors
+    pub fn mco2pre(mut self, mco2pre: MCOPRE) -> Self {
+        self.mco2pre = mco2pre;
         self
     }
 
@@ -894,6 +973,17 @@ impl CFGR {
             rcc.cr.modify(|_, w| w.plli2son().on());
         }
 
+        rcc.cfgr.modify(|_, w| {
+            w.mco1()
+                .variant(self.mco1.into())
+                .mco1pre()
+                .variant(self.mco1pre.into());
+            w.mco2()
+                .variant(self.mco2.into())
+                .mco2pre()
+                .variant(self.mco2pre.into())
+        });
+
         flash
             .acr
             .write(|w| w.latency().bits(config.flash_waitstates));
@@ -1032,6 +1122,40 @@ impl GetBusFreq for APB2 {
     }
     fn get_timer_frequency(clocks: &Clocks) -> Hertz {
         clocks.timclk2()
+    }
+}
+
+impl From<MCO1> for crate::pac::rcc::cfgr::MCO1_A {
+    fn from(input: MCO1) -> Self {
+        match input {
+            MCO1::Hsi => Self::HSI,
+            MCO1::Lse => Self::LSE,
+            MCO1::Hse => Self::HSE,
+            MCO1::Pll => Self::PLL,
+        }
+    }
+}
+
+impl From<MCO2> for crate::pac::rcc::cfgr::MCO2_A {
+    fn from(input: MCO2) -> Self {
+        match input {
+            MCO2::Sysclk => Self::SYSCLK,
+            MCO2::Plli2s => Self::PLLI2S,
+            MCO2::Hse => Self::HSE,
+            MCO2::Pll => Self::PLL,
+        }
+    }
+}
+
+impl From<MCOPRE> for crate::pac::rcc::cfgr::MCO2PRE_A {
+    fn from(input: MCOPRE) -> Self {
+        match input {
+            MCOPRE::Div1_no_div => Self::DIV1,
+            MCOPRE::Div2 => Self::DIV2,
+            MCOPRE::Div3 => Self::DIV3,
+            MCOPRE::Div4 => Self::DIV4,
+            MCOPRE::Div5 => Self::DIV5,
+        }
     }
 }
 
@@ -1266,7 +1390,7 @@ mod tests {
 
     #[test]
     fn test_rcc_calc1() {
-        use super::{HSEClock, HSEClockMode, PLLP};
+        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLLP};
 
         let cfgr = CFGR {
             hse: None,
@@ -1284,6 +1408,10 @@ mod tests {
             plli2sr: 2,
             plli2sq: 2,
             plli2sn: 192,
+            mco1: MCO1::Hsi,
+            mco1pre: MCOPRE::Div1_no_div,
+            mco2: MCO2::Sysclk,
+            mco2pre: MCOPRE::Div1_no_div,
         };
 
         let mut cfgr = cfgr
@@ -1302,7 +1430,7 @@ mod tests {
 
     #[test]
     fn test_rcc_calc2() {
-        use super::{HSEClock, HSEClockMode, PLLP};
+        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLLP};
 
         let cfgr = CFGR {
             hse: None,
@@ -1320,6 +1448,10 @@ mod tests {
             plli2sr: 2,
             plli2sq: 2,
             plli2sn: 192,
+            mco1: MCO1::Hsi,
+            mco1pre: MCOPRE::Div1_no_div,
+            mco2: MCO2::Sysclk,
+            mco2pre: MCOPRE::Div1_no_div,
         };
 
         let mut cfgr = cfgr
@@ -1337,7 +1469,7 @@ mod tests {
 
     #[test]
     fn test_rcc_calc3() {
-        use super::{HSEClock, HSEClockMode, PLLP};
+        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLLP};
 
         let cfgr = CFGR {
             hse: None,
@@ -1355,6 +1487,10 @@ mod tests {
             plli2sr: 2,
             plli2sq: 2,
             plli2sn: 192,
+            mco1: MCO1::Hsi,
+            mco1pre: MCOPRE::Div1_no_div,
+            mco2: MCO2::Sysclk,
+            mco2pre: MCOPRE::Div1_no_div,
         };
 
         let mut cfgr = cfgr
@@ -1372,7 +1508,7 @@ mod tests {
 
     #[test]
     fn test_rcc_default() {
-        use super::PLLP;
+        use super::{MCO1, MCO2, MCOPRE, PLLP};
 
         let mut cfgr = CFGR {
             hse: None,
@@ -1390,6 +1526,10 @@ mod tests {
             plli2sr: 2,
             plli2sq: 2,
             plli2sn: 192,
+            mco1: MCO1::Hsi,
+            mco1pre: MCOPRE::Div1_no_div,
+            mco2: MCO2::Sysclk,
+            mco2pre: MCOPRE::Div1_no_div,
         };
 
         cfgr.pll_configure();
