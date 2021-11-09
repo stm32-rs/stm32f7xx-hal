@@ -34,18 +34,18 @@ fn main() -> ! {
     let gpiob = pac_periph.GPIOB.split();
     let mut led1 = gpiob.pb0.into_push_pull_output();
 
+    // Freeze clocks
+    let mut rcc = pac_periph.RCC.constrain();
+    let _clocks = rcc.cfgr.sysclk(216_000_000.Hz()).freeze();
+
     // Push button configuration
-    let mut rcc = pac_periph.RCC;
     let mut syscfg = pac_periph.SYSCFG;
     let mut exti = pac_periph.EXTI;
     let gpioc = pac_periph.GPIOC.split();
     let mut button = gpioc.pc13.into_floating_input();
-    button.make_interrupt_source(&mut syscfg, &mut rcc);
+    button.make_interrupt_source(&mut syscfg, &mut rcc.apb2);
     button.trigger_on_edge(&mut exti, Edge::Rising);
     button.enable_interrupt(&mut exti);
-
-    // Freeze clocks
-    rcc.constrain().cfgr.sysclk(216_000_000.Hz()).freeze();
 
     // Save information needed by the interrupt handler to the global variable
     free(|cs| {

@@ -16,7 +16,7 @@ use embedded_hal::{
 use crate::{
     gpio::{self, Alternate},
     pac::{self, spi1::cr2},
-    rcc::{sealed::RccBus, Enable},
+    rcc::{Enable, RccBus},
     state,
 };
 

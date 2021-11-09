@@ -12,7 +12,7 @@ use crate::gpio::gpioh::{PH4, PH5, PH7, PH8};
 use crate::gpio::AlternateOD;
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
-use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
+use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 

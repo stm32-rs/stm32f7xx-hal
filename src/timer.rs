@@ -5,7 +5,7 @@ use crate::hal::timer::{Cancel, CountDown, Periodic};
 use crate::pac::{
     TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8, TIM9,
 };
-use crate::rcc::{Clocks, APB1, APB2};
+use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use cast::{u16, u32};
 use nb;
 use void::Void;
@@ -32,7 +32,7 @@ pub enum Error {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $timXen:ident, $timXrst:ident, $apb:ident, $timclk:ident),)+) => {
+    ($($TIM:ident: ($tim:ident, $timclk:ident),)+) => {
         $(
             impl Periodic for Timer<$TIM> {}
 
@@ -93,14 +93,13 @@ macro_rules! hal {
 
             impl Timer<$TIM> {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: Clocks, apb: &mut $apb) -> Self
+                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: Clocks, apb: &mut <$TIM as RccBus>::Bus) -> Self
                 where
                     T: Into<Hertz>,
                 {
                     // enable and reset peripheral to a clean slate state
-                    apb.enr().modify(|_, w| w.$timXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    <$TIM>::enable(apb);
+                    <$TIM>::reset(apb);
 
                     let clock = clocks.$timclk();
 
@@ -169,19 +168,19 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM2: (tim2, tim2en, tim2rst, APB1, timclk1),
-    TIM3: (tim3, tim3en, tim3rst, APB1, timclk1),
-    TIM4: (tim4, tim4en, tim4rst, APB1, timclk1),
-    TIM5: (tim5, tim5en, tim5rst, APB1, timclk1),
-    TIM6: (tim6, tim6en, tim6rst, APB1, timclk1),
-    TIM7: (tim7, tim7en, tim7rst, APB1, timclk1),
-    TIM12: (tim12, tim12en, tim12rst, APB1, timclk1),
-    TIM13: (tim13, tim13en, tim13rst, APB1, timclk1),
-    TIM14: (tim14, tim14en, tim14rst, APB1, timclk1),
+    TIM2: (tim2, timclk1),
+    TIM3: (tim3, timclk1),
+    TIM4: (tim4, timclk1),
+    TIM5: (tim5, timclk1),
+    TIM6: (tim6, timclk1),
+    TIM7: (tim7, timclk1),
+    TIM12: (tim12, timclk1),
+    TIM13: (tim13, timclk1),
+    TIM14: (tim14, timclk1),
 
-    TIM1: (tim1, tim1en, tim1rst, APB2, timclk2),
-    TIM8: (tim8, tim8en, tim8rst, APB2, timclk2),
-    TIM9: (tim9, tim9en, tim9rst, APB2, timclk2),
-    TIM10: (tim10, tim10en, tim10rst, APB2, timclk2),
-    TIM11: (tim11, tim11en, tim11rst, APB2, timclk2),
+    TIM1: (tim1, timclk2),
+    TIM8: (tim8, timclk2),
+    TIM9: (tim9, timclk2),
+    TIM10: (tim10, timclk2),
+    TIM11: (tim11, timclk2),
 }

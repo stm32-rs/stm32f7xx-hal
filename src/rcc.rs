@@ -2,6 +2,8 @@
 
 use core::{cmp::min, convert::TryInto};
 
+mod enable;
+
 use embedded_time::fixed_point::FixedPoint;
 #[cfg_attr(test, allow(unused_imports))]
 use micromath::F32Ext;
@@ -22,12 +24,12 @@ pub trait RccExt {
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
-            ahb1: AHB1 { _0: () },
-            ahb2: AHB2 { _0: () },
-            ahb3: AHB3 { _0: () },
-            apb1: APB1 { _0: () },
-            apb2: APB2 { _0: () },
-            bdcr: BDCR { _0: () },
+            ahb1: AHB1::new(),
+            ahb2: AHB2::new(),
+            ahb3: AHB3::new(),
+            apb1: APB1::new(),
+            apb2: APB2::new(),
+            bdcr: BDCR::new(),
             cfgr: CFGR {
                 hse: None,
                 hclk: None,
@@ -71,91 +73,44 @@ pub struct Rcc {
     pub cfgr: CFGR,
 }
 
-/// Advanced Peripheral Bus 1 (APB1) registers
-pub struct APB1 {
-    _0: (),
+macro_rules! bus_struct {
+    ($($busX:ident => ($EN:ident, $en:ident, $LPEN:ident, $lpen:ident, $RST:ident, $rst:ident, $doc:literal),)+) => {
+        $(
+            #[doc = $doc]
+            pub struct $busX {
+                _0: (),
+            }
+
+            impl $busX {
+                pub(crate) fn new() -> Self {
+                    Self { _0: () }
+                }
+
+                pub(crate) fn enr(&self) -> &rcc::$EN {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$en }
+                }
+
+                pub(crate) fn lpenr(&self) -> &rcc::$LPEN {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$lpen }
+                }
+
+                pub(crate) fn rstr(&self) -> &rcc::$RST {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$rst }
+                }
+            }
+        )+
+    };
 }
 
-impl APB1 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr }
-    }
-}
-
-/// Advanced Peripheral Bus 2 (APB2) registers
-pub struct APB2 {
-    _0: (),
-}
-
-impl APB2 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2enr }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::APB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2rstr }
-    }
-}
-
-/// Advanced High-performance Bus 1 (AHB1) registers
-pub struct AHB1 {
-    _0: (),
-}
-
-impl AHB1 {
-    pub(crate) fn enr(&mut self) -> &rcc::AHB1ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1enr }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1rstr }
-    }
-}
-
-/// Advanced High-performance Bus 2 (AHB2) registers
-pub struct AHB2 {
-    _0: (),
-}
-
-#[allow(dead_code)]
-impl AHB2 {
-    pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb2enr }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb2rstr }
-    }
-}
-
-/// Advanced High-performance Bus 3 (AHB3) registers
-pub struct AHB3 {
-    _0: (),
-}
-
-#[allow(dead_code)]
-impl AHB3 {
-    pub(crate) fn enr(&mut self) -> &rcc::AHB3ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb3enr }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB3RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb3rstr }
-    }
+bus_struct! {
+    APB1 => (APB1ENR, apb1enr, APB1LPENR, apb1lpenr, APB1RSTR, apb1rstr, "Advanced Peripheral Bus 1 (APB1) registers"),
+    APB2 => (APB2ENR, apb2enr, APB2LPENR, apb2lpenr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
+    AHB1 => (AHB1ENR, ahb1enr, AHB1LPENR, ahb1lpenr, AHB1RSTR, ahb1rstr, "Advanced High-performance Bus 1 (AHB1) registers"),
+    AHB2 => (AHB2ENR, ahb2enr, AHB2LPENR, ahb2lpenr, AHB2RSTR, ahb2rstr, "Advanced High-performance Bus 2 (AHB2) registers"),
+    AHB3 => (AHB3ENR, ahb3enr, AHB3LPENR, ahb3lpenr, AHB3RSTR, ahb3rstr, "Advanced High-performance Bus 3 (AHB3) registers"),
 }
 
 /// Backup Domain Control register (RCC_BDCR)
@@ -164,6 +119,10 @@ pub struct BDCR {
 }
 
 impl BDCR {
+    pub(crate) fn new() -> Self {
+        Self { _0: () }
+    }
+
     pub(crate) fn bdcr(&mut self) -> &rcc::BDCR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).bdcr }
@@ -1159,128 +1118,71 @@ impl From<MCOPRE> for crate::pac::rcc::cfgr::MCO2PRE_A {
     }
 }
 
-pub(crate) mod sealed {
-    /// Bus associated to peripheral
-    pub trait RccBus {
-        /// Bus type;
-        type Bus;
-    }
+/// Bus associated to peripheral
+pub trait RccBus: crate::Sealed {
+    /// Bus type;
+    type Bus;
 }
-use sealed::RccBus;
 
 /// Enable/disable peripheral
 pub trait Enable: RccBus {
-    fn enable(apb: &mut Self::Bus);
-    fn disable(apb: &mut Self::Bus);
+    /// Enables peripheral
+    fn enable(bus: &mut Self::Bus);
+
+    /// Disables peripheral
+    fn disable(bus: &mut Self::Bus);
+
+    /// Check if peripheral enabled
+    fn is_enabled() -> bool;
+
+    /// Check if peripheral disabled
+    fn is_disabled() -> bool;
+
+    /// # Safety
+    ///
+    /// Enables peripheral. Takes access to RCC internally
+    unsafe fn enable_unchecked();
+
+    /// # Safety
+    ///
+    /// Disables peripheral. Takes access to RCC internally
+    unsafe fn disable_unchecked();
+}
+
+/// Enable/disable peripheral in low power mode
+pub trait LPEnable: RccBus {
+    /// Enables peripheral
+    fn low_power_enable(bus: &mut Self::Bus);
+
+    /// Disables peripheral
+    fn low_power_disable(bus: &mut Self::Bus);
+
+    /// Check if peripheral enabled
+    fn is_low_power_enabled() -> bool;
+
+    /// Check if peripheral disabled
+    fn is_low_power_disabled() -> bool;
+
+    /// # Safety
+    ///
+    /// Enables peripheral. Takes access to RCC internally
+    unsafe fn low_power_enable_unchecked();
+
+    /// # Safety
+    ///
+    /// Disables peripheral. Takes access to RCC internally
+    unsafe fn low_power_disable_unchecked();
 }
 
 /// Reset peripheral
 pub trait Reset: RccBus {
-    fn reset(apb: &mut Self::Bus);
-}
+    /// Resets peripheral
+    fn reset(bus: &mut Self::Bus);
 
-macro_rules! bus {
-    ($($PER:ident => ($apbX:ty, $peren:ident, $perrst:ident),)+) => {
-        $(
-            impl RccBus for crate::pac::$PER {
-                type Bus = $apbX;
-            }
-            impl Enable for crate::pac::$PER {
-                #[inline(always)]
-                fn enable(apb: &mut Self::Bus) {
-                    apb.enr().modify(|_, w| w.$peren().set_bit());
-                }
-                #[inline(always)]
-                fn disable(apb: &mut Self::Bus) {
-                    apb.enr().modify(|_, w| w.$peren().clear_bit());
-                }
-            }
-            impl Reset for crate::pac::$PER {
-                #[inline(always)]
-                fn reset(apb: &mut Self::Bus) {
-                    apb.rstr().modify(|_, w| w.$perrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$perrst().clear_bit());
-                }
-            }
-        )+
-    }
-}
-
-// Peripherals respective buses
-// TODO: check which processor has which peripheral and add them
-bus! {
-    I2C1 => (APB1, i2c1en, i2c1rst),
-    I2C2 => (APB1, i2c2en, i2c2rst),
-    I2C3 => (APB1, i2c3en, i2c3rst),
-
-    SPI1 => (APB2, spi1en, spi1rst),
-    SPI2 => (APB1, spi2en, spi2rst),
-    SPI3 => (APB1, spi3en, spi3rst),
-    SPI4 => (APB2, spi4en, spi4rst),
-    SPI5 => (APB2, spi5en, spi5rst),
-
-    USART1 => (APB2, usart1en, usart1rst),
-    USART2 => (APB1, usart2en, usart2rst),
-    USART3 => (APB1, usart3en, usart3rst),
-    UART4 => (APB1, uart4en, uart4rst),
-    UART5 => (APB1, uart5en, uart5rst),
-    USART6 => (APB2, usart6en, usart6rst),
-    UART7 => (APB1, uart7en, uart7rst),
-    UART8 => (APB1, uart8en, uart8rst),
-
-    WWDG => (APB1, wwdgen, wwdgrst),
-
-    DMA1 => (AHB1, dma1en, dma1rst),
-    DMA2 => (AHB1, dma2en, dma2rst),
-
-    GPIOA => (AHB1, gpioaen, gpioarst),
-    GPIOB => (AHB1, gpioben, gpiobrst),
-    GPIOC => (AHB1, gpiocen, gpiocrst),
-    GPIOD => (AHB1, gpioden, gpiodrst),
-    GPIOE => (AHB1, gpioeen, gpioerst),
-    GPIOF => (AHB1, gpiofen, gpiofrst),
-    GPIOG => (AHB1, gpiogen, gpiogrst),
-    GPIOH => (AHB1, gpiohen, gpiohrst),
-    GPIOI => (AHB1, gpioien, gpioirst),
-
-    TIM1 => (APB2, tim1en, tim1rst),
-    TIM2 => (APB1, tim2en, tim2rst),
-    TIM3 => (APB1, tim3en, tim3rst),
-    TIM4 => (APB1, tim4en, tim4rst),
-    TIM5 => (APB1, tim5en, tim5rst),
-    TIM6 => (APB1, tim6en, tim6rst),
-    TIM7 => (APB1, tim7en, tim7rst),
-    TIM8 => (APB2, tim8en, tim8rst),
-    TIM9 => (APB2, tim9en, tim9rst),
-    TIM10 => (APB2, tim10en, tim10rst),
-    TIM11 => (APB2, tim11en, tim11rst),
-    TIM12 => (APB1, tim12en, tim12rst),
-    TIM13 => (APB1, tim13en, tim13rst),
-    TIM14 => (APB1, tim14en, tim14rst),
-
-    SYSCFG => (APB2, syscfgen, syscfgrst),
-}
-
-#[cfg(not(any(
-    feature = "stm32f722",
-    feature = "stm32f723",
-    feature = "stm32f730",
-    feature = "stm32f732",
-    feature = "stm32f733"
-)))]
-bus! {
-    I2C4 => (APB1, i2c4en, i2c4rst),
-
-    GPIOJ => (AHB1, gpiojen, gpiojrst),
-    GPIOK => (AHB1, gpioken, gpiokrst),
-
-    DMA2D => (AHB1, dma2den, dma2drst),
-}
-
-#[cfg(feature = "has-can")]
-bus! {
-    CAN1 => (APB1, can1en, can1rst),
-    CAN2 => (APB1, can2en, can2rst),
+    /// # Safety
+    ///
+    /// Resets peripheral. Takes access to RCC internally
+    unsafe fn reset_unchecked();
 }
 
 #[cfg(test)]

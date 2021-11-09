@@ -7,8 +7,8 @@ use stm32_fmc::FmcPeripheral;
 use stm32_fmc::{AddressPinSet, PinsSdram, Sdram, SdramChip, SdramPinSet, SdramTargetBank};
 
 use crate::embedded_time::rate::Hertz;
-use crate::pac as stm32;
-use crate::rcc::Clocks;
+use crate::pac;
+use crate::rcc::{Clocks, Enable, Reset};
 
 use crate::gpio::gpioa::PA7;
 use crate::gpio::gpiob::{PB5, PB6, PB7};
@@ -56,7 +56,7 @@ use crate::gpio::Alternate;
 
 /// Storage type for Flexible Memory Controller and its clocks
 pub struct FMC {
-    pub fmc: stm32::FMC,
+    pub fmc: pac::FMC,
     hclk: Hertz,
 }
 
@@ -92,7 +92,7 @@ pub trait FmcExt: Sized {
     }
 }
 
-impl FmcExt for stm32::FMC {
+impl FmcExt for pac::FMC {
     /// New FMC instance
     fn fmc(self, clocks: &Clocks) -> FMC {
         FMC {
@@ -103,17 +103,16 @@ impl FmcExt for stm32::FMC {
 }
 
 unsafe impl FmcPeripheral for FMC {
-    const REGISTERS: *const () = stm32::FMC::ptr() as *const ();
+    const REGISTERS: *const () = pac::FMC::ptr() as *const ();
 
     fn enable(&mut self) {
         // TODO : change it to something safe ...
-        let rcc = unsafe { &(*stm32::RCC::ptr()) };
-
-        // Enable FMC
-        rcc.ahb3enr.modify(|_, w| w.fmcen().enabled());
-        // Reset FMC
-        rcc.ahb3rstr.modify(|_, w| w.fmcrst().reset());
-        rcc.ahb3rstr.modify(|_, w| w.fmcrst().clear_bit());
+        unsafe {
+            // Enable FMC
+            pac::FMC::enable_unchecked();
+            // Reset FMC
+            pac::FMC::reset_unchecked();
+        }
     }
 
     fn source_clock_hz(&self) -> u32 {

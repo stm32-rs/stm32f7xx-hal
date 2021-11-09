@@ -2,7 +2,7 @@
 
 #![allow(dead_code)]
 
-use crate::rcc::{Clocks, APB2};
+use crate::rcc::{Clocks, Enable, Reset, APB2};
 
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc, gpiof};
@@ -193,10 +193,10 @@ macro_rules! adc_hal {
                     align: Align::default(),
                     clocks,
                 };
-                s.enable_clock(apb2);
+                <$ADC>::enable(apb2);
                 if reset {
                     s.power_down();
-                    s.reset(apb2);
+                    <$ADC>::reset(apb2);
                 }
 
                 s.setup_oneshot();
@@ -264,29 +264,6 @@ macro_rules! adc_hal {
             // 15.3.1 ADC on-off control
             fn power_down(&mut self) {
                 self.rb.cr2.modify(|_, w| w.adon().clear_bit());
-            }
-
-            fn reset(&mut self, apb2: &mut APB2) {
-                apb2.rstr().modify(|_, w| w.adcrst().set_bit());
-                apb2.rstr().modify(|_, w| w.adcrst().clear_bit());
-            }
-
-            fn enable_clock(&mut self, apb2: &mut APB2) {
-                match stringify!($adc) {
-                    "adc1" => apb2.enr().modify(|_, w| w.adc1en().set_bit()), // for ADC1
-                    "adc2" => apb2.enr().modify(|_, w| w.adc2en().set_bit()), // for ADC2
-                    "adc3" => apb2.enr().modify(|_, w| w.adc3en().set_bit()), // for ADC3
-                    _ => unreachable!(),
-                }
-            }
-
-            fn disable_clock(&mut self, apb2: &mut APB2) {
-                match stringify!($adc) {
-                    "adc1" => apb2.enr().modify(|_, w| w.adc1en().clear_bit()), // for ADC1
-                    "adc2" => apb2.enr().modify(|_, w| w.adc2en().clear_bit()), // for ADC2
-                    "adc3" => apb2.enr().modify(|_, w| w.adc3en().clear_bit()), // for ADC3
-                    _ => unreachable!(),
-                }
             }
 
             // 15.3.5 Single conversion mode (page: 444)
@@ -434,7 +411,7 @@ macro_rules! adc_hal {
             /// Powers down the ADC, disables the ADC clock and releases the ADC Peripheral
             pub fn release(mut self, apb2: &mut APB2) -> $ADC {
                 self.power_down();
-                self.disable_clock(apb2);
+                <$ADC>::disable(apb2);
                 self.rb
             }
         }

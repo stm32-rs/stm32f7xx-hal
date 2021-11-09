@@ -12,6 +12,7 @@ use crate::embedded_time::rate::Extensions as _;
 use crate::hal::prelude::*;
 use crate::hal::serial;
 use crate::pac;
+use crate::rcc::{Enable, Reset};
 use crate::state;
 use nb::block;
 
@@ -157,7 +158,9 @@ where
         //       the correct registers directly.
 
         USART::select_sysclock(rcc);
-        USART::enable_clock(rcc);
+        unsafe {
+            USART::enable_unchecked();
+        }
 
         // Calculate correct baudrate divisor on the fly
         let brr = match config.oversampling {
@@ -463,15 +466,14 @@ pub enum Event {
 }
 
 /// Implemented by all USART instances
-pub trait Instance: Deref<Target = pac::usart1::RegisterBlock> {
+pub trait Instance: Deref<Target = pac::usart1::RegisterBlock> + Enable + Reset {
     fn ptr() -> *const pac::usart1::RegisterBlock;
     fn select_sysclock(rcc: &pac::rcc::RegisterBlock);
-    fn enable_clock(rcc: &pac::rcc::RegisterBlock);
 }
 
 macro_rules! impl_instance {
     ($(
-        $USARTX:ident: ($apbXenr:ident, $usartXsel:ident, $usartXen:ident),
+        $USARTX:ident: ($usartXsel:ident),
     )+) => {
         $(
             impl Instance for $USARTX {
@@ -482,10 +484,6 @@ macro_rules! impl_instance {
                 fn select_sysclock(rcc: &pac::rcc::RegisterBlock) {
                     rcc.dckcfgr2.modify(|_, w| w.$usartXsel().bits(1));
                 }
-
-                fn enable_clock(rcc: &pac::rcc::RegisterBlock) {
-                    rcc.$apbXenr.modify(|_, w| w.$usartXen().set_bit());
-                }
             }
         )+
     }
@@ -493,13 +491,13 @@ macro_rules! impl_instance {
 
 #[cfg(any(feature = "device-selected",))]
 impl_instance! {
-    USART1: (apb2enr, usart1sel, usart1en),
-    USART2: (apb1enr, usart2sel, usart2en),
-    USART3: (apb1enr, usart3sel, usart3en),
-    UART4:  (apb1enr, uart4sel,  uart4en),
-    UART5:  (apb1enr, uart5sel,  uart5en),
-    USART6: (apb2enr, usart6sel, usart6en),
-    UART7:  (apb1enr, uart7sel,  uart7en),
+    USART1: (usart1sel),
+    USART2: (usart2sel),
+    USART3: (usart3sel),
+    UART4:  (uart4sel),
+    UART5:  (uart5sel),
+    USART6: (usart6sel),
+    UART7:  (uart7sel),
 }
 
 impl<USART> fmt::Write for Tx<USART>
