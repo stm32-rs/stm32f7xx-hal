@@ -41,16 +41,14 @@ fn main() -> ! {
 
     let can = Can::new(dp.CAN1, &mut rcc.apb1, (tx, rx));
 
-    let mut can = bxcan::Can::new(can);
-
     // Use loopback mode: No pins need to be assigned to peripheral.
-    can.configure(|config| {
+    let mut can = bxcan::Can::builder(can)
         // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
-        config.set_bit_timing(0x001e_000b);
-        config.set_loopback(true);
-        config.set_silent(true);
-    });
+        .set_bit_timing(0x001e_000b)
+        .set_loopback(true)
+        .set_silent(true)
+        .enable();
 
     let mut filters = can.modify_filters();
     assert!(filters.num_banks() > 3);
@@ -90,11 +88,8 @@ fn main() -> ! {
         ],
     );
 
-    // Enable filters.
+    // Drop filters to leave filter configuraiton mode.
     drop(filters);
-
-    // Sync to the bus and start normal operation.
-    block!(can.enable()).ok();
 
     // Some messages shall pass the filters.
     for &id in &[0, 1, 2, 8, 9, 10, 11] {

@@ -11,6 +11,7 @@ use panic_semihosting as _;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::{hprint, hprintln};
 
+use embedded_hal::i2c::blocking::Write;
 use stm32f7xx_hal::{self as hal, gpio::GpioExt, pac, prelude::*};
 
 const VALID_ADDR_RANGE: Range<u8> = 0x08..0x78;

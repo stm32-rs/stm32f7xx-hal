@@ -5,7 +5,6 @@ use crate::pac::{RCC, RNG};
 use crate::rcc::{Enable, Reset};
 use core::num::NonZeroU32;
 use core::ops::Shl;
-use embedded_hal::blocking::rng::Read;
 use rand_core::RngCore;
 
 #[derive(Debug)]
@@ -90,16 +89,19 @@ impl Rng {
         }
     }
 
+    /// Reads enough bytes from hardware random number generator to fill `buffer`
+    ///
+    /// If any error is encountered then this function immediately returns. The contents of buf are
+    /// unspecified in this case.
+    ///
+    /// If this function returns an error, it is unspecified how many bytes it has read, but it
+    /// will never read more than would be necessary to completely fill the buffer.
+    pub fn read(&mut self, buffer: &mut [u8]) -> Result<(), rand_core::Error> {
+        self.try_fill_bytes(buffer)
+    }
+
     pub fn release(self) -> RNG {
         self.rb
-    }
-}
-
-impl Read for Rng {
-    type Error = rand_core::Error;
-
-    fn read(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.try_fill_bytes(buffer)
     }
 }
 

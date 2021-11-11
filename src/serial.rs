@@ -6,10 +6,10 @@ use core::pin::Pin;
 use core::ptr;
 
 use as_slice::{AsMutSlice, AsSlice};
+use embedded_hal::serial::nb::{Read, Write};
 
 use crate::dma;
 use crate::embedded_time::rate::Extensions as _;
-use crate::hal::prelude::*;
 use crate::hal::serial;
 use crate::pac;
 use crate::rcc::{Enable, Reset};
@@ -33,20 +33,6 @@ use crate::gpio::{
 
 use crate::embedded_time::rate::BytesPerSecond;
 use crate::rcc::Clocks;
-
-/// Serial error
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum Error {
-    /// Framing error
-    Framing,
-    /// Noise error
-    Noise,
-    /// RX buffer overrun
-    Overrun,
-    /// Parity check error
-    Parity,
-}
 
 pub trait Pins<USART> {}
 pub trait PinTx<USART> {}
@@ -231,13 +217,13 @@ where
     }
 }
 
-impl<USART, PINS> serial::Read<u8> for Serial<USART, PINS>
+impl<USART, PINS> Read<u8> for Serial<USART, PINS>
 where
     USART: Instance,
 {
-    type Error = Error;
+    type Error = serial::ErrorKind;
 
-    fn read(&mut self) -> nb::Result<u8, Error> {
+    fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut rx: Rx<USART> = Rx {
             _usart: PhantomData,
         };
@@ -245,11 +231,11 @@ where
     }
 }
 
-impl<USART, PINS> serial::Write<u8> for Serial<USART, PINS>
+impl<USART, PINS> Write<u8> for Serial<USART, PINS>
 where
     USART: Instance,
 {
-    type Error = Error;
+    type Error = serial::ErrorKind;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         let mut tx: Tx<USART> = Tx {
@@ -309,13 +295,13 @@ where
     }
 }
 
-impl<USART> serial::Read<u8> for Rx<USART>
+impl<USART> serial::nb::Read<u8> for Rx<USART>
 where
     USART: Instance,
 {
-    type Error = Error;
+    type Error = serial::ErrorKind;
 
-    fn read(&mut self) -> nb::Result<u8, Error> {
+    fn read(&mut self) -> nb::Result<u8, Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
         let isr = unsafe { (*USART::ptr()).isr.read() };
 
@@ -324,19 +310,19 @@ where
 
         if isr.pe().bit_is_set() {
             icr.write(|w| w.pecf().clear());
-            return Err(nb::Error::Other(Error::Parity));
+            return Err(nb::Error::Other(Self::Error::Parity));
         }
         if isr.fe().bit_is_set() {
             icr.write(|w| w.fecf().clear());
-            return Err(nb::Error::Other(Error::Framing));
+            return Err(nb::Error::Other(Self::Error::FrameFormat));
         }
         if isr.nf().bit_is_set() {
             icr.write(|w| w.ncf().clear());
-            return Err(nb::Error::Other(Error::Noise));
+            return Err(nb::Error::Other(Self::Error::Noise));
         }
         if isr.ore().bit_is_set() {
             icr.write(|w| w.orecf().clear());
-            return Err(nb::Error::Other(Error::Overrun));
+            return Err(nb::Error::Other(Self::Error::Overrun));
         }
 
         if isr.rxne().bit_is_set() {
@@ -398,11 +384,11 @@ where
     }
 }
 
-impl<USART> serial::Write<u8> for Tx<USART>
+impl<USART> serial::nb::Write<u8> for Tx<USART>
 where
     USART: Instance,
 {
-    type Error = Error;
+    type Error = serial::ErrorKind;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
@@ -502,7 +488,7 @@ impl_instance! {
 
 impl<USART> fmt::Write for Tx<USART>
 where
-    Tx<USART>: serial::Write<u8>,
+    Tx<USART>: serial::nb::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();

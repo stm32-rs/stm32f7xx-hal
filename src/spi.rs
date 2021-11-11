@@ -8,9 +8,12 @@ pub use embedded_hal::spi::{Mode, Phase, Polarity};
 use core::{fmt, marker::PhantomData, ops::DerefMut, pin::Pin, ptr};
 
 use as_slice::{AsMutSlice, AsSlice as _};
-use embedded_hal::{
-    blocking::spi::{transfer, write, write_iter},
-    spi::FullDuplex,
+use embedded_hal::spi::{
+    self,
+    {
+        blocking::{TransferInplace, Write, WriteIter},
+        nb::FullDuplex,
+    },
 };
 
 use crate::{
@@ -178,39 +181,72 @@ where
     P: Pins<I>,
     Word: SupportedWordSize,
 {
-    type Error = Error;
+    type Error = spi::ErrorKind;
 
     fn read(&mut self) -> nb::Result<Word, Self::Error> {
         self.spi.read()
     }
 
-    fn send(&mut self, word: Word) -> nb::Result<(), Self::Error> {
+    fn write(&mut self, word: Word) -> nb::Result<(), Self::Error> {
         self.spi.send(word)
     }
 }
 
-impl<I, P, Word> transfer::Default<Word> for Spi<I, P, Enabled<Word>>
+impl<I, P, Word> TransferInplace<Word> for Spi<I, P, Enabled<Word>>
 where
     I: Instance,
     P: Pins<I>,
-    Word: SupportedWordSize,
+    Word: SupportedWordSize + Clone,
 {
+    type Error = spi::ErrorKind;
+
+    fn transfer_inplace(&mut self, words: &mut [Word]) -> Result<(), Self::Error> {
+        for word in words.iter_mut() {
+            nb::block!(FullDuplex::write(self, word.clone()))?;
+            *word = nb::block!(FullDuplex::read(self))?;
+        }
+
+        Ok(())
+    }
 }
 
-impl<I, P, Word> write::Default<Word> for Spi<I, P, Enabled<Word>>
+impl<I, P, Word> Write<Word> for Spi<I, P, Enabled<Word>>
 where
     I: Instance,
     P: Pins<I>,
-    Word: SupportedWordSize,
+    Word: SupportedWordSize + Clone,
 {
+    type Error = spi::ErrorKind;
+
+    fn write(&mut self, words: &[Word]) -> Result<(), Self::Error> {
+        for word in words {
+            nb::block!(FullDuplex::write(self, word.clone()))?;
+            nb::block!(FullDuplex::read(self))?;
+        }
+
+        Ok(())
+    }
 }
 
-impl<I, P, Word> write_iter::Default<Word> for Spi<I, P, Enabled<Word>>
+impl<I, P, Word> WriteIter<Word> for Spi<I, P, Enabled<Word>>
 where
     I: Instance,
     P: Pins<I>,
-    Word: SupportedWordSize,
+    Word: SupportedWordSize + Clone,
 {
+    type Error = spi::ErrorKind;
+
+    fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
+    where
+        WI: IntoIterator<Item = Word>,
+    {
+        for word in words.into_iter() {
+            nb::block!(FullDuplex::write(self, word.clone()))?;
+            nb::block!(FullDuplex::read(self))?;
+        }
+
+        Ok(())
+    }
 }
 
 impl<I, P, State> Spi<I, P, State>
@@ -231,10 +267,10 @@ pub trait Instance {
     fn configure<Word>(&self, br: u8, cpol: bool, cpha: bool)
     where
         Word: SupportedWordSize;
-    fn read<Word>(&self) -> nb::Result<Word, Error>
+    fn read<Word>(&self) -> nb::Result<Word, spi::ErrorKind>
     where
         Word: SupportedWordSize;
-    fn send<Word>(&self, word: Word) -> nb::Result<(), Error>
+    fn send<Word>(&self, word: Word) -> nb::Result<(), spi::ErrorKind>
     where
         Word: SupportedWordSize;
     fn dr_address(&self) -> u32;
@@ -348,7 +384,7 @@ macro_rules! impl_instance {
                     );
                 }
 
-                fn read<Word>(&self) -> nb::Result<Word, Error> {
+                fn read<Word>(&self) -> nb::Result<Word, spi::ErrorKind> {
                     let sr = self.sr.read();
 
                     // Check for errors
@@ -358,13 +394,13 @@ macro_rules! impl_instance {
                     // SPI types in the PAC, explained in more detail in
                     // another comment.
                     if sr.fre().is_error() {
-                        return Err(nb::Error::Other(Error::FrameFormat));
+                        return Err(nb::Error::Other(spi::ErrorKind::FrameFormat));
                     }
                     if sr.ovr().is_overrun() {
-                        return Err(nb::Error::Other(Error::Overrun));
+                        return Err(nb::Error::Other(spi::ErrorKind::Overrun));
                     }
                     if sr.modf().is_fault() {
-                        return Err(nb::Error::Other(Error::ModeFault));
+                        return Err(nb::Error::Other(spi::ErrorKind::ModeFault));
                     }
 
                     // Did we receive something?
@@ -385,7 +421,7 @@ macro_rules! impl_instance {
                     Err(nb::Error::WouldBlock)
                 }
 
-                fn send<Word>(&self, word: Word) -> nb::Result<(), Error> {
+                fn send<Word>(&self, word: Word) -> nb::Result<(), spi::ErrorKind> {
                     let sr = self.sr.read();
 
                     // Check for errors
@@ -395,13 +431,13 @@ macro_rules! impl_instance {
                     // SPI types in the PAC, explained in more detail in
                     // another comment.
                     if sr.fre().is_error() {
-                        return Err(nb::Error::Other(Error::FrameFormat));
+                        return Err(nb::Error::Other(spi::ErrorKind::FrameFormat));
                     }
                     if sr.ovr().is_overrun() {
-                        return Err(nb::Error::Other(Error::Overrun));
+                        return Err(nb::Error::Other(spi::ErrorKind::Overrun));
                     }
                     if sr.modf().is_fault() {
-                        return Err(nb::Error::Other(Error::ModeFault));
+                        return Err(nb::Error::Other(spi::ErrorKind::ModeFault));
                     }
 
                     // Can we write to the transmit buffer?
@@ -581,13 +617,6 @@ impl<I> Miso<I> for NoMiso {}
 /// Placeholder for a pin when no MOSI pin is required
 pub struct NoMosi;
 impl<I> Mosi<I> for NoMosi {}
-
-#[derive(Debug)]
-pub enum Error {
-    FrameFormat,
-    Overrun,
-    ModeFault,
-}
 
 /// RX token used for DMA transfers
 pub struct Rx<I>(PhantomData<I>);

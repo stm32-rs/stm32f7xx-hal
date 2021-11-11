@@ -12,6 +12,7 @@ extern crate panic_halt;
 use nb::block;
 
 use cortex_m_rt::entry;
+use embedded_hal::serial::nb::{Read, Write};
 use stm32f7xx_hal::{
     pac,
     prelude::*,

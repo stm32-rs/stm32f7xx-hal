@@ -11,7 +11,7 @@ use crate::pac::{ADC1, ADC2, ADC3, ADC_COMMON};
 
 use cortex_m::asm::delay;
 
-use embedded_hal::adc::{Channel, OneShot};
+use embedded_hal::adc::nb::{Channel, OneShot};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -95,7 +95,7 @@ macro_rules! adc_pins {
             impl Channel<$ADC> for $pin {
                 type ID = u8;
 
-                fn channel() -> u8 { $chan }
+                fn channel(&self) -> u8 { $chan }
             }
         )+
     };
@@ -442,8 +442,8 @@ macro_rules! adc_hal {
         {
             type Error = ();
 
-            fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                let res = self.convert(PIN::channel());
+            fn read(&mut self, pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
+                let res = self.convert(PIN::channel(pin));
                 Ok(res.into())
             }
         }

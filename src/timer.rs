@@ -1,14 +1,16 @@
 //! Timers
 
 use crate::embedded_time::rate::Hertz;
-use crate::hal::timer::{Cancel, CountDown, Periodic};
+use crate::hal::timer::{
+    nb::{Cancel, CountDown},
+    Periodic,
+};
 use crate::pac::{
     TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8, TIM9,
 };
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use cast::{u16, u32};
 use nb;
-use void::Void;
 
 /// Hardware timers
 pub struct Timer<TIM> {
@@ -25,10 +27,26 @@ pub enum Event {
 }
 
 /// Timer errors
-#[derive(Debug, PartialEq)]
-pub enum Error {
+pub trait Error: core::fmt::Debug {
+    /// Convert error to a generic SPI error kind
+    ///
+    /// By using this method, SPI errors freely defined by HAL implementations
+    /// can be converted to a set of generic SPI errors upon which generic
+    /// code can act.
+    fn kind(&self) -> ErrorKind;
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[non_exhaustive]
+pub enum ErrorKind {
     /// Timer is disabled.
     Disabled,
+}
+
+impl Error for ErrorKind {
+    fn kind(&self) -> ErrorKind {
+        *self
+    }
 }
 
 macro_rules! hal {
@@ -38,9 +56,10 @@ macro_rules! hal {
 
             impl CountDown for Timer<$TIM> {
                 type Time = Hertz;
+                type Error = ErrorKind;
 
                 #[allow(unused_unsafe)]
-                fn start<T>(&mut self, timeout: T)
+                fn start<T>(&mut self, timeout: T) -> core::result::Result<(), Self::Error>
                 where
                     T: Into<Hertz>,
                 {
@@ -65,9 +84,11 @@ macro_rules! hal {
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
 
                     self.enable();
+
+                    Ok(())
                 }
 
-                fn wait(&mut self) -> nb::Result<(), Void> {
+                fn wait(&mut self) -> nb::Result<(), Self::Error> {
                     if self.tim.sr.read().uif().bit_is_clear() {
                         Err(nb::Error::WouldBlock)
                     } else {
@@ -78,11 +99,9 @@ macro_rules! hal {
             }
 
             impl Cancel for Timer<$TIM> {
-                type Error = Error;
-
                 fn cancel(&mut self) -> Result<(), Self::Error> {
                     if !self.tim.cr1.read().cen().is_enabled() {
-                        return Err(Error::Disabled);
+                        return Err(ErrorKind::Disabled);
                     }
 
                     self.disable();
@@ -93,7 +112,7 @@ macro_rules! hal {
 
             impl Timer<$TIM> {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: Clocks, apb: &mut <$TIM as RccBus>::Bus) -> Self
+                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: Clocks, apb: &mut <$TIM as RccBus>::Bus) -> core::result::Result<Self, ErrorKind>
                 where
                     T: Into<Hertz>,
                 {
@@ -108,9 +127,9 @@ macro_rules! hal {
                         tim,
                         timeout: Hertz(0),
                     };
-                    timer.start(timeout);
+                    timer.start(timeout)?;
 
-                    timer
+                    Ok(timer)
                 }
 
                 /// Starts listening for an `event`
