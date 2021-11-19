@@ -26,7 +26,7 @@ micromath = "1.0.0"
 synopsys-usb-otg = { version = "0.2.3", features = ["cortex-m"], optional = true }
 stm32-fmc = { version = "0.2.0", features = ["sdram"], optional = true }
 rand_core = "0.6"
-bxcan = ">=0.4,  <0.6"
+bxcan = "0.6"
 
 [dependencies.bare-metal]
 version = "0.2.4"

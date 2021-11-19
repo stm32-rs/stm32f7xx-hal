@@ -40,13 +40,13 @@ fn main() -> ! {
         let tx = gpioa.pa12.into_alternate();
 
         let can = Can::new(dp.CAN1, &mut rcc.apb1, (tx, rx));
-        bxcan::Can::new(can)
+
+        bxcan::Can::builder(can)
+            // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
+            // Value was calculated with http://www.bittiming.can-wiki.info/
+            .set_bit_timing(0x001e_000b)
+            .enable()
     };
-    can1.configure(|config| {
-        // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
-        // Value was calculated with http://www.bittiming.can-wiki.info/
-        config.set_bit_timing(0x001e_000b);
-    });
 
     // Configure filters so that can frames can be received.
     let mut filters = can1.modify_filters();
@@ -58,12 +58,11 @@ fn main() -> ! {
 
         let can = Can::new(dp.CAN2, &mut rcc.apb1, (tx, rx));
 
-        let mut can2 = bxcan::Can::new(can);
-        can2.configure(|config| {
+        let can2 = bxcan::Can::builder(can)
             // APB1 (PCLK1): 130MHz, Bit rate: 512kBit/s, Sample Point 87.5%
             // Value was calculated with http://www.bittiming.can-wiki.info/
-            config.set_bit_timing(0x001e_000b);
-        });
+            .set_bit_timing(0x001e_000b)
+            .enable();
 
         // A total of 28 filters are shared between the two CAN instances.
         // Split them equally between CAN1 and CAN2.
@@ -79,9 +78,6 @@ fn main() -> ! {
     // Select the interface.
     let mut can = can1;
     //let mut can = can2;
-
-    // Split the peripheral into transmitter and receiver parts.
-    block!(can.enable()).unwrap();
 
     // Echo back received packages in sequence.
     // See the `can-rtfm` example for an echo implementation that adheres to
