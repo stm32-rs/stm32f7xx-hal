@@ -2,8 +2,8 @@
 //! For more details, see
 //! [ST AN4759](https:/www.st.com%2Fresource%2Fen%2Fapplication_note%2Fdm00226326-using-the-hardware-realtime-clock-rtc-and-the-tamper-management-unit-tamp-with-stm32-microcontrollers-stmicroelectronics.pdf&usg=AOvVaw3PzvL2TfYtwS32fw-Uv37h)
 
-use crate::pac::{PWR, RTC};
-use crate::rcc::{APB1, BDCR};
+use crate::pac::{PWR, RCC, RTC};
+use crate::rcc::{Clocks, APB1};
 use core::convert::TryInto;
 use rtcc::{Datelike, Hours, NaiveDate, NaiveDateTime, NaiveTime, Rtcc, Timelike};
 
@@ -15,27 +15,50 @@ pub enum Error {
 
 pub const LSE_BITS: u8 = 0b01;
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum RtcClock {
+    /// LSE (Low-Speed External)
+    ///
+    /// This is in the Backup power domain, and so it can
+    /// remain operational as long as VBat is present.
+    Lse,
+    /// LSI (Low-Speed Internal)
+    ///
+    /// This clock remains functional in Stop or Standby mode,
+    /// but requires VDD to remain powered. LSI is an RC
+    /// oscillator and has poor accuracy.
+    Lsi,
+    /// HSE (High-Speed External) divided by 2..=31
+    ///
+    /// The resulting clock must be lower than 1MHz. This clock is
+    /// automatically disabled by hardware when the CPU enters Stop or
+    /// standby mode.
+    Hse { divider: u8 },
+}
+
 pub struct Rtc {
     pub regs: RTC,
 }
 
 impl Rtc {
     /// Create and enable a new RTC, and configure its clock source and prescalers.
-    /// From AN4759, Table 7, when using the LSE (The only clock source this module
-    /// supports currently), set `prediv_s` to 255, and `prediv_a` to 127 to get a
-    /// calendar clock of 1Hz.
-    /// The `bypass` argument is `true` if you're using an external oscillator that
-    /// doesn't connect to `OSC32_IN`, such as a MEMS resonator.
+    ///
+    /// See AN4759 (Rev 7) Table 7 for configuration of `prediv_s` and `prediv_a`,
+    /// respectively the formula to calculate `ck_spre` on the same page.
+    ///
+    /// For example, when using the LSE,
+    /// set `prediv_s` to 255, and `prediv_a` to 127 to get a calendar clock of 1Hz.
     pub fn new(
         regs: RTC,
         prediv_s: u16,
         prediv_a: u8,
-        bypass: bool,
+        clock_source: RtcClock,
+        clocks: Clocks,
         apb1: &mut APB1,
-        bdcr: &mut BDCR,
         pwr: &mut PWR,
-    ) -> Self {
+    ) -> Option<Self> {
         let mut result = Self { regs };
+        let rcc = unsafe { &(*RCC::ptr()) };
 
         // Steps:
         // Enable PWR and DBP
@@ -50,11 +73,40 @@ impl Rtc {
 
         // As per the sample code, unlock comes first. (Enable PWR and DBP)
         unlock(apb1, pwr);
-        // If necessary, enable the LSE.
-        if bdcr.bdcr().read().lserdy().bit_is_clear() {
-            enable_lse(bdcr, bypass);
+
+        match clock_source {
+            RtcClock::Lse => {
+                // Check if LSE is enabled.
+                clocks.lse()?;
+                // Force a reset of the backup domain.
+                rcc.bdcr.modify(|_, w| w.bdrst().enabled());
+                rcc.bdcr.modify(|_, w| w.bdrst().disabled());
+                // Set clock source to LSE.
+                rcc.bdcr.modify(|_, w| w.rtcsel().lse());
+            }
+            RtcClock::Lsi => {
+                // Check if LSI is enabled.
+                clocks.lsi()?;
+                // Force a reset of the backup domain.
+                rcc.bdcr.modify(|_, w| w.bdrst().enabled());
+                rcc.bdcr.modify(|_, w| w.bdrst().disabled());
+                // Set clock source to LSI.
+                rcc.bdcr.modify(|_, w| w.rtcsel().lsi());
+            }
+            RtcClock::Hse { divider } => {
+                // Check if HSE is enabled.
+                clocks.hse()?;
+                // Set RTCPRE division factor (HES_RTC).
+                rcc.cfgr.modify(|_, w| w.rtcpre().bits(divider));
+                // Force a reset of the backup domain.
+                rcc.bdcr.modify(|_, w| w.bdrst().enabled());
+                rcc.bdcr.modify(|_, w| w.bdrst().disabled());
+                // Set clock source to LSE.
+                rcc.bdcr.modify(|_, w| w.rtcsel().hse());
+            }
         }
-        enable(bdcr);
+        // Start the actual RTC.
+        rcc.bdcr.modify(|_, w| w.rtcen().enabled());
 
         result.modify(|regs| {
             // Set 24 Hour
@@ -66,7 +118,7 @@ impl Rtc {
             })
         });
 
-        result
+        Some(result)
     }
 
     /// Sets calendar clock to 24 hr format
@@ -405,20 +457,6 @@ fn hours_to_u8(hours: Hours) -> Result<u8, Error> {
     }
 }
 
-/// Enable the low frequency external oscillator. This is the only mode currently
-/// supported, to avoid exposing the `CR` and `CRS` registers.
-fn enable_lse(bdcr: &mut BDCR, bypass: bool) {
-    // Force a reset of the backup domain.
-    bdcr.bdcr().modify(|_, w| w.bdrst().enabled());
-    bdcr.bdcr().modify(|_, w| w.bdrst().disabled());
-    // Enable the LSE.
-    bdcr.bdcr()
-        .modify(|_, w| w.lseon().set_bit().lsebyp().bit(bypass));
-    while bdcr.bdcr().read().lserdy().bit_is_clear() {}
-    // Set clock source to LSE.
-    bdcr.bdcr().modify(|_, w| w.rtcsel().lse());
-}
-
 fn unlock(apb1: &mut APB1, pwr: &mut PWR) {
     apb1.enr().modify(|_, w| {
         w
@@ -432,9 +470,4 @@ fn unlock(apb1: &mut APB1, pwr: &mut PWR) {
             .dbp()
             .set_bit()
     });
-}
-
-fn enable(bdcr: &mut BDCR) {
-    // Start the actual RTC.
-    bdcr.bdcr().modify(|_, w| w.rtcen().enabled());
 }
