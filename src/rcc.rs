@@ -36,6 +36,8 @@ impl RccExt for RCC {
                 sysclk: None,
                 pclk1: None,
                 pclk2: None,
+                lse: None,
+                lsi: None,
                 use_pll: false,
                 use_pll48clk: false,
                 pllm: 2,
@@ -122,11 +124,6 @@ impl BDCR {
     pub(crate) fn new() -> Self {
         Self { _0: () }
     }
-
-    pub(crate) fn bdcr(&mut self) -> &rcc::BDCR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).bdcr }
-    }
 }
 
 /// HSE clock mode.
@@ -169,6 +166,34 @@ impl HSEClock {
         assert!(valid_range.contains(&freq));
 
         HSEClock { freq, mode }
+    }
+}
+
+/// LSE clock mode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LSEClockMode {
+    /// Enable LSE oscillator to use external crystal or ceramic resonator.
+    Oscillator,
+    /// Bypass LSE oscillator to use external clock source.
+    /// Use this if an external oscillator is used which is not connected to `OSC32_IN` such as a MEMS resonator.
+    Bypass,
+}
+
+/// LSE Clock.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LSEClock {
+    /// Input frequency.
+    freq: Hertz,
+    /// Mode.
+    mode: LSEClockMode,
+}
+
+impl LSEClock {
+    /// Provide LSE frequency.
+    pub fn new(mode: LSEClockMode) -> Self {
+        // Sets the LSE clock source to 32.768 kHz.
+        let freq = Hertz(32_768_u32);
+        LSEClock { freq, mode }
     }
 }
 
@@ -265,6 +290,8 @@ pub struct CFGR {
     sysclk: Option<u32>,
     pclk1: Option<u32>,
     pclk2: Option<u32>,
+    lse: Option<LSEClock>,
+    lsi: Option<Hertz>,
     use_pll: bool,
     use_pll48clk: bool,
     pllm: u8,
@@ -361,6 +388,20 @@ impl CFGR {
         assert!((12_500_000..=108_000_000).contains(&f));
 
         self.pclk2 = Some(f);
+        self
+    }
+
+    /// Sets the LSE clock source to 32.768 kHz.
+    pub fn lse(mut self, lse: LSEClock) -> Self {
+        self.lse = Some(lse);
+        self
+    }
+
+    /// Sets the LSI clock source to 32 kHz.
+    ///
+    /// Be aware that the tolerance is up to ±47% (Min 17 kHz, Typ 32 kHz, Max 47 kHz).
+    pub fn lsi(mut self) -> Self {
+        self.lsi = Some(Hertz(32_000_u32));
         self
     }
 
@@ -664,6 +705,8 @@ impl CFGR {
             timclk2: Hertz(timclk2),
             pll48clk_valid,
             hse: self.hse.map(|hse| hse.freq),
+            lse: self.lse.map(|lse| lse.freq),
+            lsi: self.lsi,
         };
 
         (clocks, config)
@@ -907,6 +950,23 @@ impl CFGR {
             }
         }
 
+        // Configure LSE if provided
+        if self.lse.is_some() {
+            // Configure the LSE mode
+            match self.lse.as_ref().unwrap().mode {
+                LSEClockMode::Bypass => rcc.bdcr.modify(|_, w| w.lsebyp().bypassed()),
+                LSEClockMode::Oscillator => rcc.bdcr.modify(|_, w| w.lsebyp().not_bypassed()),
+            }
+            // Enable the LSE.
+            rcc.bdcr.modify(|_, w| w.lseon().on());
+            while rcc.bdcr.read().lserdy().is_not_ready() {}
+        }
+
+        if self.lsi.is_some() {
+            rcc.csr.modify(|_, w| w.lsion().on());
+            while rcc.csr.read().lsirdy().is_not_ready() {}
+        }
+
         if self.use_pll48clk {
             // set source clock for 48 MHz to main PLL
             rcc.dckcfgr2.modify(|_, w| w.ck48msel().bit(false));
@@ -990,6 +1050,8 @@ pub struct Clocks {
     timclk2: Hertz,
     pll48clk_valid: bool,
     hse: Option<Hertz>,
+    lse: Option<Hertz>,
+    lsi: Option<Hertz>,
 }
 
 impl Clocks {
@@ -1030,8 +1092,19 @@ impl Clocks {
         self.pll48clk_valid
     }
 
+    /// Returns the frequency of the `HSE` if `Some`, else `None`.
     pub fn hse(&self) -> Option<Hertz> {
         self.hse
+    }
+
+    /// Returns the frequency of the `LSE` if `Some`, else `None`.
+    pub fn lse(&self) -> Option<Hertz> {
+        self.lse
+    }
+
+    /// Returns the frequency of the `LSI` if `Some`, else `None`.
+    pub fn lsi(&self) -> Option<Hertz> {
+        self.lsi
     }
 }
 
@@ -1300,6 +1373,8 @@ mod tests {
             sysclk: None,
             pclk1: None,
             pclk2: None,
+            lse: None,
+            lsi: None,
             use_pll: false,
             use_pll48clk: false,
             pllm: 2,
@@ -1340,6 +1415,8 @@ mod tests {
             sysclk: None,
             pclk1: None,
             pclk2: None,
+            lse: None,
+            lsi: None,
             use_pll: false,
             use_pll48clk: false,
             pllm: 2,
@@ -1379,6 +1456,8 @@ mod tests {
             sysclk: None,
             pclk1: None,
             pclk2: None,
+            lse: None,
+            lsi: None,
             use_pll: false,
             use_pll48clk: false,
             pllm: 2,
@@ -1418,6 +1497,8 @@ mod tests {
             sysclk: None,
             pclk1: None,
             pclk2: None,
+            lse: None,
+            lsi: None,
             use_pll: false,
             use_pll48clk: false,
             pllm: 2,
