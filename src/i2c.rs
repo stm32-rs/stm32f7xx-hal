@@ -10,11 +10,13 @@ use crate::gpio::gpioc::PC9;
 use crate::gpio::gpiof::{PF0, PF1};
 use crate::gpio::gpioh::{PH4, PH5, PH7, PH8};
 use crate::gpio::AlternateOD;
-use crate::hal::blocking::i2c::{Read, Write, WriteRead};
+use crate::hal::i2c::{
+    self,
+    blocking::{Read, Write, WriteRead},
+};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
-use nb::Error::{Other, WouldBlock};
-use nb::{Error as NbError, Result as NbResult};
+use nb;
 
 use cast::u16;
 
@@ -22,19 +24,34 @@ use cast::u16;
 #[derive(Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Error {
-    /// Bus error
+    /// Bus error occurred. e.g. A START or a STOP condition is detected and is not
+    /// located after a multiple of 9 SCL clock pulses.
     Bus,
-    /// Arbitration loss
-    Arbitration,
-    /// No ack received
-    Acknowledge,
-    /// Overrun/underrun
+    /// The arbitration was lost, e.g. electrical problems with the clock signal
+    ArbitrationLoss,
+    /// A bus operation was not acknowledged, e.g. due to the addressed device not
+    /// being available on the bus or the device not being ready to process requests
+    /// at the moment
+    NoAcknowledge(i2c::NoAcknowledgeSource),
+    /// The peripheral receive buffer was overrun
     Overrun,
-    /// Bus is busy
-    Busy,
+    /// Timeout
+    Timeout,
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
+}
+
+impl i2c::Error for Error {
+    fn kind(&self) -> i2c::ErrorKind {
+        match *self {
+            Error::Bus => i2c::ErrorKind::Bus,
+            Error::ArbitrationLoss => i2c::ErrorKind::ArbitrationLoss,
+            Error::NoAcknowledge(s) => i2c::ErrorKind::NoAcknowledge(s),
+            Error::Overrun => i2c::ErrorKind::Overrun,
+            _ => i2c::ErrorKind::Other,
+        }
+    }
 }
 
 /// SPI mode. The user should make sure that the requested frequency can be
@@ -354,20 +371,22 @@ macro_rules! check_status_flag {
 
         if isr.berr().bit_is_set() {
             $i2c.icr.write(|w| w.berrcf().set_bit());
-            Err(Other(Error::Bus))
+            Err(nb::Error::Other(Error::Bus))
         } else if isr.arlo().bit_is_set() {
             $i2c.icr.write(|w| w.arlocf().set_bit());
-            Err(Other(Error::Arbitration))
+            Err(nb::Error::Other(Error::ArbitrationLoss))
         } else if isr.nackf().bit_is_set() {
             $i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
-            Err(Other(Error::Acknowledge))
+            Err(nb::Error::Other(Error::NoAcknowledge(
+                i2c::NoAcknowledgeSource::Unknown,
+            )))
         } else if isr.ovr().bit_is_set() {
             $i2c.icr.write(|w| w.stopcf().set_bit().ovrcf().set_bit());
-            Err(Other(Error::Overrun))
+            Err(nb::Error::Other(Error::Overrun))
         } else if isr.$flag().$status() {
             Ok(())
         } else {
-            Err(WouldBlock)
+            Err(nb::Error::WouldBlock)
         }
     }};
 }
@@ -376,7 +395,7 @@ macro_rules! busy_wait {
     ($nb_expr:expr, $exit_cond:expr) => {{
         loop {
             let res = $nb_expr;
-            if res != Err(WouldBlock) {
+            if res != Err(nb::Error::WouldBlock) {
                 break res;
             }
             if $exit_cond {
@@ -394,6 +413,17 @@ macro_rules! busy_wait_cycles {
             $nb_expr,
             DWT::get_cycle_count().wrapping_sub(started) >= cycles
         )
+    }};
+}
+
+// Map non-blocking errors to blocking errors
+macro_rules! nbError_to_Error {
+    ($nb_expr:expr) => {{
+        match $nb_expr {
+            Ok(()) => {}
+            Err(nb::Error::WouldBlock) => return Err(Error::Timeout),
+            Err(nb::Error::Other(error)) => return Err(error),
+        };
     }};
 }
 
@@ -531,25 +561,19 @@ macro_rules! hal {
 
                 /// Wait for a byte to be read and return it (ie for RXNE flag
                 /// to be set)
-                fn wait_byte_read(&self) -> NbResult<u8, Error> {
+                fn wait_byte_read(&self) -> Result<u8, Error> {
                     // Wait until we have received something
-                    busy_wait_cycles!(
-                        check_status_flag!(self.nb.i2c, rxne, is_not_empty),
-                        self.data_timeout
-                    )?;
+                    nbError_to_Error!(busy_wait_cycles!(check_status_flag!(self.nb.i2c, rxne, is_not_empty), self.data_timeout));
 
                     Ok(self.nb.i2c.rxdr.read().rxdata().bits())
                 }
 
                 /// Wait the write data register to be empty  (ie for TXIS flag
                 /// to be set) and write the byte to it
-                fn wait_byte_write(&self, byte: u8) -> NbResult<(), Error> {
+                fn wait_byte_write(&self, byte: u8) -> Result<(), Error> {
                     // Wait until we are allowed to send data
                     // (START has been ACKed or last byte when through)
-                    busy_wait_cycles!(
-                        check_status_flag!(self.nb.i2c, txis, is_empty),
-                        self.data_timeout
-                    )?;
+                    nbError_to_Error!(busy_wait_cycles!(check_status_flag!(self.nb.i2c, txis, is_empty), self.data_timeout));
 
                     // Put byte on the wire
                     self.nb.i2c.txdr.write(|w| w.txdata().bits(byte));
@@ -564,7 +588,7 @@ macro_rules! hal {
             }
 
             impl<SCL, SDA> Write for BlockingI2c<$I2CX, SCL, SDA> {
-                type Error = NbError<Error>;
+                type Error = Error;
 
                 /// Write bytes to I2C. Currently, `bytes.len()` must be less or
                 /// equal than 255
@@ -592,7 +616,7 @@ macro_rules! hal {
             }
 
             impl<SCL, SDA> Read for BlockingI2c<$I2CX, SCL, SDA> {
-                type Error = NbError<Error>;
+                type Error = Error;
 
                 /// Reads enough bytes from slave with `address` to fill `buffer`
                 fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -620,7 +644,7 @@ macro_rules! hal {
             }
 
             impl<SCL, SDA> WriteRead for BlockingI2c<$I2CX, SCL, SDA> {
-                type Error = NbError<Error>;
+                type Error = Error;
 
                 fn write_read(
                     &mut self,
@@ -642,10 +666,7 @@ macro_rules! hal {
 
                     // Wait until the write finishes before beginning to read.
                     // busy_wait2!(self.nb.i2c, tc, is_complete);
-                    busy_wait_cycles!(
-                        check_status_flag!(self.nb.i2c, tc, is_complete),
-                        self.data_timeout
-                    )?;
+                    nbError_to_Error!(busy_wait_cycles!(check_status_flag!(self.nb.i2c, tc, is_complete), self.data_timeout));
 
                     // reSTART and prepare to receive bytes into `buffer`
                     self.nb.start(addr, buffer.len() as u8, true, true);

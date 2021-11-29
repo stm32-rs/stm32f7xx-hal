@@ -99,7 +99,7 @@ impl<MODE> ErasedPin<Output<MODE>> {
 
     #[inline(always)]
     pub fn toggle(&mut self) {
-        if self.is_set_low() {
+        if self.is_set_low().unwrap() {
             self.set_high()
         } else {
             self.set_low()

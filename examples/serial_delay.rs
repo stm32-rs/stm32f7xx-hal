@@ -12,6 +12,7 @@ extern crate panic_halt;
 use core::fmt::Write;
 
 use cortex_m_rt::entry;
+use embedded_hal::delay::blocking::DelayUs;
 use stm32f7xx_hal::{
     delay::Delay,
     pac,
@@ -50,6 +51,6 @@ fn main() -> ! {
     let hello: &str = "Hello, I'm a STM32F7xx!\r\n";
     loop {
         tx.write_str(hello).unwrap();
-        delay.delay_ms(500_u16);
+        delay.delay_ms(500).unwrap();
     }
 }

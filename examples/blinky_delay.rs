@@ -8,6 +8,7 @@
 extern crate panic_halt;
 
 use cortex_m_rt::entry;
+use embedded_hal::delay::blocking::DelayUs;
 use stm32f7xx_hal::{delay::Delay, pac, prelude::*};
 
 #[entry]
@@ -29,9 +30,9 @@ fn main() -> ! {
 
     loop {
         led.set_high();
-        delay.delay_ms(500_u16);
+        delay.delay_ms(500).unwrap();
 
         led.set_low();
-        delay.delay_ms(500_u16);
+        delay.delay_ms(500).unwrap();
     }
 }

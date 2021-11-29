@@ -15,30 +15,29 @@ version = "0.6.0"
 features = ["stm32f746", "rt"]
 
 [dependencies]
-as-slice = "0.1.0"
+as-slice = "0.2.1"
 cortex-m = "0.7"
 cortex-m-rt = ">=0.6.15, <0.8"
 embedded-time = "0.12.0"
-nb = "0.1.2"
+nb = "1.0.0"
 rtcc = "0.2"
 stm32f7 = "0.14.0"
-micromath = "1.0.0"
+micromath = "2.0.0"
 synopsys-usb-otg = { version = "0.2.3", features = ["cortex-m"], optional = true }
 stm32-fmc = { version = "0.2.0", features = ["sdram"], optional = true }
 rand_core = "0.6"
 bxcan = "0.6"
 
+
 [dependencies.bare-metal]
-version = "0.2.4"
-features = ["const-fn"]
+version = "1.0.0"
 
 [dependencies.cast]
 default-features = false
-version = "0.2.2"
+version = "0.3.0"
 
 [dependencies.embedded-hal]
-features = ["unproven"]
-version = "0.2.3"
+version = "1.0.0-alpha.6"
 
 [dependencies.void]
 default-features = false
@@ -52,7 +51,7 @@ version = "0.4.1"
 cortex-m-semihosting = "0.3.3"
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.2"
-embedded-graphics = "0.6.1"
+embedded-graphics = "0.6.2"
 usb-device = "0.2.5"
 usbd-serial = "0.1.0"
 

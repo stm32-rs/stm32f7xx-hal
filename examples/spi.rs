@@ -4,6 +4,7 @@
 extern crate panic_semihosting;
 
 use cortex_m_rt::entry;
+use embedded_hal::spi::blocking::TransferInplace;
 use stm32f7xx_hal::{
     pac,
     prelude::*,
@@ -48,7 +49,7 @@ fn main() -> ! {
         let mut buffer = [0; 2];
         buffer[0] = 0x75 | 0x80;
         ncs.set_low();
-        spi.transfer(&mut buffer).unwrap();
+        spi.transfer_inplace(&mut buffer).unwrap();
         ncs.set_high();
 
         // The WHO_AM_I register should always return 0x71.

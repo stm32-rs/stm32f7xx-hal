@@ -4,6 +4,7 @@
 extern crate panic_semihosting;
 
 use cortex_m_rt::entry;
+use embedded_hal::spi::blocking::Write;
 use stm32f7xx_hal::{
     pac,
     prelude::*,

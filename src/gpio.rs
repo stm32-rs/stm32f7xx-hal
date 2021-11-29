@@ -47,10 +47,10 @@
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
-pub use embedded_hal::digital::v2::PinState;
-use embedded_hal::digital::v2::{
+use embedded_hal::digital::blocking::{
     InputPin, IoPin, OutputPin, StatefulOutputPin, ToggleableOutputPin,
 };
+pub use embedded_hal::digital::PinState;
 
 use crate::pac::{EXTI, SYSCFG};
 use crate::rcc::{Enable, APB2};
@@ -450,7 +450,7 @@ impl<MODE, const P: char, const N: u8> Pin<Output<MODE>, P, N> {
 
     #[inline(always)]
     pub fn toggle(&mut self) {
-        if self.is_set_low() {
+        if self.is_set_low().unwrap() {
             self.set_high()
         } else {
             self.set_low()

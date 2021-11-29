@@ -1,10 +1,9 @@
 //! Delays
 
-use cast::u32;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 
-use crate::hal::blocking::delay::{DelayMs, DelayUs};
+use crate::hal::delay::blocking::DelayUs;
 use crate::rcc::Clocks;
 
 /// System timer (SysTick) as a delay provider
@@ -27,26 +26,10 @@ impl Delay {
     }
 }
 
-impl DelayMs<u32> for Delay {
-    fn delay_ms(&mut self, ms: u32) {
-        self.delay_us(ms * 1_000);
-    }
-}
+impl DelayUs for Delay {
+    type Error = ();
 
-impl DelayMs<u16> for Delay {
-    fn delay_ms(&mut self, ms: u16) {
-        self.delay_ms(u32(ms));
-    }
-}
-
-impl DelayMs<u8> for Delay {
-    fn delay_ms(&mut self, ms: u8) {
-        self.delay_ms(u32(ms));
-    }
-}
-
-impl DelayUs<u32> for Delay {
-    fn delay_us(&mut self, us: u32) {
+    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
         // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
         const MAX_RVR: u32 = 0x00FF_FFFF;
 
@@ -70,17 +53,6 @@ impl DelayUs<u32> for Delay {
 
             self.syst.disable_counter();
         }
-    }
-}
-
-impl DelayUs<u16> for Delay {
-    fn delay_us(&mut self, us: u16) {
-        self.delay_us(u32(us))
-    }
-}
-
-impl DelayUs<u8> for Delay {
-    fn delay_us(&mut self, us: u8) {
-        self.delay_us(u32(us))
+        Ok(())
     }
 }
