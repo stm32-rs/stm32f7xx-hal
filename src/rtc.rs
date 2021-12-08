@@ -2,6 +2,7 @@
 //! For more details, see
 //! [ST AN4759](https:/www.st.com%2Fresource%2Fen%2Fapplication_note%2Fdm00226326-using-the-hardware-realtime-clock-rtc-and-the-tamper-management-unit-tamp-with-stm32-microcontrollers-stmicroelectronics.pdf&usg=AOvVaw3PzvL2TfYtwS32fw-Uv37h)
 
+use crate::pac::rtc::{dr, tr};
 use crate::pac::{PWR, RCC, RTC};
 use crate::rcc::{Clocks, APB1};
 use core::convert::TryInto;
@@ -11,6 +12,14 @@ use rtcc::{Datelike, Hours, NaiveDate, NaiveDateTime, NaiveTime, Rtcc, Timelike}
 #[derive(Debug)]
 pub enum Error {
     InvalidInputData,
+    /// The time and date are in two different registers (RTC_TR and RTC_DR),
+    /// so it is possible that when the time and then the date are read,
+    /// the date has ticked over and no longer matches the time read.  
+    ///
+    /// For example, it is 1970-01-01 23:59:59, so the date 1970-01-01 is read,
+    /// but at the moment the time register is read the RTC date time is 1970-01-02 00:00:01,
+    /// the result would be 1970-01-01 00:00:01, which is clearly wrong by one day.
+    OverTicked,
 }
 
 pub const LSE_BITS: u8 = 0b01;
@@ -323,34 +332,23 @@ impl Rtcc for Rtc {
     }
 
     fn get_seconds(&mut self) -> Result<u8, Self::Error> {
-        let tr = self.regs.tr.read();
-        let seconds = bcd2_decode(tr.st().bits(), tr.su().bits());
-        Ok(seconds as u8)
+        decode_seconds(&self.regs.tr.read())
     }
 
     fn get_minutes(&mut self) -> Result<u8, Self::Error> {
-        let tr = self.regs.tr.read();
-        let minutes = bcd2_decode(tr.mnt().bits(), tr.mnu().bits());
-        Ok(minutes as u8)
+        decode_minutes(&self.regs.tr.read())
     }
 
     fn get_hours(&mut self) -> Result<Hours, Self::Error> {
-        let tr = self.regs.tr.read();
-        let hours = bcd2_decode(tr.ht().bits(), tr.hu().bits());
-        if self.is_24h_fmt() {
-            return Ok(Hours::H24(hours as u8));
-        }
-        if !tr.pm().bit() {
-            return Ok(Hours::AM(hours as u8));
-        }
-        Ok(Hours::PM(hours as u8))
+        decode_hours(&self.regs.tr.read(), self.is_24h_fmt())
     }
 
     fn get_time(&mut self) -> Result<NaiveTime, Self::Error> {
         self.set_24h_fmt();
-        let seconds = self.get_seconds().unwrap();
-        let minutes = self.get_minutes().unwrap();
-        let hours = hours_to_u8(self.get_hours()?)?;
+        let tr = self.regs.tr.read();
+        let seconds = decode_seconds(&tr).unwrap();
+        let minutes = decode_minutes(&tr).unwrap();
+        let hours = hours_to_u8(decode_hours(&tr, self.is_24h_fmt())?)?;
 
         Ok(NaiveTime::from_hms(
             hours.into(),
@@ -366,43 +364,42 @@ impl Rtcc for Rtc {
     }
 
     fn get_day(&mut self) -> Result<u8, Self::Error> {
-        let dr = self.regs.dr.read();
-        let day = bcd2_decode(dr.dt().bits(), dr.du().bits());
-        Ok(day as u8)
+        decode_day(&self.regs.dr.read())
     }
 
     fn get_month(&mut self) -> Result<u8, Self::Error> {
-        let dr = self.regs.dr.read();
-        let mt: u8 = if dr.mt().bit() { 1 } else { 0 };
-        let month = bcd2_decode(mt, dr.mu().bits());
-        Ok(month as u8)
+        decode_month(&self.regs.dr.read())
     }
 
     fn get_year(&mut self) -> Result<u16, Self::Error> {
-        let dr = self.regs.dr.read();
-        let year = bcd2_decode(dr.yt().bits(), dr.yu().bits()) + 1970; // 1970-01-01 is the epoch begin.
-        Ok(year as u16)
+        decode_year(&self.regs.dr.read())
     }
 
     fn get_date(&mut self) -> Result<NaiveDate, Self::Error> {
-        let day = self.get_day().unwrap();
-        let month = self.get_month().unwrap();
-        let year = self.get_year().unwrap();
+        let dr = self.regs.dr.read();
+        let day = decode_day(&dr).unwrap();
+        let month = decode_month(&dr).unwrap();
+        let year = decode_year(&dr).unwrap();
 
         Ok(NaiveDate::from_ymd(year.into(), month.into(), day.into()))
     }
 
     fn get_datetime(&mut self) -> Result<NaiveDateTime, Self::Error> {
         self.set_24h_fmt();
-        // If the time register is read, the upper bits are frozen until the date is read.
-        // Thus, read the time first, then the date.
-        let seconds = self.get_seconds().unwrap();
-        let minutes = self.get_minutes().unwrap();
-        let hours = hours_to_u8(self.get_hours()?)?;
+        let dr = self.regs.dr.read();
+        let tr = self.regs.tr.read();
 
-        let day = self.get_day().unwrap();
-        let month = self.get_month().unwrap();
-        let year = self.get_year().unwrap();
+        // Check if the date has changed in the meantime, if so return an error. This guarantees a valid timestamp.
+        if dr.bits() != self.regs.dr.read().bits() {
+            return Err(Self::Error::OverTicked);
+        }
+
+        let seconds = decode_seconds(&tr).unwrap();
+        let minutes = decode_minutes(&tr).unwrap();
+        let hours = hours_to_u8(decode_hours(&tr, self.is_24h_fmt())?)?;
+        let day = decode_day(&dr).unwrap();
+        let month = decode_month(&dr).unwrap();
+        let year = decode_year(&dr).unwrap();
 
         Ok(
             NaiveDate::from_ymd(year.into(), month.into(), day.into()).and_hms(
@@ -470,4 +467,47 @@ fn unlock(apb1: &mut APB1, pwr: &mut PWR) {
             .dbp()
             .set_bit()
     });
+}
+
+#[inline(always)]
+fn decode_seconds(tr: &tr::R) -> Result<u8, Error> {
+    let seconds = bcd2_decode(tr.st().bits(), tr.su().bits());
+    Ok(seconds as u8)
+}
+
+#[inline(always)]
+fn decode_minutes(tr: &tr::R) -> Result<u8, Error> {
+    let minutes = bcd2_decode(tr.mnt().bits(), tr.mnu().bits());
+    Ok(minutes as u8)
+}
+
+#[inline(always)]
+fn decode_hours(tr: &tr::R, is_24h_fmt: bool) -> Result<Hours, Error> {
+    let hours = bcd2_decode(tr.ht().bits(), tr.hu().bits());
+    if is_24h_fmt {
+        return Ok(Hours::H24(hours as u8));
+    }
+    if !tr.pm().bit() {
+        return Ok(Hours::AM(hours as u8));
+    }
+    Ok(Hours::PM(hours as u8))
+}
+
+#[inline(always)]
+fn decode_day(dr: &dr::R) -> Result<u8, Error> {
+    let day = bcd2_decode(dr.dt().bits(), dr.du().bits());
+    Ok(day as u8)
+}
+
+#[inline(always)]
+fn decode_month(dr: &dr::R) -> Result<u8, Error> {
+    let mt: u8 = if dr.mt().bit() { 1 } else { 0 };
+    let month = bcd2_decode(mt, dr.mu().bits());
+    Ok(month as u8)
+}
+
+#[inline(always)]
+fn decode_year(dr: &dr::R) -> Result<u16, Error> {
+    let year = bcd2_decode(dr.yt().bits(), dr.yu().bits()) + 1970; // 1970-01-01 is the epoch begin.
+    Ok(year as u16)
 }
