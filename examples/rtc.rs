@@ -9,11 +9,14 @@ extern crate panic_halt as _;
 use cortex_m_rt::entry;
 
 use cortex_m_semihosting::hprintln;
-use rtcc::{Hours, NaiveDate, NaiveTime, Rtcc};
 use stm32f7xx_hal::{
     pac,
     prelude::*,
     rtc::{Rtc, RtcClock},
+};
+use time::{
+    macros::{date, time},
+    PrimitiveDateTime,
 };
 
 #[entry]
@@ -34,21 +37,19 @@ fn main() -> ! {
     )
     .unwrap();
 
-    rtc.set_24h_fmt();
-    rtc.set_time(&NaiveTime::from_hms(12, 30, 00)).unwrap();
-    rtc.set_date(&NaiveDate::from_ymd(2021, 11, 25)).unwrap();
+    rtc.set_datetime(&PrimitiveDateTime::new(date!(2019 - 01 - 01), time!(23:59)))
+        .unwrap();
+    // Alternatively:
+    // rtc.set_date(&date!(2019 - 01 - 01)).unwrap();
+    // rtc.set_time(&time!(23:59)).unwrap();
+    // Or:
+    // rtc.set_year(2019).unwrap();
+    // rtc.set_month(12).unwrap();
+    // rtc.set_day(31).unwrap();
+    // rtc.set_hours(23).unwrap();
+    // rtc.set_minutes(59).unwrap();
+    // rtc.set_seconds(59).unwrap();
     loop {
-        if let Hours::H24(h) = rtc.get_hours().unwrap() {
-            hprintln!(
-                "{}-{}-{} {}:{}:{}",
-                rtc.get_year().unwrap(),
-                rtc.get_month().unwrap(),
-                rtc.get_day().unwrap(),
-                h,
-                rtc.get_minutes().unwrap(),
-                rtc.get_seconds().unwrap()
-            )
-            .unwrap();
-        }
+        hprintln!("{}", rtc.get_datetime()).unwrap();
     }
 }
