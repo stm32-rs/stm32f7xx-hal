@@ -20,7 +20,6 @@ cortex-m = "0.7"
 cortex-m-rt = ">=0.6.15, <0.8"
 embedded-time = "0.12.0"
 nb = "1.0"
-rtcc = "0.2"
 stm32f7 = "0.14.0"
 micromath = "2.0"
 synopsys-usb-otg = { version = "0.2.3", features = ["cortex-m"], optional = true }
@@ -28,6 +27,10 @@ stm32-fmc = { version = "0.2.0", features = ["sdram"], optional = true }
 rand_core = "0.6"
 bxcan = "0.6"
 bare-metal = "1.0"
+
+[dependencies.time]
+version = "0.3"
+default-features = false
 
 [dependencies.cast]
 default-features = false
@@ -52,6 +55,11 @@ panic-semihosting = "0.5.2"
 embedded-graphics = "0.6.1"
 usb-device = "0.2.5"
 usbd-serial = "0.1.0"
+
+[dev-dependencies.time]
+version = "0.3"
+default-features = false
+features = ["macros"]
 
 [features]
 device-selected = []
