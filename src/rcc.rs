@@ -460,7 +460,7 @@ impl CFGR {
     ///
     /// # Panics
     ///
-    /// Panics if the multiplication factor isn't between 50 and 432.
+    /// Panics if the multiplication factor isn't between 50 and 432 (inclusive).
     pub fn plln(mut self, plln: u16) -> Self {
         assert!((50..=432).contains(&plln));
         self.plln = plln;
@@ -476,7 +476,7 @@ impl CFGR {
     /// Sets the PLL division factor for the 48 MHz clock.
     /// # Panics
     ///
-    /// Panics if the division factor isn't between 2 and 15.
+    /// Panics if the division factor isn't between 2 and 15 (inclusive).
     pub fn pllq(mut self, pllq: u8) -> Self {
         assert!((2..=15).contains(&pllq));
         self.pllq = pllq;
@@ -1064,6 +1064,10 @@ impl CFGR {
                     PLLSAIP::Div8 => 8,
                 };
             // let pllsaiq_freq = pllsain_freq / self.pllsaiq as u64;
+
+            // The reference manual (RM0410 Rev 4, Page 212), says the following
+            // "Caution: The software has to set these bits correctly to ensure that the VCO output frequency is between 100 and 432 MHz.",
+            // but STM32CubeMX states 192 MHz as the minimum. SSo the stricter requirement was chosen.
             assert!((192_000_000..=432_000_000).contains(&pllsain_freq));
             assert!(pllsaip_freq <= 48_000_000);
 
