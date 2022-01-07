@@ -39,11 +39,15 @@ impl RccExt for RCC {
                 lse: None,
                 lsi: None,
                 use_pll: false,
-                use_pll48clk: false,
+                pll48clk: None,
                 pllm: 2,
                 plln: 50,
                 pllp: PLLP::Div2,
                 pllq: 2,
+                use_pllsai: false,
+                pllsain: 192,
+                pllsaip: PLLSAIP::Div2,
+                pllsaiq: 2,
                 use_plli2s: false,
                 plli2sr: 2,
                 plli2sq: 2,
@@ -223,6 +227,24 @@ pub enum MCOPRE {
     Div5,
 }
 
+/// PLL48CLK clock source selection
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PLL48CLK {
+    /// 48 MHz clock from PLLQ is selected
+    Pllq,
+    /// 48 MHz clock from PLLSAI is selected
+    Pllsai,
+}
+
+/// PLLSAIP division factors.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PLLSAIP {
+    Div2 = 0b00,
+    Div4 = 0b01,
+    Div6 = 0b10,
+    Div8 = 0b11,
+}
+
 /// Microcontroller clock output 1
 ///
 /// Value on reset: HSI
@@ -293,11 +315,15 @@ pub struct CFGR {
     lse: Option<LSEClock>,
     lsi: Option<Hertz>,
     use_pll: bool,
-    use_pll48clk: bool,
+    pll48clk: Option<PLL48CLK>,
     pllm: u8,
     plln: u16,
     pllp: PLLP,
     pllq: u8,
+    use_pllsai: bool,
+    pllsain: u16,
+    pllsaip: PLLSAIP,
+    pllsaiq: u8,
     use_plli2s: bool,
     plli2sr: u8,
     plli2sq: u8,
@@ -413,9 +439,9 @@ impl CFGR {
         self
     }
 
-    /// Sets the 48 MHz clock source to the main PLL.
-    pub fn use_pll48clk(mut self) -> Self {
-        self.use_pll48clk = true;
+    /// Sets the 48 MHz clock source.
+    pub fn use_pll48clk(mut self, pll48clk: PLL48CLK) -> Self {
+        self.pll48clk = Some(pll48clk);
         self
     }
 
@@ -434,7 +460,7 @@ impl CFGR {
     ///
     /// # Panics
     ///
-    /// Panics if the multiplication factor isn't between 50 and 432.
+    /// Panics if the multiplication factor isn't between 50 and 432 (inclusive).
     pub fn plln(mut self, plln: u16) -> Self {
         assert!((50..=432).contains(&plln));
         self.plln = plln;
@@ -450,14 +476,48 @@ impl CFGR {
     /// Sets the PLL division factor for the 48 MHz clock.
     /// # Panics
     ///
-    /// Panics if the division factor isn't between 2 and 15.
+    /// Panics if the division factor isn't between 2 and 15 (inclusive).
     pub fn pllq(mut self, pllq: u8) -> Self {
         assert!((2..=15).contains(&pllq));
         self.pllq = pllq;
         self
     }
 
-    /// Enables the Plli2S clock source.
+    /// Enables the PLLSAI clock source.
+    pub fn use_pllsai(mut self) -> Self {
+        self.use_pllsai = true;
+        self
+    }
+
+    /// Sets the PLLSAIN multiplication factor for PLLSAI.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the multiplication factor isn't between 50 and 432.
+    pub fn pllsain(mut self, pllsain: u16) -> Self {
+        assert!((50..=432).contains(&pllsain));
+        self.pllsain = pllsain;
+        self
+    }
+
+    /// Sets the PLLSAIP division factor for PLLSAI.
+    pub fn pllsaip(mut self, pllsaip: PLLSAIP) -> Self {
+        self.pllsaip = pllsaip;
+        self
+    }
+
+    /// Sets the PLLSAIQ division factor for PLLSAIS.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the division factor isn't between 2 and 15.
+    pub fn pllsaiq(mut self, pllsaiq: u8) -> Self {
+        assert!((2..=15).contains(&pllsaiq));
+        self.pllsaiq = pllsaiq;
+        self
+    }
+
+    /// Enables the PLLI2S clock source.
     pub fn use_plli2s(mut self) -> Self {
         self.use_plli2s = true;
         self
@@ -547,13 +607,37 @@ impl CFGR {
                 };
         }
 
-        if self.use_pll48clk {
-            pll48clk_valid = {
-                let pll48clk =
-                    base_clk as u64 * self.plln as u64 / self.pllm as u64 / self.pllq as u64;
-                (48_000_000 - 120_000..=48_000_000 + 120_000).contains(&pll48clk)
-            };
+        // Check if pll48clk is valid
+        if let Some(pll48clk) = self.pll48clk {
+            match pll48clk {
+                PLL48CLK::Pllq => {
+                    pll48clk_valid = {
+                        let pll48clk = base_clk as u64 * self.plln as u64
+                            / self.pllm as u64
+                            / self.pllq as u64;
+                        (48_000_000 - 120_000..=48_000_000 + 120_000).contains(&pll48clk)
+                    }
+                }
+                PLL48CLK::Pllsai => {
+                    pll48clk_valid = {
+                        if self.use_pllsai {
+                            let pll48clk = base_clk as u64 * self.pllsain as u64
+                                / self.pllm as u64
+                                / match self.pllsaip {
+                                    PLLSAIP::Div2 => 2,
+                                    PLLSAIP::Div4 => 4,
+                                    PLLSAIP::Div6 => 6,
+                                    PLLSAIP::Div8 => 8,
+                                };
+                            (48_000_000 - 120_000..=48_000_000 + 120_000).contains(&pll48clk)
+                        } else {
+                            false
+                        }
+                    }
+                }
+            }
         }
+
         // SYSCLK, must be <= 216 Mhz. By default, HSI/HSE frequency is chosen
         assert!(sysclk <= 216_000_000);
         let sysclk = sysclk as u32;
@@ -809,7 +893,7 @@ impl CFGR {
             Some((sysclk - 1, sysclk + 1))
         };
 
-        let q = if self.use_pll48clk {
+        let q = if let Some(PLL48CLK::Pllq) = self.pll48clk {
             Some((48_000_000 - 120_000, 48_000_000 + 120_000))
         } else {
             None
@@ -903,7 +987,7 @@ impl CFGR {
         }
 
         // Enable sequence follows by RM 4.1.4 Entering Overdrive mode.
-        if self.use_pll || self.use_pll48clk {
+        if self.use_pll || self.pll48clk.is_some() {
             // Disable PLL
             // Since the main-PLL configuration parameters cannot be changed once PLL is enabled, it is
             // recommended to configure PLL before enabling it (selection of the HSI or HSE oscillator as
@@ -967,9 +1051,39 @@ impl CFGR {
             while rcc.csr.read().lsirdy().is_not_ready() {}
         }
 
-        if self.use_pll48clk {
-            // set source clock for 48 MHz to main PLL
-            rcc.dckcfgr2.modify(|_, w| w.ck48msel().bit(false));
+        if self.use_pllsai {
+            let pllsain_freq = match self.hse.as_ref() {
+                Some(hse) => hse.freq.integer() as u64 / self.pllm as u64 * self.pllsain as u64,
+                None => 16_000_000 / self.pllm as u64 * self.pllsain as u64,
+            };
+            let pllsaip_freq = pllsain_freq
+                / match self.pllsaip {
+                    PLLSAIP::Div2 => 2,
+                    PLLSAIP::Div4 => 4,
+                    PLLSAIP::Div6 => 6,
+                    PLLSAIP::Div8 => 8,
+                };
+            // let pllsaiq_freq = pllsain_freq / self.pllsaiq as u64;
+
+            // The reference manual (RM0410 Rev 4, Page 212), says the following
+            // "Caution: The software has to set these bits correctly to ensure that the VCO output frequency is between 100 and 432 MHz.",
+            // but STM32CubeMX states 192 MHz as the minimum. SSo the stricter requirement was chosen.
+            assert!((192_000_000..=432_000_000).contains(&pllsain_freq));
+            assert!(pllsaip_freq <= 48_000_000);
+
+            rcc.pllsaicfgr.modify(|_, w| unsafe {
+                w.pllsain().bits(self.pllsain);
+                w.pllsaip().bits(self.pllsaip as u8);
+                w.pllsaiq().bits(self.pllsaiq)
+            });
+            rcc.cr.modify(|_, w| w.pllsaion().on());
+        }
+
+        if let Some(pll48clk) = self.pll48clk {
+            match pll48clk {
+                PLL48CLK::Pllq => rcc.dckcfgr2.modify(|_, w| w.ck48msel().bit(false)),
+                PLL48CLK::Pllsai => rcc.dckcfgr2.modify(|_, w| w.ck48msel().bit(true)),
+            }
         }
 
         if self.use_plli2s {
@@ -1365,7 +1479,7 @@ mod tests {
 
     #[test]
     fn test_rcc_calc1() {
-        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLLP};
+        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLL48CLK, PLLP, PLLSAIP};
 
         let cfgr = CFGR {
             hse: None,
@@ -1376,11 +1490,15 @@ mod tests {
             lse: None,
             lsi: None,
             use_pll: false,
-            use_pll48clk: false,
+            pll48clk: None,
             pllm: 2,
             plln: 50,
             pllp: PLLP::Div2,
             pllq: 2,
+            use_pllsai: false,
+            pllsain: 192,
+            pllsaip: PLLSAIP::Div2,
+            pllsaiq: 2,
             use_plli2s: false,
             plli2sr: 2,
             plli2sq: 2,
@@ -1394,7 +1512,7 @@ mod tests {
         let mut cfgr = cfgr
             .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
             .use_pll()
-            .use_pll48clk()
+            .use_pll48clk(PLL48CLK::Pllq)
             .sysclk(216_000_000.Hz());
         cfgr.pll_configure();
 
@@ -1407,7 +1525,7 @@ mod tests {
 
     #[test]
     fn test_rcc_calc2() {
-        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLLP};
+        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLL48CLK, PLLP, PLLSAIP};
 
         let cfgr = CFGR {
             hse: None,
@@ -1418,11 +1536,15 @@ mod tests {
             lse: None,
             lsi: None,
             use_pll: false,
-            use_pll48clk: false,
+            pll48clk: None,
             pllm: 2,
             plln: 50,
             pllp: PLLP::Div2,
             pllq: 2,
+            use_pllsai: false,
+            pllsain: 192,
+            pllsaip: PLLSAIP::Div2,
+            pllsaiq: 2,
             use_plli2s: false,
             plli2sr: 2,
             plli2sq: 2,
@@ -1435,7 +1557,7 @@ mod tests {
 
         let mut cfgr = cfgr
             .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
-            .use_pll48clk()
+            .use_pll48clk(PLL48CLK::Pllq)
             .sysclk(216_000_000.Hz());
         cfgr.pll_configure();
 
@@ -1448,7 +1570,7 @@ mod tests {
 
     #[test]
     fn test_rcc_calc3() {
-        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLLP};
+        use super::{HSEClock, HSEClockMode, MCO1, MCO2, MCOPRE, PLL48CLK, PLLP, PLLSAIP};
 
         let cfgr = CFGR {
             hse: None,
@@ -1459,11 +1581,15 @@ mod tests {
             lse: None,
             lsi: None,
             use_pll: false,
-            use_pll48clk: false,
+            pll48clk: None,
             pllm: 2,
             plln: 50,
             pllp: PLLP::Div2,
             pllq: 2,
+            use_pllsai: false,
+            pllsain: 192,
+            pllsaip: PLLSAIP::Div2,
+            pllsaiq: 2,
             use_plli2s: false,
             plli2sr: 2,
             plli2sq: 2,
@@ -1476,7 +1602,7 @@ mod tests {
 
         let mut cfgr = cfgr
             .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
-            .use_pll48clk()
+            .use_pll48clk(PLL48CLK::Pllq)
             .set_defaults();
         cfgr.pll_configure();
 
@@ -1489,7 +1615,7 @@ mod tests {
 
     #[test]
     fn test_rcc_default() {
-        use super::{MCO1, MCO2, MCOPRE, PLLP};
+        use super::{MCO1, MCO2, MCOPRE, PLLP, PLLSAIP};
 
         let mut cfgr = CFGR {
             hse: None,
@@ -1500,11 +1626,15 @@ mod tests {
             lse: None,
             lsi: None,
             use_pll: false,
-            use_pll48clk: false,
+            pll48clk: None,
             pllm: 2,
             plln: 50,
             pllp: PLLP::Div2,
             pllq: 2,
+            use_pllsai: false,
+            pllsain: 192,
+            pllsaip: PLLSAIP::Div2,
+            pllsaiq: 2,
             use_plli2s: false,
             plli2sr: 2,
             plli2sq: 2,

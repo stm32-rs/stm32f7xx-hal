@@ -23,7 +23,7 @@ use stm32f7xx_hal::otg_fs::{UsbBus, USB};
 use stm32f7xx_hal::otg_hs::{UsbBus, USB};
 use stm32f7xx_hal::pac;
 use stm32f7xx_hal::prelude::*;
-use stm32f7xx_hal::rcc::{HSEClock, HSEClockMode};
+use stm32f7xx_hal::rcc::{HSEClock, HSEClockMode, PLL48CLK};
 use usb_device::prelude::*;
 
 #[entry]
@@ -36,7 +36,7 @@ fn main() -> ! {
         .cfgr
         .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
         .use_pll()
-        .use_pll48clk()
+        .use_pll48clk(PLL48CLK::Pllq)
         .sysclk(216_000_000.Hz())
         .freeze();
 
