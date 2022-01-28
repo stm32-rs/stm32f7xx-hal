@@ -113,54 +113,58 @@ lto = true
 
 [[example]]
 name = "blinky_delay"
-required-features = ["stm32f746", "rt"]
+required-features = ["rt"] # stm32f746
 
 [[example]]
 name = "blinky"
-required-features = ["stm32f746", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
 
 [[example]]
 name = "flash"
-required-features = ["stm32f746", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
 
 [[example]]
 name = "fmc"
-required-features = ["stm32f746", "rt", "fmc"]
+required-features = ["device-selected", "rt", "fmc"] # stm32f746
 
 [[example]]
 name = "hello"
-required-features = ["stm32f746", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
+
+[[example]]
+name = "pwm"
+required-features = ["device-selected", "rt"] # stm32f767
 
 [[example]]
 name = "serial_delay"
-required-features = ["stm32f746", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
 
 [[example]]
 name = "serial_echo"
-required-features = ["stm32f746", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
 
 [[example]]
 name = "timer"
-required-features = ["stm32f746", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
 
 [[example]]
 name = "stm32f7disco-screen"
-required-features = ["stm32f746", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
 
 [[example]]
 name = "exti_button"
-required-features = ["stm32f767", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
 
 [[example]]
 name = "usb_serial"
-required-features = ["stm32f723", "rt", "synopsys-usb-otg"]
+required-features = ["device-selected", "rt", "synopsys-usb-otg"] # stm32f723
 
 [[example]]
 name = "rng"
 
 [[example]]
 name = "stm32f7disco-qspi-flash"
-required-features = ["stm32f746", "rt"]
+required-features = ["device-selected", "rt"] # stm32f746
 
 [[example]]
 name = "can-echo"

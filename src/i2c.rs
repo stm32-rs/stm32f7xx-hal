@@ -12,7 +12,7 @@ use crate::gpio::gpioh::{PH4, PH5, PH7, PH8};
 use crate::gpio::AlternateOD;
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
-use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
+use crate::rcc::{BusClock, Clocks, Enable, RccBus, Reset};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 
@@ -410,7 +410,7 @@ macro_rules! hal {
                     $I2CX::enable(apb);
                     $I2CX::reset(apb);
 
-                    let pclk = <$I2CX as RccBus>::Bus::get_frequency(&clocks).0;
+                    let pclk = <$I2CX as RccBus>::Bus::clock(&clocks).0;
 
                     let mut i2c = I2c { i2c, pins, mode, pclk };
                     i2c.init();

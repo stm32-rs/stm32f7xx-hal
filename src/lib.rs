@@ -91,6 +91,9 @@ pub mod fmc_lcd;
 pub mod gpio;
 
 #[cfg(feature = "device-selected")]
+pub mod pwm;
+
+#[cfg(feature = "device-selected")]
 pub mod dac;
 
 #[cfg(all(

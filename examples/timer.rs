@@ -14,6 +14,7 @@ use cortex_m_semihosting::hio;
 use cortex_m::peripheral::NVIC;
 
 use stm32f7xx_hal::{
+    embedded_time::rate::Extensions,
     interrupt, pac,
     prelude::*,
     timer::{Event, Timer},
@@ -32,7 +33,8 @@ fn main() -> ! {
     unsafe {
         NVIC::unmask(pac::Interrupt::TIM2);
     }
-    let mut timer = Timer::tim2(dp.TIM2, 1.Hz(), clocks, &mut rcc.apb1);
+    let mut timer = Timer::new(dp.TIM2, &clocks).count_down();
+    timer.start(1.Hz());
     timer.listen(Event::TimeOut);
 
     loop {}

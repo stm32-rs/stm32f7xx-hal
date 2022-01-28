@@ -1,6 +1,6 @@
 //! Quadrature Encoder Interface API
 
-use crate::rcc::{Enable, Reset, APB1};
+use crate::rcc::{Clocks, Enable, Reset};
 #[cfg(feature = "stm32f767")]
 use stm32f7::stm32f7x7::{TIM2, TIM3, TIM4, TIM5};
 
@@ -115,12 +115,13 @@ macro_rules! hal_qei {
                 tim: $TIMX,
                 pin_ch1: PIN1, //$CH1<Alternate<$AFCH1>>,
                 pin_ch2: PIN2, //$CH2<Alternate<$AFCH2>>,
-                apb1: &mut APB1,
                 options: QeiOptions,
             ) -> Self {
                 // enable and reset peripheral to a clean slate state
-                <$TIMX>::enable(apb1);
-                <$TIMX>::reset(apb1);
+                unsafe {
+                    <$TIMX>::enable_unchecked();
+                    <$TIMX>::reset_unchecked();
+                }
 
                 // Configure TxC1 and TxC2 as captures
                 tim.ccmr1_output()
