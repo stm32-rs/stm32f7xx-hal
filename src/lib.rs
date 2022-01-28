@@ -160,17 +160,7 @@ pub mod qei;
 #[cfg(feature = "ltdc")]
 pub mod ltdc;
 
-#[cfg(all(
-    feature = "device-selected",
-    not(any(
-        feature = "stm32f765",
-        feature = "stm32f767",
-        feature = "stm32f769",
-        feature = "stm32f777",
-        feature = "stm32f778",
-        feature = "stm32f779",
-    ))
-))]
+#[cfg(feature = "device-selected")]
 pub mod flash;
 
 pub mod state {

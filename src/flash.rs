@@ -172,12 +172,29 @@ impl<'a> EraseSequence<'a> {
         //TODO: This should check if sector_number is valid for this device
 
         flash.registers.cr.modify(|_, w| unsafe {
-            w.mer()
-                .clear_bit()
-                .ser()
-                .set_bit()
-                .snb()
-                .bits(sector_number)
+            #[cfg(any(
+                feature = "stm32f765",
+                feature = "stm32f767",
+                feature = "stm32f769",
+                feature = "stm32f777",
+                feature = "stm32f778",
+                feature = "stm32f779",
+            ))]
+            w
+                .mer1().clear_bit()
+                .mer2().clear_bit();
+            #[cfg(not(any(
+                feature = "stm32f765",
+                feature = "stm32f767",
+                feature = "stm32f769",
+                feature = "stm32f777",
+                feature = "stm32f778",
+                feature = "stm32f779",
+            )))]
+            w.mer().clear_bit();
+            w
+                .ser().set_bit()
+                .snb().bits(sector_number)
         });
         flash.registers.cr.modify(|_, w| w.strt().start());
 
@@ -189,10 +206,31 @@ impl<'a> EraseSequence<'a> {
         flash.check_locked_or_busy()?;
         flash.clear_errors();
 
-        flash
-            .registers
-            .cr
-            .modify(|_, w| w.mer().set_bit().ser().clear_bit());
+        flash.registers.cr.modify(|_, w| unsafe {
+            #[cfg(any(
+                feature = "stm32f765",
+                feature = "stm32f767",
+                feature = "stm32f769",
+                feature = "stm32f777",
+                feature = "stm32f778",
+                feature = "stm32f779",
+            ))]
+            w
+                .mer1().set_bit()
+                .mer2().set_bit();
+            #[cfg(not(any(
+                feature = "stm32f765",
+                feature = "stm32f767",
+                feature = "stm32f769",
+                feature = "stm32f777",
+                feature = "stm32f778",
+                feature = "stm32f779",
+            )))]
+            w.mer().clear_bit();
+            w
+                .ser().clear_bit()
+        });
+                
         flash.registers.cr.modify(|_, w| w.strt().start());
 
         Ok(Self { flash })
