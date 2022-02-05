@@ -16,7 +16,7 @@ features = ["stm32f746", "rt"]
 
 [dependencies]
 as-slice = "0.2"
-cortex-m = "0.7"
+cortex-m = "0.7.4"
 cortex-m-rt = ">=0.6.15, <0.8"
 embedded-time = "0.12.0"
 nb = "1.0"

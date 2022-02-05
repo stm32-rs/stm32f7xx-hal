@@ -388,12 +388,9 @@ macro_rules! busy_wait {
 
 macro_rules! busy_wait_cycles {
     ($nb_expr:expr, $cycles:expr) => {{
-        let started = DWT::get_cycle_count();
+        let started = DWT::cycle_count();
         let cycles = $cycles;
-        busy_wait!(
-            $nb_expr,
-            DWT::get_cycle_count().wrapping_sub(started) >= cycles
-        )
+        busy_wait!($nb_expr, DWT::cycle_count().wrapping_sub(started) >= cycles)
     }};
 }
 
