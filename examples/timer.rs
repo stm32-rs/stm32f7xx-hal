@@ -6,8 +6,8 @@
 
 extern crate panic_semihosting;
 
+use core::cell::RefCell;
 use core::fmt::Write;
-use core::cell::{RefCell};
 
 use cortex_m::interrupt::{free, Mutex};
 use cortex_m_rt::entry;
@@ -52,7 +52,12 @@ fn main() -> ! {
 #[interrupt]
 fn TIM2() {
     free(|cs| {
-        TIMER.borrow(cs).borrow_mut().as_mut().unwrap().clear_interrupt(Event::TimeOut)
+        TIMER
+            .borrow(cs)
+            .borrow_mut()
+            .as_mut()
+            .unwrap()
+            .clear_interrupt(Event::TimeOut)
     });
 
     let mut hstdout = hio::hstdout().unwrap();
