@@ -167,13 +167,16 @@
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
+#[cfg(feature = "tim_adv")]
 use embedded_time::duration::Nanoseconds;
 use embedded_time::rate::Hertz;
-use stm32f7::stm32f7x6::{TIM10, TIM11, TIM9};
 
 use crate::hal;
-use crate::pac::{LPTIM1, TIM1, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM8};
+use crate::pac::{
+    LPTIM1, TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM8, TIM9,
+};
 
+#[cfg(feature = "tim_adv")]
 use crate::embedded_time::duration::Extensions as _;
 use crate::embedded_time::rate::Extensions as _;
 use crate::rcc::Clocks;
@@ -280,9 +283,13 @@ pub struct PwmBuilder<TIM, PINS, CHANNEL, FAULT, COMP, WIDTH> {
     alignment: Alignment,
     base_freq: Hertz,
     count: CountSettings<WIDTH>,
+    #[cfg(feature = "tim_adv")]
     bkin_enabled: bool, // If the FAULT type parameter is FaultEnabled, either bkin or bkin2 must be enabled
+    #[cfg(feature = "tim_adv")]
     bkin2_enabled: bool,
+    #[cfg(feature = "tim_adv")]
     fault_polarity: Polarity,
+    #[cfg(feature = "tim_adv")]
     deadtime: Nanoseconds,
 }
 
@@ -810,6 +817,7 @@ fn calculate_frequency_16bit(base_freq: Hertz, freq: Hertz, alignment: Alignment
 
 // Deadtime calculator helper function
 // Returns (BDTR.DTG, CR1.CKD)
+#[cfg(feature = "tim_adv")]
 fn calculate_deadtime(base_freq: Hertz, deadtime: Nanoseconds) -> (u8, u8) {
     // tDTS is based on tCK_INT which is before the prescaler
     // It uses its own separate prescaler CR1.CKD
@@ -895,7 +903,7 @@ macro_rules! pwm_ext_hal {
 // Implement PWM configuration for timer
 macro_rules! tim_hal {
     ($($TIMX:ident: ($timX:ident,
-                     $typ:ty, $bits:expr $(, DIR: $cms:ident)* $(, BDTR: $bdtr:ident, $moe_set:ident, $af1:ident, $bkinp_setting:ident $(, $bk2inp_setting:ident)*)*),)+) => {
+                     $typ:ty, $bits:expr $(, DIR: $cms:ident)* $(, BDTR: $bdtr:ident, $moe_set:ident, $af1:ident, $bkinp_setting:ident, $bk2inp_setting:ident)*),)+) => {
         $(
             pwm_ext_hal!($TIMX: $timX);
 
@@ -970,9 +978,13 @@ macro_rules! tim_hal {
                         alignment: Alignment::Left,
                         base_freq: clk.Hz(),
                         count: CountSettings::Explicit { period: 65535, prescaler: 0, },
+                        #[cfg(feature = "tim_adv")]
                         bkin_enabled: false,
+                        #[cfg(feature = "tim_adv")]
                         bkin2_enabled: false,
+                        #[cfg(feature = "tim_adv")]
                         fault_polarity: Polarity::ActiveLow,
+                        #[cfg(feature = "tim_adv")]
                         deadtime: 0.nanoseconds(),
                     }
                 }
@@ -1031,23 +1043,21 @@ macro_rules! tim_hal {
                             //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
                             tim.$af1.write(|w| w.bkine().set_bit().bkinp().$bkinp_setting());
                         }
-                        $(
-                            // Not all timers that have break inputs have break2 inputs
-                            else if self.bkin2_enabled {
-                                // BDTR:
-                                //  BK2F = 1 -> break pin filtering of 2 cycles of CK_INT (peripheral source clock)
-                                //  AOE = 0 -> after a fault, master output enable MOE can only be set by software, not automatically
-                                //  BK2E = 1 -> break is enabled
-                                //  BK2P = 0 for active low, 1 for active high
-                                // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
-                                unsafe { tim.$bdtr.write(|w| w.dtg().bits(dtg).bk2f().bits(1).aoe().clear_bit().bk2e().set_bit().bk2p().bit(bkp).moe().$moe_set()); }
+                        // Not all timers that have break inputs have break2 inputs
+                        else if self.bkin2_enabled {
+                            // BDTR:
+                            //  BK2F = 1 -> break pin filtering of 2 cycles of CK_INT (peripheral source clock)
+                            //  AOE = 0 -> after a fault, master output enable MOE can only be set by software, not automatically
+                            //  BK2E = 1 -> break is enabled
+                            //  BK2P = 0 for active low, 1 for active high
+                            // Safety: bkf is set to a constant value (1) that is a valid value for the field per the reference manual
+                            unsafe { tim.$bdtr.write(|w| w.dtg().bits(dtg).bk2f().bits(1).aoe().clear_bit().bk2e().set_bit().bk2p().bit(bkp).moe().$moe_set()); }
 
-                                // AF1:
-                                //  BKINE = 1 -> break input enabled
-                                //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
-                                tim.af2.write(|w| w.bk2ine().set_bit().bk2inp().$bk2inp_setting());
-                            }
-                        )*
+                            // AF1:
+                            //  BKINE = 1 -> break input enabled
+                            //  BKINP should make input active high (BDTR BKP will set polarity), bit value varies timer to timer
+                            tim.af2.write(|w| w.bk2ine().set_bit().bk2inp().$bk2inp_setting());
+                        }
                         else {
                             // Safety: the DTG field of BDTR allows any 8-bit deadtime value and the dtg variable is u8
                             unsafe {
@@ -1199,11 +1209,27 @@ macro_rules! tim_hal {
 }
 
 tim_hal! {
-    TIM1: (tim1, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
     TIM2: (tim2, u32, 32, DIR: cms),
     TIM3: (tim3, u16, 16, DIR: cms),
     TIM4: (tim4, u16, 16, DIR: cms),
     TIM5: (tim5, u32, 32, DIR: cms),
+}
+tim_hal! {
+    TIM9: (tim9, u16, 16),
+    TIM10: (tim10, u16, 16),
+    TIM11: (tim11, u16, 16),
+    TIM12: (tim12, u16, 16),
+    TIM13: (tim13, u16, 16),
+    TIM14: (tim14, u16, 16),
+}
+#[cfg(not(feature = "tim_adv"))]
+tim_hal! {
+    TIM1: (tim1, u16, 16, DIR: cms),
+    TIM8: (tim8, u16, 16, DIR: cms),
+}
+#[cfg(feature = "tim_adv")]
+tim_hal! {
+    TIM1: (tim1, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
     TIM8: (tim8, u16, 16, DIR: cms, BDTR: bdtr, enabled, af1, clear_bit, clear_bit),
 }
 
@@ -1236,7 +1262,7 @@ macro_rules! tim_pin_hal {
 
                     tim.$ccmrx_output().modify(|_, w|
                         w.
-                            $ocxpe().enabled() // Enable preload
+                            $ocxpe().set_bit() // Enable preload
                             .$ocxm().pwm_mode1() // PWM Mode
                     );
 
@@ -1453,20 +1479,6 @@ macro_rules! tim_pin_hal {
     };
 }
 
-// // Dual channel timers
-// tim_pin_hal! {
-//     TIM12: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
-//     TIM12: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
-// }
-
-// // Single channel timers
-// tim_pin_hal! {
-//     TIM13: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
-// }
-// tim_pin_hal! {
-//     TIM14: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
-// }
-
 // Quad channel timers
 tim_pin_hal! {
     TIM1: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
@@ -1501,7 +1513,6 @@ tim_pin_hal! {
     TIM5: (C3, cc3e, cc3p, ccmr2_output, oc3pe, oc3m, ccr3, u32),
     TIM5: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u32),
 }
-// Quad channel timers
 tim_pin_hal! {
     TIM8: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16, cc1ne, cc1np),
     TIM8: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16, cc2ne, cc2np),
@@ -1510,6 +1521,26 @@ tim_pin_hal! {
 // Channels 1-3 are complementary, channel 4 isn't
 tim_pin_hal! {
     TIM8: (C4, cc4e, cc4p, ccmr2_output, oc4pe, oc4m, ccr4, u16),
+}
+tim_pin_hal! {
+    TIM9: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    TIM9: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
+}
+tim_pin_hal! {
+    TIM10: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+}
+tim_pin_hal! {
+    TIM11: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+}
+tim_pin_hal! {
+    TIM12: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+    TIM12: (C2, cc2e, cc2p, ccmr1_output, oc2pe, oc2m, ccr2, u16),
+}
+tim_pin_hal! {
+    TIM13: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
+}
+tim_pin_hal! {
+    TIM14: (C1, cc1e, cc1p, ccmr1_output, oc1pe, oc1m, ccr1, u16),
 }
 
 // Low-power timers

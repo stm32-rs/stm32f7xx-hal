@@ -2,9 +2,7 @@
 
 use crate::embedded_time::rate::Hertz;
 use crate::hal::timer::{Cancel, CountDown, Periodic};
-use crate::pac::{
-    TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8, TIM9};
 use crate::rcc;
 use nb;
 use void::Void;
@@ -267,8 +265,8 @@ macro_rules! hal {
                 fn set_auto_reload(&mut self, arr: u32) -> Result<(), Error> {
                     // Note: Make it impossible to set the ARR value to 0, since this
                     // would cause an infinite loop.
-                    if arr > 0 && arr <= Self::max_auto_reload() {
-                        Ok(self.arr.write(|w| unsafe { w.bits(arr) }))
+                    if arr > 0 && arr as u32 <= Self::max_auto_reload() {
+                        Ok(self.arr.write(|w| w.arr().bits(arr as Self::Width)))
                     } else {
                         Err(Error::WrongAutoReload)
                     }

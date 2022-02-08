@@ -21,10 +21,12 @@ fn main() -> ! {
     let channels = (gpioa.pa0.into_alternate(), gpioa.pa1.into_alternate());
 
     let pwm = dp.TIM2.pwm(channels, 20_000u32.Hz(), &clocks);
-    let (mut ch1, _ch2) = pwm;
+    let (mut ch1, mut ch2) = pwm;
     let max_duty = ch1.get_max_duty();
     ch1.set_duty(max_duty / 4);
     ch1.enable();
+    ch2.set_duty(max_duty / 2);
+    ch2.enable();
 
     loop {}
 }

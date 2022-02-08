@@ -82,15 +82,15 @@ stm32f723 = ["svd-f7x3", "device-selected", "usb_hs_phy"]
 stm32f730 = ["svd-f730", "device-selected", "usb_hs_phy", "fmc"]
 stm32f732 = ["svd-f7x2", "device-selected"]
 stm32f733 = ["svd-f7x3", "device-selected", "usb_hs_phy"]
-stm32f745 = ["svd-f745", "device-selected", "gpioj", "gpiok", "fmc"]
-stm32f746 = ["svd-f7x6", "device-selected", "gpioj", "gpiok", "ltdc", "fmc", "has-can"]
-stm32f756 = ["svd-f7x6", "device-selected", "gpioj", "gpiok", "ltdc", "fmc"]
-stm32f765 = ["svd-f765", "device-selected", "gpioj", "gpiok", "fmc"]
-stm32f767 = ["svd-f7x7", "device-selected", "gpioj", "gpiok", "ltdc", "fmc"]
-stm32f769 = ["svd-f7x9", "device-selected", "gpioj", "gpiok", "ltdc", "fmc"]
-stm32f777 = ["svd-f7x7", "device-selected", "gpioj", "gpiok", "ltdc", "fmc"]
-stm32f778 = ["svd-f7x9", "device-selected", "gpioj", "gpiok", "ltdc", "fmc"]
-stm32f779 = ["svd-f7x9", "device-selected", "gpioj", "gpiok", "ltdc", "fmc"]
+stm32f745 = ["svd-f745", "device-selected", "gpioj", "gpiok", "tim_adv", "fmc"]
+stm32f746 = ["svd-f7x6", "device-selected", "gpioj", "gpiok", "tim_adv", "ltdc", "fmc", "has-can"]
+stm32f756 = ["svd-f7x6", "device-selected", "gpioj", "gpiok", "tim_adv", "ltdc", "fmc"]
+stm32f765 = ["svd-f765", "device-selected", "gpioj", "gpiok", "tim_adv", "fmc"]
+stm32f767 = ["svd-f7x7", "device-selected", "gpioj", "gpiok", "tim_adv", "ltdc", "fmc"]
+stm32f769 = ["svd-f7x9", "device-selected", "gpioj", "gpiok", "tim_adv", "ltdc", "fmc"]
+stm32f777 = ["svd-f7x7", "device-selected", "gpioj", "gpiok", "tim_adv", "ltdc", "fmc"]
+stm32f778 = ["svd-f7x9", "device-selected", "gpioj", "gpiok", "tim_adv", "ltdc", "fmc"]
+stm32f779 = ["svd-f7x9", "device-selected", "gpioj", "gpiok", "tim_adv", "ltdc", "fmc"]
 
 fmc_lcd = ["display-interface"]
 
@@ -101,6 +101,7 @@ has-can = []
 
 gpioj = []
 gpiok = []
+tim_adv = []
 
 [profile.dev]
 incremental = false
@@ -134,6 +135,10 @@ required-features = ["device-selected", "rt"] # stm32f746
 [[example]]
 name = "pwm"
 required-features = ["device-selected", "rt"] # stm32f767
+
+[[example]]
+name = "pwm_advanced"
+required-features = ["device-selected", "rt", "tim_adv"] # stm32f767
 
 [[example]]
 name = "serial_delay"
