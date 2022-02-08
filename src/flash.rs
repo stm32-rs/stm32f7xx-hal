@@ -180,9 +180,7 @@ impl<'a> EraseSequence<'a> {
                 feature = "stm32f778",
                 feature = "stm32f779",
             ))]
-            w
-                .mer1().clear_bit()
-                .mer2().clear_bit();
+            w.mer1().clear_bit().mer2().clear_bit();
             #[cfg(not(any(
                 feature = "stm32f765",
                 feature = "stm32f767",
@@ -192,9 +190,7 @@ impl<'a> EraseSequence<'a> {
                 feature = "stm32f779",
             )))]
             w.mer().clear_bit();
-            w
-                .ser().set_bit()
-                .snb().bits(sector_number)
+            w.ser().set_bit().snb().bits(sector_number)
         });
         flash.registers.cr.modify(|_, w| w.strt().start());
 
@@ -215,9 +211,7 @@ impl<'a> EraseSequence<'a> {
                 feature = "stm32f778",
                 feature = "stm32f779",
             ))]
-            w
-                .mer1().set_bit()
-                .mer2().set_bit();
+            w.mer1().set_bit().mer2().set_bit();
             #[cfg(not(any(
                 feature = "stm32f765",
                 feature = "stm32f767",
@@ -227,10 +221,9 @@ impl<'a> EraseSequence<'a> {
                 feature = "stm32f779",
             )))]
             w.mer().clear_bit();
-            w
-                .ser().clear_bit()
+            w.ser().clear_bit()
         });
-                
+
         flash.registers.cr.modify(|_, w| w.strt().start());
 
         Ok(Self { flash })
