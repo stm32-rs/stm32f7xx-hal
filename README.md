@@ -1,3 +1,5 @@
+**This repository is unmaintained. [Please step up](https://github.com/stm32-rs/stm32f7xx-hal/issues/165), if you have any interest in keeping this project going.**
+
 # `stm32f7xx-hal`
 
 [![Crates.io - stm32f7xx-hal](https://img.shields.io/crates/v/stm32f7xx-hal.svg?maxAge=2592000)](https://crates.io/crates/stm32f7xx-hal)
