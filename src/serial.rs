@@ -184,10 +184,62 @@ where
         let ch = config.character_match.unwrap_or(0);
         usart.cr2.write(|w| w.add().bits(ch));
 
-        // Enable transmission and receiving
-        usart
-            .cr1
-            .modify(|_, w| w.te().enabled().re().enabled().ue().enabled());
+        // TXINV | RXINV: TX/RX pin active level inversion
+        match config.active_level_inversion {
+            UsartInversion::Standard => {
+                usart
+                    .cr2
+                    .modify(|_r, w| w.rxinv().clear_bit().txinv().clear_bit());
+            }
+            UsartInversion::Inverted => {
+                usart
+                    .cr2
+                    .modify(|_r, w| w.rxinv().set_bit().txinv().set_bit());
+            }
+        }
+
+        usart.cr1.modify(|_r, w| {
+            match config.word_length {
+                // M[1:0]
+                WordLength::DataBits7 => {
+                    // 10: 1 Start bit, 7 data bits
+                    w.m0().clear_bit().m1().set_bit();
+                }
+                WordLength::DataBits8 => {
+                    // 00: 1 Start bit, 9 data bits
+                    w.m0().clear_bit().m1().clear_bit();
+                }
+                WordLength::DataBits9 => {
+                    // 01: 1 Start bit, 9 data bits
+                    w.m0().set_bit().m1().clear_bit();
+                }
+            }
+
+            if let Some(parity) = config.parity_control {
+                // Parity control enable
+                w.pce().set_bit();
+                match parity {
+                    ParityControl::Even => {
+                        // Parity selection: Even
+                        w.ps().clear_bit();
+                    }
+                    ParityControl::Odd => {
+                        // Parity selection: Odd
+                        w.ps().set_bit();
+                    }
+                }
+            }
+
+            // USART enable
+            w.ue()
+                .set_bit()
+                // Enable receiving
+                .re()
+                .set_bit()
+                // Enable transmission
+                .te()
+                .set_bit()
+        });
 
         // Enable DMA
         usart.cr3.write(|w| w.dmat().enabled().dmar().enabled());
@@ -434,7 +486,26 @@ where
 pub struct Config {
     pub baud_rate: BytesPerSecond,
     pub oversampling: Oversampling,
+    pub active_level_inversion: UsartInversion,
+    pub word_length: WordLength,
+    pub parity_control: Option<ParityControl>,
     pub character_match: Option<u8>,
+}
+
+pub enum UsartInversion {
+    Standard,
+    Inverted,
+}
+
+pub enum WordLength {
+    DataBits7,
+    DataBits8,
+    DataBits9,
+}
+
+pub enum ParityControl {
+    Even,
+    Odd,
 }
 
 pub enum Oversampling {
@@ -447,6 +518,9 @@ impl Default for Config {
         Self {
             baud_rate: 115_200.Bps(),
             oversampling: Oversampling::By16,
+            active_level_inversion: UsartInversion::Standard,
+            word_length: WordLength::DataBits8,
+            parity_control: None,
             character_match: None,
         }
     }
