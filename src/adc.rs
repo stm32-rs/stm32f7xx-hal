@@ -257,7 +257,7 @@ macro_rules! adc_hal {
                 // The reference manual says that a stabilization time is needed after power_up,
                 // this time can be found in the datasheets.
                 // for STM32F7xx : delay(216_000_000/800_000)= delay(270 cycles) = 1.25us
-                delay(self.clocks.sysclk().0 / 800_000);
+                delay(self.clocks.sysclk().raw() / 800_000);
             }
 
             // 15.3.1 ADC on-off control
@@ -466,7 +466,7 @@ impl Adc<ADC1> {
 
             // The reference manual says that a stabilization time is needed after the powering the
             // sensor, this time can be found in the datasheets.
-            delay(self.clocks.sysclk().0 / 80_000);
+            delay(self.clocks.sysclk().raw() / 80_000);
             true
         } else {
             false

@@ -10,7 +10,7 @@ use crate::gpio::{
     Alternate,
 };
 use crate::rcc::{Clocks, Enable, Reset};
-use embedded_time::rate::Hertz;
+use fugit::{HertzU32 as Hertz, RateExtU32};
 
 #[cfg(feature = "usb_hs_phy")]
 use synopsys_usb_otg::PhyType;
@@ -51,7 +51,7 @@ impl USB {
             pin_dp: pins.1,
             hclk: clocks.hclk(),
             #[cfg(feature = "usb_hs_phy")]
-            hse: clocks.hse().unwrap_or_else(|| Hertz(0)),
+            hse: clocks.hse().unwrap_or_else(|| 0.Hz()),
         }
     }
 
@@ -109,7 +109,7 @@ unsafe impl UsbPeripheral for USB {
     }
 
     fn ahb_frequency_hz(&self) -> u32 {
-        self.hclk.0
+        self.hclk.raw()
     }
 
     #[cfg(feature = "usb_hs_phy")]
@@ -135,7 +135,7 @@ unsafe impl UsbPeripheral for USB {
         };
 
         // Calculate PLL1SEL
-        let pll1sel = match self.hse.0 {
+        let pll1sel = match self.hse.raw() {
             12_000_000 => 0b000,
             12_500_000 => 0b001,
             16_000_000 => 0b011,

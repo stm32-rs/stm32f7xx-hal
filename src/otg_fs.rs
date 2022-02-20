@@ -5,12 +5,12 @@
 
 use crate::pac;
 
-use crate::embedded_time::rate::Hertz;
 use crate::gpio::{
     gpioa::{PA11, PA12},
     Alternate,
 };
 use crate::rcc::{Clocks, Enable, Reset};
+use fugit::HertzU32 as Hertz;
 
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;
@@ -66,7 +66,7 @@ unsafe impl UsbPeripheral for USB {
     }
 
     fn ahb_frequency_hz(&self) -> u32 {
-        self.hclk.0
+        self.hclk.raw()
     }
 }
 

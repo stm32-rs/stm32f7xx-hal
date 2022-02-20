@@ -3,11 +3,11 @@
 
 // NB : this implementation started as a modified copy of https://github.com/stm32-rs/stm32f1xx-hal/blob/master/src/i2c.rs
 
-use crate::embedded_time::rate::Hertz;
 use crate::gpio::{self, Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
+use fugit::HertzU32 as Hertz;
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 
@@ -43,22 +43,16 @@ pub enum Mode {
 }
 
 impl Mode {
-    pub fn standard<F: Into<Hertz>>(frequency: F) -> Self {
-        Mode::Standard {
-            frequency: frequency.into(),
-        }
+    pub fn standard(frequency: Hertz) -> Self {
+        Mode::Standard { frequency }
     }
 
-    pub fn fast<F: Into<Hertz>>(frequency: F) -> Self {
-        Mode::Fast {
-            frequency: frequency.into(),
-        }
+    pub fn fast(frequency: Hertz) -> Self {
+        Mode::Fast { frequency }
     }
 
-    pub fn fast_plus<F: Into<Hertz>>(frequency: F) -> Self {
-        Mode::FastPlus {
-            frequency: frequency.into(),
-        }
+    pub fn fast_plus(frequency: Hertz) -> Self {
+        Mode::FastPlus { frequency }
     }
 }
 
@@ -89,7 +83,7 @@ pub struct I2c<I2C, SCL, SDA> {
     i2c: I2C,
     pins: (SCL, SDA),
     mode: Mode,
-    pclk: u32,
+    pclk: Hertz,
 }
 
 /// embedded-hal compatible blocking I2C implementation
@@ -209,7 +203,7 @@ fn blocking_i2c<I2C, SCL, SDA>(
     clocks: Clocks,
     data_timeout_us: u32,
 ) -> BlockingI2c<I2C, SCL, SDA> {
-    let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
+    let sysclk_mhz = clocks.sysclk().to_MHz();
     BlockingI2c {
         nb: i2c,
         data_timeout: data_timeout_us * sysclk_mhz,
@@ -405,7 +399,7 @@ macro_rules! hal {
                     $I2CX::enable(apb);
                     $I2CX::reset(apb);
 
-                    let pclk = <$I2CX as RccBus>::Bus::get_frequency(&clocks).0;
+                    let pclk = <$I2CX as RccBus>::Bus::get_frequency(&clocks);
 
                     let mut i2c = I2c { i2c, pins, mode, pclk };
                     i2c.init();
@@ -428,9 +422,9 @@ macro_rules! hal {
                     let dnf = self.i2c.cr1.read().dnf().bits();
 
                     let i2c_timingr: I2cTiming =  match self.mode {
-                        Mode::Standard{ frequency } => calculate_timing(I2C_STANDARD_MODE_SPEC, self.pclk, frequency.0, an_filter, dnf ),
-                        Mode::Fast{ frequency } => calculate_timing(I2C_FAST_MODE_SPEC, self.pclk, frequency.0, an_filter, dnf),
-                        Mode::FastPlus{ frequency } => calculate_timing(I2C_FAST_PLUS_MODE_SPEC, self.pclk, frequency.0, an_filter, dnf ),
+                        Mode::Standard{ frequency } => calculate_timing(I2C_STANDARD_MODE_SPEC, self.pclk.raw(), frequency.raw(), an_filter, dnf ),
+                        Mode::Fast{ frequency } => calculate_timing(I2C_FAST_MODE_SPEC, self.pclk.raw(), frequency.raw(), an_filter, dnf),
+                        Mode::FastPlus{ frequency } => calculate_timing(I2C_FAST_PLUS_MODE_SPEC, self.pclk.raw(), frequency.raw(), an_filter, dnf ),
                         Mode::Custom{ timing_r } => {
                             I2cTiming{
                                 presc:  ((timing_r & 0xf000_0000) >> 28 ) as u8,

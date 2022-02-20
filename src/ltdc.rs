@@ -83,7 +83,7 @@ impl<T: 'static + SupportedWord> DisplayController<T> {
         // Get base clock and PLLM divisor
         let base_clk: u32;
         match &hse {
-            Some(hse) => base_clk = hse.freq.0,
+            Some(hse) => base_clk = hse.freq.raw(),
             // If no HSE is provided, we use the HSI clock at 16 MHz
             None => base_clk = 16_000_000,
         }
