@@ -31,7 +31,7 @@ use crate::gpio::{
     Alternate,
 };
 
-use crate::embedded_time::rate::BytesPerSecond;
+use crate::embedded_time::rate::BitsPerSecond;
 use crate::rcc::Clocks;
 
 /// Serial error
@@ -432,7 +432,7 @@ where
 
 /// USART configuration
 pub struct Config {
-    pub baud_rate: BytesPerSecond,
+    pub baud_rate: BitsPerSecond,
     pub oversampling: Oversampling,
     pub character_match: Option<u8>,
 }
@@ -445,7 +445,7 @@ pub enum Oversampling {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            baud_rate: 115_200.Bps(),
+            baud_rate: 115_200.bps(),
             oversampling: Oversampling::By16,
             character_match: None,
         }
