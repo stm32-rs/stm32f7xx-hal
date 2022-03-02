@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Update gpios: add `DynamicPin`, add default modes, reexport pins, resort generics, etc.
 - Improved RCC infrastructure.
 - RTC support has been rewritten.
 - Bump `bxcan` dependency version.

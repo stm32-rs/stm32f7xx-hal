@@ -4,12 +4,7 @@
 // NB : this implementation started as a modified copy of https://github.com/stm32-rs/stm32f1xx-hal/blob/master/src/i2c.rs
 
 use crate::embedded_time::rate::Hertz;
-use crate::gpio::gpioa::PA8;
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
-use crate::gpio::gpioc::PC9;
-use crate::gpio::gpiof::{PF0, PF1};
-use crate::gpio::gpioh::{PH4, PH5, PH7, PH8};
-use crate::gpio::AlternateOD;
+use crate::gpio::{self, Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
 use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
@@ -73,21 +68,21 @@ pub trait PinScl<I2C> {}
 /// Marker trait to define SDA pins for an I2C interface.
 pub trait PinSda<I2C> {}
 
-impl PinScl<I2C1> for PB6<AlternateOD<4>> {}
-impl PinScl<I2C1> for PB8<AlternateOD<4>> {}
-impl PinScl<I2C2> for PB10<AlternateOD<4>> {}
-impl PinScl<I2C2> for PF1<AlternateOD<4>> {}
-impl PinScl<I2C2> for PH4<AlternateOD<4>> {}
-impl PinScl<I2C3> for PA8<AlternateOD<4>> {}
-impl PinScl<I2C3> for PH7<AlternateOD<4>> {}
+impl PinScl<I2C1> for gpio::PB6<Alternate<4, OpenDrain>> {}
+impl PinScl<I2C1> for gpio::PB8<Alternate<4, OpenDrain>> {}
+impl PinScl<I2C2> for gpio::PB10<Alternate<4, OpenDrain>> {}
+impl PinScl<I2C2> for gpio::PF1<Alternate<4, OpenDrain>> {}
+impl PinScl<I2C2> for gpio::PH4<Alternate<4, OpenDrain>> {}
+impl PinScl<I2C3> for gpio::PA8<Alternate<4, OpenDrain>> {}
+impl PinScl<I2C3> for gpio::PH7<Alternate<4, OpenDrain>> {}
 
-impl PinSda<I2C1> for PB7<AlternateOD<4>> {}
-impl PinSda<I2C1> for PB9<AlternateOD<4>> {}
-impl PinSda<I2C2> for PB11<AlternateOD<4>> {}
-impl PinSda<I2C2> for PF0<AlternateOD<4>> {}
-impl PinSda<I2C2> for PH5<AlternateOD<4>> {}
-impl PinSda<I2C3> for PC9<AlternateOD<4>> {}
-impl PinSda<I2C3> for PH8<AlternateOD<4>> {}
+impl PinSda<I2C1> for gpio::PB7<Alternate<4, OpenDrain>> {}
+impl PinSda<I2C1> for gpio::PB9<Alternate<4, OpenDrain>> {}
+impl PinSda<I2C2> for gpio::PB11<Alternate<4, OpenDrain>> {}
+impl PinSda<I2C2> for gpio::PF0<Alternate<4, OpenDrain>> {}
+impl PinSda<I2C2> for gpio::PH5<Alternate<4, OpenDrain>> {}
+impl PinSda<I2C3> for gpio::PC9<Alternate<4, OpenDrain>> {}
+impl PinSda<I2C3> for gpio::PH8<Alternate<4, OpenDrain>> {}
 
 /// I2C peripheral operating in master mode
 pub struct I2c<I2C, SCL, SDA> {

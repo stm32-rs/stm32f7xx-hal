@@ -16,20 +16,9 @@ use crate::rcc::{Enable, Reset};
 use crate::state;
 use nb::block;
 
-#[cfg(any(feature = "device-selected",))]
 use crate::pac::{RCC, UART4, UART5, UART7, USART1, USART2, USART3, USART6};
 
-#[cfg(any(feature = "device-selected",))]
-use crate::gpio::{
-    gpioa::{PA0, PA1, PA10, PA2, PA3, PA9},
-    gpiob::{PB10, PB11, PB6, PB7},
-    gpioc::{PC10, PC11, PC12, PC6, PC7},
-    gpiod::{PD2, PD5, PD6, PD8, PD9},
-    gpioe::{PE7, PE8},
-    gpiof::{PF6, PF7},
-    gpiog::{PG14, PG9},
-    Alternate,
-};
+use crate::gpio::{self, Alternate};
 
 use crate::embedded_time::rate::BitsPerSecond;
 use crate::rcc::Clocks;
@@ -62,82 +51,67 @@ where
 mod f7xx_pins {
     //table 13 in stm32f765bg.pdf
     use super::{PinRx, PinTx};
-    use crate::gpio::{
-        gpioa::{PA11, PA12, PA15, PA8},
-        gpiob::{PB12, PB13, PB14, PB15, PB3, PB4, PB5, PB6, PB8, PB9},
-        gpiod::{PD0, PD1},
-        gpioh::{PH13, PH14},
-        gpioi::PI9,
-        Alternate,
-    };
+    use crate::gpio::{self, Alternate};
     use crate::pac::{UART4, UART5, UART7, USART1};
-    impl PinTx<USART1> for PB14<Alternate<4>> {}
-    impl PinRx<USART1> for PB15<Alternate<4>> {}
+    impl PinTx<USART1> for gpio::PB14<Alternate<4>> {}
+    impl PinRx<USART1> for gpio::PB15<Alternate<4>> {}
 
-    impl PinTx<UART4> for PA11<Alternate<6>> {}
-    impl PinRx<UART4> for PA12<Alternate<6>> {}
+    impl PinTx<UART4> for gpio::PA11<Alternate<6>> {}
+    impl PinRx<UART4> for gpio::PA12<Alternate<6>> {}
 
-    impl PinTx<UART4> for PD1<Alternate<8>> {}
-    impl PinRx<UART4> for PD0<Alternate<8>> {}
+    impl PinTx<UART4> for gpio::PD1<Alternate<8>> {}
+    impl PinRx<UART4> for gpio::PD0<Alternate<8>> {}
 
-    impl PinTx<UART4> for PH13<Alternate<8>> {}
-    impl PinRx<UART4> for PH14<Alternate<8>> {}
+    impl PinTx<UART4> for gpio::PH13<Alternate<8>> {}
+    impl PinRx<UART4> for gpio::PH14<Alternate<8>> {}
 
-    impl PinRx<UART4> for PI9<Alternate<8>> {}
+    impl PinRx<UART4> for gpio::PI9<Alternate<8>> {}
 
-    impl PinTx<UART5> for PB6<Alternate<1>> {}
-    impl PinRx<UART5> for PB5<Alternate<1>> {}
+    impl PinTx<UART5> for gpio::PB6<Alternate<1>> {}
+    impl PinRx<UART5> for gpio::PB5<Alternate<1>> {}
 
-    impl PinTx<UART5> for PB9<Alternate<7>> {}
-    impl PinRx<UART5> for PB8<Alternate<7>> {}
+    impl PinTx<UART5> for gpio::PB9<Alternate<7>> {}
+    impl PinRx<UART5> for gpio::PB8<Alternate<7>> {}
 
-    impl PinTx<UART5> for PB13<Alternate<8>> {}
-    impl PinRx<UART5> for PB12<Alternate<8>> {}
+    impl PinTx<UART5> for gpio::PB13<Alternate<8>> {}
+    impl PinRx<UART5> for gpio::PB12<Alternate<8>> {}
 
-    impl PinTx<UART7> for PA15<Alternate<12>> {}
-    impl PinRx<UART7> for PA8<Alternate<12>> {}
+    impl PinTx<UART7> for gpio::PA15<Alternate<12>> {}
+    impl PinRx<UART7> for gpio::PA8<Alternate<12>> {}
 
-    impl PinTx<UART7> for PB4<Alternate<12>> {}
-    impl PinRx<UART7> for PB3<Alternate<12>> {}
+    impl PinTx<UART7> for gpio::PB4<Alternate<12>> {}
+    impl PinRx<UART7> for gpio::PB3<Alternate<12>> {}
 }
 
-#[cfg(any(
-    feature = "stm32f765",
-    feature = "stm32f767",
-    feature = "stm32f768",
-    feature = "stm32f769"
-))]
-pub use f7xx_pins::*;
+impl PinTx<USART1> for gpio::PA9<Alternate<7>> {}
+impl PinTx<USART1> for gpio::PB6<Alternate<7>> {}
+impl PinTx<USART2> for gpio::PA2<Alternate<7>> {}
+impl PinTx<USART2> for gpio::PD5<Alternate<7>> {}
+impl PinTx<USART3> for gpio::PB10<Alternate<7>> {}
+impl PinTx<USART3> for gpio::PC10<Alternate<7>> {}
+impl PinTx<USART3> for gpio::PD8<Alternate<7>> {}
+impl PinTx<UART4> for gpio::PA0<Alternate<8>> {}
+impl PinTx<UART4> for gpio::PC10<Alternate<8>> {}
+impl PinTx<UART5> for gpio::PC12<Alternate<8>> {}
+impl PinTx<USART6> for gpio::PC6<Alternate<8>> {}
+impl PinTx<USART6> for gpio::PG14<Alternate<8>> {}
+impl PinTx<UART7> for gpio::PE8<Alternate<8>> {}
+impl PinTx<UART7> for gpio::PF7<Alternate<8>> {}
 
-impl PinTx<USART1> for PA9<Alternate<7>> {}
-impl PinTx<USART1> for PB6<Alternate<7>> {}
-impl PinTx<USART2> for PA2<Alternate<7>> {}
-impl PinTx<USART2> for PD5<Alternate<7>> {}
-impl PinTx<USART3> for PB10<Alternate<7>> {}
-impl PinTx<USART3> for PC10<Alternate<7>> {}
-impl PinTx<USART3> for PD8<Alternate<7>> {}
-impl PinTx<UART4> for PA0<Alternate<8>> {}
-impl PinTx<UART4> for PC10<Alternate<8>> {}
-impl PinTx<UART5> for PC12<Alternate<8>> {}
-impl PinTx<USART6> for PC6<Alternate<8>> {}
-impl PinTx<USART6> for PG14<Alternate<8>> {}
-impl PinTx<UART7> for PE8<Alternate<8>> {}
-impl PinTx<UART7> for PF7<Alternate<8>> {}
-
-impl PinRx<USART1> for PA10<Alternate<7>> {}
-impl PinRx<USART1> for PB7<Alternate<7>> {}
-impl PinRx<USART2> for PA3<Alternate<7>> {}
-impl PinRx<USART2> for PD6<Alternate<7>> {}
-impl PinRx<USART3> for PB11<Alternate<7>> {}
-impl PinRx<USART3> for PC11<Alternate<7>> {}
-impl PinRx<USART3> for PD9<Alternate<7>> {}
-impl PinRx<UART4> for PA1<Alternate<8>> {}
-impl PinRx<UART4> for PC11<Alternate<8>> {}
-impl PinRx<UART5> for PD2<Alternate<8>> {}
-impl PinRx<USART6> for PC7<Alternate<8>> {}
-impl PinRx<USART6> for PG9<Alternate<8>> {}
-impl PinRx<UART7> for PE7<Alternate<8>> {}
-impl PinRx<UART7> for PF6<Alternate<8>> {}
+impl PinRx<USART1> for gpio::PA10<Alternate<7>> {}
+impl PinRx<USART1> for gpio::PB7<Alternate<7>> {}
+impl PinRx<USART2> for gpio::PA3<Alternate<7>> {}
+impl PinRx<USART2> for gpio::PD6<Alternate<7>> {}
+impl PinRx<USART3> for gpio::PB11<Alternate<7>> {}
+impl PinRx<USART3> for gpio::PC11<Alternate<7>> {}
+impl PinRx<USART3> for gpio::PD9<Alternate<7>> {}
+impl PinRx<UART4> for gpio::PA1<Alternate<8>> {}
+impl PinRx<UART4> for gpio::PC11<Alternate<8>> {}
+impl PinRx<UART5> for gpio::PD2<Alternate<8>> {}
+impl PinRx<USART6> for gpio::PC7<Alternate<8>> {}
+impl PinRx<USART6> for gpio::PG9<Alternate<8>> {}
+impl PinRx<UART7> for gpio::PE7<Alternate<8>> {}
+impl PinRx<UART7> for gpio::PF6<Alternate<8>> {}
 
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
