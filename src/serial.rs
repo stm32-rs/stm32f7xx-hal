@@ -46,6 +46,10 @@ pub enum Error {
     Overrun,
     /// Parity check error
     Parity,
+    /// UsartRx Moved
+    RxMoved,
+    /// UsartTx Moved
+    TxMoved,
 }
 
 pub trait Pins<USART> {}
@@ -143,12 +147,16 @@ impl PinRx<UART7> for PF6<Alternate<8>> {}
 pub struct Serial<USART, PINS> {
     usart: USART,
     pins: PINS,
+    tx: Option<Tx<USART>>,
+    rx: Option<Rx<USART>>,
 }
 
 impl<USART, PINS> Serial<USART, PINS>
 where
     PINS: Pins<USART>,
     USART: Instance,
+    Rx<USART>: dma::Target,
+    Tx<USART>: dma::Target,
 {
     pub fn new(usart: USART, pins: PINS, clocks: Clocks, config: Config) -> Self {
         // NOTE(unsafe) This executes only during initialisation
@@ -184,15 +192,76 @@ where
         let ch = config.character_match.unwrap_or(0);
         usart.cr2.write(|w| w.add().bits(ch));
 
-        // Enable transmission and receiving
-        usart
-            .cr1
-            .modify(|_, w| w.te().enabled().re().enabled().ue().enabled());
+        // TXINV | RXINV: TX/RX pin active level inversion
+        match config.active_level_inversion {
+            UsartInversion::Standard => {
+                usart
+                    .cr2
+                    .modify(|_r, w| w.rxinv().clear_bit().txinv().clear_bit());
+            }
+            UsartInversion::Inverted => {
+                usart
+                    .cr2
+                    .modify(|_r, w| w.rxinv().set_bit().txinv().set_bit());
+            }
+        }
+
+        usart.cr1.modify(|_r, w| {
+            match config.word_length {
+                // M[1:0]
+                WordLength::DataBits7 => {
+                    // 10: 1 Start bit, 7 data bits
+                    w.m0().clear_bit().m1().set_bit();
+                }
+                WordLength::DataBits8 => {
+                    // 00: 1 Start bit, 9 data bits
+                    w.m0().clear_bit().m1().clear_bit();
+                }
+                WordLength::DataBits9 => {
+                    // 01: 1 Start bit, 9 data bits
+                    w.m0().set_bit().m1().clear_bit();
+                }
+            }
+
+            if let Some(parity) = config.parity_control {
+                // Parity control enable
+                w.pce().set_bit();
+                match parity {
+                    ParityControl::Even => {
+                        // Parity selection: Even
+                        w.ps().clear_bit();
+                    }
+                    ParityControl::Odd => {
+                        // Parity selection: Odd
+                        w.ps().set_bit();
+                    }
+                }
+            }
+
+            // USART enable
+            w.ue()
+                .set_bit()
+                // Enable receiving
+                .re()
+                .set_bit()
+                // Enable transmission
+                .te()
+                .set_bit()
+        });
 
         // Enable DMA
         usart.cr3.write(|w| w.dmat().enabled().dmar().enabled());
 
-        Serial { usart, pins }
+        Serial {
+            usart,
+            pins,
+            tx: Some(Tx {
+                _usart: PhantomData,
+            }),
+            rx: Some(Rx {
+                _usart: PhantomData,
+            }),
+        }
     }
 
     /// Starts listening for an interrupt event
@@ -229,6 +298,48 @@ where
     pub fn release(self) -> (USART, PINS) {
         (self.usart, self.pins)
     }
+
+    pub fn read_all<B>(
+        &mut self,
+        buffer: Pin<B>,
+        dma: &dma::Handle<<Rx<USART> as dma::Target>::Instance, state::Enabled>,
+        stream: <Rx<USART> as dma::Target>::Stream,
+    ) -> Result<dma::Transfer<Rx<USART>, B, dma::Ready>, Error>
+    where
+        B: DerefMut + 'static,
+        B::Target: AsMutSlice<Element = u8>,
+    {
+        if let Some(usart_rx) = self.rx.take() {
+            Ok(usart_rx.read_all(buffer, dma, stream))
+        } else {
+            Err(Error::RxMoved)
+        }
+    }
+
+    pub fn return_rx(&mut self, usart_rx: Rx<USART>) {
+        self.rx.replace(usart_rx);
+    }
+
+    pub fn write_all<B>(
+        &mut self,
+        data: Pin<B>,
+        dma: &dma::Handle<<Tx<USART> as dma::Target>::Instance, state::Enabled>,
+        stream: <Tx<USART> as dma::Target>::Stream,
+    ) -> Result<dma::Transfer<Tx<USART>, B, dma::Ready>, Error>
+    where
+        B: Deref + 'static,
+        B::Target: AsSlice<Element = u8>,
+    {
+        if let Some(usart_tx) = self.tx.take() {
+            Ok(usart_tx.write_all(data, dma, stream))
+        } else {
+            Err(Error::RxMoved)
+        }
+    }
+
+    pub fn return_tx(&mut self, usart_tx: Tx<USART>) {
+        self.tx.replace(usart_tx);
+    }
 }
 
 impl<USART, PINS> serial::Read<u8> for Serial<USART, PINS>
@@ -238,10 +349,11 @@ where
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
-        let mut rx: Rx<USART> = Rx {
-            _usart: PhantomData,
-        };
-        rx.read()
+        if let Some(usart_rx) = &mut self.rx {
+            usart_rx.read()
+        } else {
+            Err(nb::Error::Other(Error::RxMoved))
+        }
     }
 }
 
@@ -252,17 +364,19 @@ where
     type Error = Error;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        let mut tx: Tx<USART> = Tx {
-            _usart: PhantomData,
-        };
-        tx.flush()
+        if let Some(usart_tx) = &mut self.tx {
+            usart_tx.flush()
+        } else {
+            Err(nb::Error::Other(Error::TxMoved))
+        }
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        let mut tx: Tx<USART> = Tx {
-            _usart: PhantomData,
-        };
-        tx.write(byte)
+        if let Some(usart_tx) = &mut self.tx {
+            usart_tx.write(byte)
+        } else {
+            Err(nb::Error::Other(Error::TxMoved))
+        }
     }
 }
 
@@ -434,7 +548,26 @@ where
 pub struct Config {
     pub baud_rate: BitsPerSecond,
     pub oversampling: Oversampling,
+    pub active_level_inversion: UsartInversion,
+    pub word_length: WordLength,
+    pub parity_control: Option<ParityControl>,
     pub character_match: Option<u8>,
+}
+
+pub enum UsartInversion {
+    Standard,
+    Inverted,
+}
+
+pub enum WordLength {
+    DataBits7,
+    DataBits8,
+    DataBits9,
+}
+
+pub enum ParityControl {
+    Even,
+    Odd,
 }
 
 pub enum Oversampling {
@@ -447,6 +580,9 @@ impl Default for Config {
         Self {
             baud_rate: 115_200.bps(),
             oversampling: Oversampling::By16,
+            active_level_inversion: UsartInversion::Standard,
+            word_length: WordLength::DataBits8,
+            parity_control: None,
             character_match: None,
         }
     }

@@ -43,6 +43,9 @@ fn main() -> ! {
             baud_rate: 115_200.bps(),
             oversampling: serial::Oversampling::By16,
             character_match: None,
+            active_level_inversion: serial::UsartInversion::Standard,
+            word_length: serial::WordLength::DataBits8,
+            parity_control: None,
         },
     );
     let (mut tx, _) = serial.split();
