@@ -1,17 +1,17 @@
 use super::*;
 
-pub type PEPin<MODE, const P: char> = PartiallyErasedPin<MODE, P>;
+pub type PEPin<const P: char, MODE> = PartiallyErasedPin<P, MODE>;
 
 /// Partially erased pin
 ///
 /// - `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
 /// - `P` is port name: `A` for GPIOA, `B` for GPIOB, etc.
-pub struct PartiallyErasedPin<MODE, const P: char> {
+pub struct PartiallyErasedPin<const P: char, MODE> {
     i: u8,
     _mode: PhantomData<MODE>,
 }
 
-impl<MODE, const P: char> PartiallyErasedPin<MODE, P> {
+impl<const P: char, MODE> PartiallyErasedPin<P, MODE> {
     pub(crate) fn new(i: u8) -> Self {
         Self {
             i,
@@ -20,7 +20,18 @@ impl<MODE, const P: char> PartiallyErasedPin<MODE, P> {
     }
 }
 
-impl<MODE, const P: char> PinExt for PartiallyErasedPin<MODE, P> {
+impl<const P: char, MODE> fmt::Debug for PartiallyErasedPin<P, MODE> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_fmt(format_args!(
+            "P{}({})<{}>",
+            P,
+            self.i,
+            crate::stripped_type_name::<MODE>()
+        ))
+    }
+}
+
+impl<const P: char, MODE> PinExt for PartiallyErasedPin<P, MODE> {
     type Mode = MODE;
 
     #[inline(always)]
@@ -33,7 +44,7 @@ impl<MODE, const P: char> PinExt for PartiallyErasedPin<MODE, P> {
     }
 }
 
-impl<MODE, const P: char> PartiallyErasedPin<Output<MODE>, P> {
+impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
     #[inline(always)]
     pub fn set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
@@ -88,45 +99,7 @@ impl<MODE, const P: char> PartiallyErasedPin<Output<MODE>, P> {
     }
 }
 
-impl<MODE, const P: char> OutputPin for PartiallyErasedPin<Output<MODE>, P> {
-    type Error = Infallible;
-
-    #[inline(always)]
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_high();
-        Ok(())
-    }
-
-    #[inline(always)]
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_low();
-        Ok(())
-    }
-}
-
-impl<MODE, const P: char> StatefulOutputPin for PartiallyErasedPin<Output<MODE>, P> {
-    #[inline(always)]
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_set_high())
-    }
-
-    #[inline(always)]
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_set_low())
-    }
-}
-
-impl<MODE, const P: char> ToggleableOutputPin for PartiallyErasedPin<Output<MODE>, P> {
-    type Error = Infallible;
-
-    #[inline(always)]
-    fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.toggle();
-        Ok(())
-    }
-}
-
-impl<const P: char> PartiallyErasedPin<Output<OpenDrain>, P> {
+impl<const P: char> PartiallyErasedPin<P, Output<OpenDrain>> {
     #[inline(always)]
     pub fn is_high(&self) -> bool {
         !self.is_low()
@@ -139,21 +112,7 @@ impl<const P: char> PartiallyErasedPin<Output<OpenDrain>, P> {
     }
 }
 
-impl<const P: char> InputPin for PartiallyErasedPin<Output<OpenDrain>, P> {
-    type Error = Infallible;
-
-    #[inline(always)]
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_high())
-    }
-
-    #[inline(always)]
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_low())
-    }
-}
-
-impl<MODE, const P: char> PartiallyErasedPin<Input<MODE>, P> {
+impl<const P: char, MODE> PartiallyErasedPin<P, Input<MODE>> {
     #[inline(always)]
     pub fn is_high(&self) -> bool {
         !self.is_low()
@@ -163,19 +122,5 @@ impl<MODE, const P: char> PartiallyErasedPin<Input<MODE>, P> {
     pub fn is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
         unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.i) == 0 }
-    }
-}
-
-impl<MODE, const P: char> InputPin for PartiallyErasedPin<Input<MODE>, P> {
-    type Error = Infallible;
-
-    #[inline(always)]
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_high())
-    }
-
-    #[inline(always)]
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_low())
     }
 }

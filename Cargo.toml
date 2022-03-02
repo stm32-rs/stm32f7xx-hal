@@ -1,9 +1,11 @@
 [package]
+edition = "2021"
+rust-version = "1.59"
+
 authors = ["Matt Vertescher <mvertescher@gmail.com>"]
 categories = ["embedded", "hardware-support", "no-std"]
 description = "HAL for the STM32F7xx family of microcontrollers"
 documentation = "https://docs.rs/stm32f7xx-hal"
-edition = "2018"
 keywords = ["arm", "cortex-m", "stm32f7xx", "hal"]
 license = "MIT OR Apache-2.0"
 name = "stm32f7xx-hal"
