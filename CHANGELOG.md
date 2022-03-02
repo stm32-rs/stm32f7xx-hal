@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Fix RAM address and add ITCM and DTCM sections.
 - Fix default mode for debug pins.
+- Use `BitsPerSeconds` instead of `BytesPerSecond` in the serial baud rate configuration.
 
 ## [v0.6.0] - 2021-11-02
 
