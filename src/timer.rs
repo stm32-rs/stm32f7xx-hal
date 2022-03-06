@@ -1,12 +1,12 @@
 //! Timers
 
-use crate::embedded_time::rate::Hertz;
 use crate::hal::timer::{Cancel, CountDown, Periodic};
 use crate::pac::{
     TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8, TIM9,
 };
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use cast::{u16, u32};
+use fugit::{HertzU32 as Hertz, RateExtU32};
 use nb;
 use void::Void;
 
@@ -47,8 +47,8 @@ macro_rules! hal {
                     self.disable();
 
                     self.timeout = timeout.into();
-                    let frequency = self.timeout.0;
-                    let ticks = self.clock.0 / frequency;
+                    let frequency = self.timeout;
+                    let ticks = self.clock / frequency;
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
                     self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
@@ -106,7 +106,7 @@ macro_rules! hal {
                     let mut timer = Timer {
                         clock,
                         tim,
-                        timeout: Hertz(0),
+                        timeout: 0.Hz(),
                     };
                     timer.start(timeout);
 

@@ -1,19 +1,17 @@
 //! Reset and clock control.
 
-use core::{cmp::min, convert::TryInto};
+use core::cmp::min;
 
 mod enable;
 
-use embedded_time::fixed_point::FixedPoint;
 #[cfg_attr(test, allow(unused_imports))]
 use micromath::F32Ext;
 
-use crate::embedded_time::rate::Hertz;
 use crate::pac::{rcc, FLASH, PWR, RCC};
+use fugit::{HertzU32 as Hertz, RateExtU32};
 
-const MAX_HERTZ: Hertz = Hertz(u32::MAX);
 /// Typical output frequency of the HSI oscillator.
-const HSI_FREQUENCY: Hertz = Hertz(16_000_000);
+const HSI_FREQUENCY: Hertz = Hertz::from_raw(16_000_000);
 
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
@@ -155,17 +153,12 @@ impl HSEClock {
     ///
     /// Panics if the frequency is outside the valid range. The frequency must be between
     /// 4 MHz and 26 MHz in oscillator mode and between 1 MHz and 50 MHz in bypass mode.
-    pub fn new<F>(freq: F, mode: HSEClockMode) -> Self
-    where
-        F: TryInto<Hertz>,
-    {
-        let freq = freq.try_into().unwrap_or(MAX_HERTZ);
-
+    pub fn new(freq: Hertz, mode: HSEClockMode) -> Self {
         let valid_range = match mode {
             // Source: Datasheet DS12536 Rev 2, Table 38
-            HSEClockMode::Oscillator => Hertz(4_000_000u32)..=Hertz(26_000_000),
+            HSEClockMode::Oscillator => Hertz::MHz(4)..=Hertz::MHz(26),
             // Source: Datasheet DS12536 Rev 2, Table 40
-            HSEClockMode::Bypass => Hertz(1_000_000)..=Hertz(50_000_000),
+            HSEClockMode::Bypass => Hertz::MHz(1)..=Hertz::MHz(50),
         };
         assert!(valid_range.contains(&freq));
 
@@ -196,8 +189,10 @@ impl LSEClock {
     /// Provide LSE frequency.
     pub fn new(mode: LSEClockMode) -> Self {
         // Sets the LSE clock source to 32.768 kHz.
-        let freq = Hertz(32_768_u32);
-        LSEClock { freq, mode }
+        LSEClock {
+            freq: 32_768.Hz(),
+            mode,
+        }
     }
 }
 
@@ -348,14 +343,10 @@ impl CFGR {
     /// # Panics
     ///
     /// Panics if the frequency is larger than 216 MHz.
-    pub fn hclk<F>(mut self, freq: F) -> Self
-    where
-        F: TryInto<Hertz>,
-    {
-        let f: u32 = freq.try_into().unwrap_or(MAX_HERTZ).0;
-        assert!(f <= 216_000_000);
+    pub fn hclk(mut self, freq: Hertz) -> Self {
+        assert!(freq.raw() <= 216_000_000);
 
-        self.hclk = Some(f);
+        self.hclk = Some(freq.raw());
         self
     }
 
@@ -369,15 +360,10 @@ impl CFGR {
     /// # Panics
     ///
     /// Panics if the frequency is not between 12.5 MHz and 216 MHz.
-    pub fn sysclk<F>(mut self, sysclk: F) -> Self
-    where
-        F: TryInto<Hertz>,
-    {
-        let f: u32 = sysclk.try_into().unwrap_or(MAX_HERTZ).0;
+    pub fn sysclk(mut self, sysclk: Hertz) -> Self {
+        assert!((12_500_000..=216_000_000).contains(&sysclk.raw()));
 
-        assert!((12_500_000..=216_000_000).contains(&f));
-
-        self.sysclk = Some(f);
+        self.sysclk = Some(sysclk.raw());
         self
     }
 
@@ -388,14 +374,10 @@ impl CFGR {
     /// # Panics
     ///
     /// Panics if the frequency is not between 12.5 MHz and 54 MHz.
-    pub fn pclk1<F>(mut self, freq: F) -> Self
-    where
-        F: TryInto<Hertz>,
-    {
-        let f: u32 = freq.try_into().unwrap_or(MAX_HERTZ).0;
-        assert!((12_500_000..=54_000_000).contains(&f));
+    pub fn pclk1(mut self, freq: Hertz) -> Self {
+        assert!((12_500_000..=54_000_000).contains(&freq.raw()));
 
-        self.pclk1 = Some(f);
+        self.pclk1 = Some(freq.raw());
         self
     }
 
@@ -406,14 +388,10 @@ impl CFGR {
     /// # Panics
     ///
     /// Panics if the frequency is not between 12.5 MHz and 108 MHz.
-    pub fn pclk2<F>(mut self, freq: F) -> Self
-    where
-        F: TryInto<Hertz>,
-    {
-        let f: u32 = freq.try_into().unwrap_or(MAX_HERTZ).0;
-        assert!((12_500_000..=108_000_000).contains(&f));
+    pub fn pclk2(mut self, freq: Hertz) -> Self {
+        assert!((12_500_000..=108_000_000).contains(&freq.raw()));
 
-        self.pclk2 = Some(f);
+        self.pclk2 = Some(freq.raw());
         self
     }
 
@@ -427,7 +405,7 @@ impl CFGR {
     ///
     /// Be aware that the tolerance is up to ±47% (Min 17 kHz, Typ 32 kHz, Max 47 kHz).
     pub fn lsi(mut self) -> Self {
-        self.lsi = Some(Hertz(32_000_u32));
+        self.lsi = Some(32.kHz());
         self
     }
 
@@ -589,7 +567,7 @@ impl CFGR {
                 Some(hse) => hse.freq,
                 None => HSI_FREQUENCY,
             }
-            .integer(),
+            .raw(),
         );
 
         let mut sysclk = base_clk;
@@ -781,12 +759,12 @@ impl CFGR {
         config.overdrive = sysclk > 180_000_000;
 
         let clocks = Clocks {
-            hclk: Hertz(hclk),
-            pclk1: Hertz(pclk1),
-            pclk2: Hertz(pclk2),
-            sysclk: Hertz(sysclk),
-            timclk1: Hertz(timclk1),
-            timclk2: Hertz(timclk2),
+            hclk: hclk.Hz(),
+            pclk1: pclk1.Hz(),
+            pclk2: pclk2.Hz(),
+            sysclk: sysclk.Hz(),
+            timclk1: timclk1.Hz(),
+            timclk2: timclk2.Hz(),
             pll48clk_valid,
             hse: self.hse.map(|hse| hse.freq),
             lse: self.lse.map(|lse| lse.freq),
@@ -879,7 +857,7 @@ impl CFGR {
             Some(hse) => hse.freq,
             None => HSI_FREQUENCY,
         }
-        .integer();
+        .raw();
 
         let sysclk = if let Some(clk) = self.sysclk {
             clk
@@ -945,7 +923,7 @@ impl CFGR {
     ///
     /// Set SYSCLK as 216 Mhz and setup USB clock if defined.
     pub fn set_defaults(self) -> Self {
-        self.sysclk(Hertz(216_000_000u32))
+        self.sysclk(216.MHz())
     }
 
     /// Configure the "mandatory" clocks (`sysclk`, `hclk`, `pclk1` and `pclk2')
@@ -1053,7 +1031,7 @@ impl CFGR {
 
         if self.use_pllsai {
             let pllsain_freq = match self.hse.as_ref() {
-                Some(hse) => hse.freq.integer() as u64 / self.pllm as u64 * self.pllsain as u64,
+                Some(hse) => hse.freq.raw() as u64 / self.pllm as u64 * self.pllsain as u64,
                 None => 16_000_000 / self.pllm as u64 * self.pllsain as u64,
             };
             let pllsaip_freq = pllsain_freq
@@ -1088,7 +1066,7 @@ impl CFGR {
 
         if self.use_plli2s {
             let plli2sn_freq = match self.hse.as_ref() {
-                Some(hse) => hse.freq.integer() as u64 / self.pllm as u64 * self.plli2sn as u64,
+                Some(hse) => hse.freq.raw() as u64 / self.pllm as u64 * self.plli2sn as u64,
                 None => 16_000_000 / self.pllm as u64 * self.plli2sn as u64,
             };
             let plli2sr_freq = plli2sn_freq / self.plli2sr as u64;
@@ -1374,9 +1352,7 @@ pub trait Reset: RccBus {
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::*;
-
-    use crate::embedded_time::rate::Hertz;
+    use fugit::{HertzU32 as Hertz, RateExtU32};
 
     use super::{FreqRequest, CFGR};
 
@@ -1510,16 +1486,16 @@ mod tests {
         };
 
         let mut cfgr = cfgr
-            .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
+            .hse(HSEClock::new(25.MHz(), HSEClockMode::Bypass))
             .use_pll()
             .use_pll48clk(PLL48CLK::Pllq)
-            .sysclk(216_000_000.Hz());
+            .sysclk(216.MHz());
         cfgr.pll_configure();
 
-        assert_eq!(cfgr.hse.unwrap().freq, Hertz(25_000_000u32));
+        assert_eq!(cfgr.hse.unwrap().freq, Hertz::MHz(25));
 
         let (clocks, _config) = cfgr.calculate_clocks();
-        assert_eq!(clocks.sysclk().0, 216_000_000);
+        assert_eq!(clocks.sysclk().raw(), 216_000_000);
         assert!(clocks.is_pll48clk_valid());
     }
 
@@ -1556,15 +1532,15 @@ mod tests {
         };
 
         let mut cfgr = cfgr
-            .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
+            .hse(HSEClock::new(25.MHz(), HSEClockMode::Bypass))
             .use_pll48clk(PLL48CLK::Pllq)
-            .sysclk(216_000_000.Hz());
+            .sysclk(216.MHz());
         cfgr.pll_configure();
 
-        assert_eq!(cfgr.hse.unwrap().freq, Hertz(25_000_000u32));
+        assert_eq!(cfgr.hse.unwrap().freq, Hertz::MHz(25));
 
         let (clocks, _config) = cfgr.calculate_clocks();
-        assert_eq!(clocks.sysclk().0, 216_000_000);
+        assert_eq!(clocks.sysclk().raw(), 216_000_000);
         assert!(clocks.is_pll48clk_valid());
     }
 
@@ -1601,15 +1577,15 @@ mod tests {
         };
 
         let mut cfgr = cfgr
-            .hse(HSEClock::new(25_000_000.Hz(), HSEClockMode::Bypass))
+            .hse(HSEClock::new(25.MHz(), HSEClockMode::Bypass))
             .use_pll48clk(PLL48CLK::Pllq)
             .set_defaults();
         cfgr.pll_configure();
 
-        assert_eq!(cfgr.hse.unwrap().freq, Hertz(25_000_000u32));
+        assert_eq!(cfgr.hse.unwrap().freq, Hertz::MHz(25));
 
         let (clocks, _config) = cfgr.calculate_clocks();
-        assert_eq!(clocks.sysclk().0, 216_000_000);
+        assert_eq!(clocks.sysclk().raw(), 216_000_000);
         assert!(clocks.is_pll48clk_valid());
     }
 
@@ -1648,6 +1624,6 @@ mod tests {
         cfgr.pll_configure();
         assert!(!cfgr.use_pll);
         let (clocks, _config) = cfgr.calculate_clocks();
-        assert_eq!(clocks.sysclk().0, 16_000_000);
+        assert_eq!(clocks.sysclk().raw(), 16_000_000);
     }
 }

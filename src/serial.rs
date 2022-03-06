@@ -8,7 +8,6 @@ use core::ptr;
 use as_slice::{AsMutSlice, AsSlice};
 
 use crate::dma;
-use crate::embedded_time::rate::Extensions as _;
 use crate::hal::prelude::*;
 use crate::hal::serial;
 use crate::pac;
@@ -20,8 +19,8 @@ use crate::pac::{RCC, UART4, UART5, UART7, USART1, USART2, USART3, USART6};
 
 use crate::gpio::{self, Alternate};
 
-use crate::embedded_time::rate::BitsPerSecond;
 use crate::rcc::Clocks;
+use crate::{BitsPerSecond, U32Ext};
 
 /// Serial error
 #[derive(Debug)]
@@ -141,14 +140,14 @@ where
             Oversampling::By8 => {
                 usart.cr1.modify(|_, w| w.over8().set_bit());
 
-                let usart_div = 2 * clocks.sysclk().0 / config.baud_rate.0;
+                let usart_div = 2 * clocks.sysclk() / config.baud_rate;
 
                 0xfff0 & usart_div | 0x0007 & ((usart_div & 0x000f) >> 1)
             }
             Oversampling::By16 => {
                 usart.cr1.modify(|_, w| w.over8().clear_bit());
 
-                clocks.sysclk().0 / config.baud_rate.0
+                clocks.sysclk() / config.baud_rate
             }
         };
 

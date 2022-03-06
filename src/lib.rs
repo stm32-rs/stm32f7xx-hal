@@ -24,7 +24,6 @@ compile_error!(
 );
 
 pub(crate) use embedded_hal as hal;
-pub use embedded_time;
 
 #[cfg(feature = "stm32f722")]
 pub use stm32f7::stm32f7x2 as pac;
@@ -182,4 +181,19 @@ fn stripped_type_name<T>() -> &'static str {
     let s = core::any::type_name::<T>();
     let p = s.split("::");
     p.last().unwrap()
+}
+
+/// Bits per second
+pub type BitsPerSecond = fugit::HertzU32;
+
+/// Extension trait that adds convenience methods to the `u32` type
+pub trait U32Ext {
+    /// Wrap in `Bps`
+    fn bps(self) -> BitsPerSecond;
+}
+
+impl U32Ext for u32 {
+    fn bps(self) -> BitsPerSecond {
+        BitsPerSecond::from_raw(self)
+    }
 }

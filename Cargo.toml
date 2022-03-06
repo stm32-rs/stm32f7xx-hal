@@ -20,7 +20,6 @@ features = ["stm32f746", "rt"]
 as-slice = "0.2"
 cortex-m = "0.7.4"
 cortex-m-rt = ">=0.6.15, <0.8"
-embedded-time = "0.12.0"
 nb = "1.0"
 stm32f7 = "0.14.0"
 micromath = "2.0"
@@ -29,6 +28,7 @@ stm32-fmc = { version = "0.2.0", features = ["sdram"], optional = true }
 rand_core = "0.6"
 bxcan = "0.6"
 bare-metal = "1.0"
+fugit = "0.3.5"
 
 [dependencies.time]
 version = "0.3"

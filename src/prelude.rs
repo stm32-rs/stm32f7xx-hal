@@ -1,4 +1,4 @@
-pub use embedded_time::{duration::Extensions as _, rate::Extensions as _};
+pub use fugit::{ExtU32 as _, RateExtU32 as _};
 
 #[cfg(feature = "fmc")]
 pub use crate::fmc::FmcExt as _stm327xx_hal_fmc_FmcExt;
@@ -8,3 +8,4 @@ pub use crate::hal::digital::v2::{InputPin, OutputPin};
 pub use crate::hal::prelude::*;
 pub use crate::rcc::RccExt as _stm32f7xx_hal_rcc_RccExt;
 pub use crate::rng::RngExt as _;
+pub use crate::U32Ext as _;
