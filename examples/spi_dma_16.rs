@@ -19,6 +19,7 @@ fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
     let mut rcc = p.RCC.constrain();
+    let clocks = rcc.cfgr.freeze();
 
     let dma = DMA::new(p.DMA2);
     let gpioa = p.GPIOA.split();
@@ -45,9 +46,10 @@ fn main() -> ! {
 
     // Initialize SPI
     let mut spi = Spi::new(p.SPI1, (sck, spi::NoMiso, mosi)).enable(
-        &mut rcc.apb2,
-        spi::ClockDivider::DIV32,
         embedded_hal::spi::MODE_0,
+        250.kHz(),
+        &clocks,
+        &mut rcc.apb2,
     );
 
     // Create the buffer we're going to use for DMA. This is safe, as this

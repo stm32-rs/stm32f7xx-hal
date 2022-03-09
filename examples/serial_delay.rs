@@ -27,7 +27,7 @@ fn main() -> ! {
     let rcc = p.RCC.constrain();
     let clocks = rcc.cfgr.sysclk(216_000_000.Hz()).freeze();
 
-    let mut delay = Delay::new(cp.SYST, clocks);
+    let mut delay = Delay::new(cp.SYST, &clocks);
 
     let gpioa = p.GPIOA.split();
     let gpiob = p.GPIOB.split();
@@ -38,11 +38,12 @@ fn main() -> ! {
     let serial = Serial::new(
         p.USART1,
         (tx, rx),
-        clocks,
+        &clocks,
         serial::Config {
             baud_rate: 115_200.bps(),
             oversampling: serial::Oversampling::By16,
             character_match: None,
+            sysclock: false,
         },
     );
     let (mut tx, _) = serial.split();

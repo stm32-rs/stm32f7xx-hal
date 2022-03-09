@@ -4,7 +4,7 @@ use crate::hal::timer::{Cancel, CountDown, Periodic};
 use crate::pac::{
     TIM1, TIM10, TIM11, TIM12, TIM13, TIM14, TIM2, TIM3, TIM4, TIM5, TIM6, TIM7, TIM8, TIM9,
 };
-use crate::rcc::{Clocks, Enable, RccBus, Reset};
+use crate::rcc::{BusTimerClock, Clocks, Enable, RccBus, Reset};
 use cast::{u16, u32};
 use fugit::{HertzU32 as Hertz, RateExtU32};
 use nb;
@@ -32,7 +32,7 @@ pub enum Error {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $timclk:ident),)+) => {
+    ($($TIM:ident: ($tim:ident),)+) => {
         $(
             impl Periodic for Timer<$TIM> {}
 
@@ -93,7 +93,7 @@ macro_rules! hal {
 
             impl Timer<$TIM> {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: Clocks, apb: &mut <$TIM as RccBus>::Bus) -> Self
+                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: &Clocks, apb: &mut <$TIM as RccBus>::Bus) -> Self
                 where
                     T: Into<Hertz>,
                 {
@@ -101,7 +101,7 @@ macro_rules! hal {
                     <$TIM>::enable(apb);
                     <$TIM>::reset(apb);
 
-                    let clock = clocks.$timclk();
+                    let clock = <$TIM>::timer_clock(clocks);
 
                     let mut timer = Timer {
                         clock,
@@ -168,19 +168,19 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM2: (tim2, timclk1),
-    TIM3: (tim3, timclk1),
-    TIM4: (tim4, timclk1),
-    TIM5: (tim5, timclk1),
-    TIM6: (tim6, timclk1),
-    TIM7: (tim7, timclk1),
-    TIM12: (tim12, timclk1),
-    TIM13: (tim13, timclk1),
-    TIM14: (tim14, timclk1),
+    TIM2: (tim2),
+    TIM3: (tim3),
+    TIM4: (tim4),
+    TIM5: (tim5),
+    TIM6: (tim6),
+    TIM7: (tim7),
+    TIM12: (tim12),
+    TIM13: (tim13),
+    TIM14: (tim14),
 
-    TIM1: (tim1, timclk2),
-    TIM8: (tim8, timclk2),
-    TIM9: (tim9, timclk2),
-    TIM10: (tim10, timclk2),
-    TIM11: (tim11, timclk2),
+    TIM1: (tim1),
+    TIM8: (tim8),
+    TIM9: (tim9),
+    TIM10: (tim10),
+    TIM11: (tim11),
 }

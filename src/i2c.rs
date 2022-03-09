@@ -6,7 +6,7 @@
 use crate::gpio::{self, Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, I2C3};
-use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
+use crate::rcc::{BusClock, Clocks, Enable, RccBus, Reset};
 use fugit::HertzU32 as Hertz;
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
@@ -98,7 +98,7 @@ impl<SCL, SDA> I2c<I2C1, SCL, SDA> {
         i2c: I2C1,
         pins: (SCL, SDA),
         mode: Mode,
-        clocks: Clocks,
+        clocks: &Clocks,
         apb: &mut <I2C1 as RccBus>::Bus,
     ) -> Self
     where
@@ -115,7 +115,7 @@ impl<SCL, SDA> BlockingI2c<I2C1, SCL, SDA> {
         i2c: I2C1,
         pins: (SCL, SDA),
         mode: Mode,
-        clocks: Clocks,
+        clocks: &Clocks,
         apb: &mut <I2C1 as RccBus>::Bus,
         data_timeout_us: u32,
     ) -> Self
@@ -133,7 +133,7 @@ impl<SCL, SDA> I2c<I2C2, SCL, SDA> {
         i2c: I2C2,
         pins: (SCL, SDA),
         mode: Mode,
-        clocks: Clocks,
+        clocks: &Clocks,
         apb: &mut <I2C2 as RccBus>::Bus,
     ) -> Self
     where
@@ -150,7 +150,7 @@ impl<SCL, SDA> BlockingI2c<I2C2, SCL, SDA> {
         i2c: I2C2,
         pins: (SCL, SDA),
         mode: Mode,
-        clocks: Clocks,
+        clocks: &Clocks,
         apb: &mut <I2C2 as RccBus>::Bus,
         data_timeout_us: u32,
     ) -> Self
@@ -168,7 +168,7 @@ impl<SCL, SDA> I2c<I2C3, SCL, SDA> {
         i2c: I2C3,
         pins: (SCL, SDA),
         mode: Mode,
-        clocks: Clocks,
+        clocks: &Clocks,
         apb: &mut <I2C3 as RccBus>::Bus,
     ) -> Self
     where
@@ -185,7 +185,7 @@ impl<SCL, SDA> BlockingI2c<I2C3, SCL, SDA> {
         i2c: I2C3,
         pins: (SCL, SDA),
         mode: Mode,
-        clocks: Clocks,
+        clocks: &Clocks,
         apb: &mut <I2C3 as RccBus>::Bus,
         data_timeout_us: u32,
     ) -> Self
@@ -200,7 +200,7 @@ impl<SCL, SDA> BlockingI2c<I2C3, SCL, SDA> {
 /// Generates a blocking I2C instance from a universal I2C object
 fn blocking_i2c<I2C, SCL, SDA>(
     i2c: I2c<I2C, SCL, SDA>,
-    clocks: Clocks,
+    clocks: &Clocks,
     data_timeout_us: u32,
 ) -> BlockingI2c<I2C, SCL, SDA> {
     let sysclk_mhz = clocks.sysclk().to_MHz();
@@ -393,13 +393,13 @@ macro_rules! hal {
                     i2c: $I2CX,
                     pins: (SCL, SDA),
                     mode: Mode,
-                    clocks: Clocks,
+                    clocks: &Clocks,
                     apb: &mut <I2C1 as RccBus>::Bus
                 ) -> Self {
                     $I2CX::enable(apb);
                     $I2CX::reset(apb);
 
-                    let pclk = <$I2CX as RccBus>::Bus::get_frequency(&clocks);
+                    let pclk = <$I2CX>::clock(clocks);
 
                     let mut i2c = I2c { i2c, pins, mode, pclk };
                     i2c.init();
@@ -507,7 +507,7 @@ macro_rules! hal {
                     i2c: $I2CX,
                     pins: (SCL, SDA),
                     mode: Mode,
-                    clocks: Clocks,
+                    clocks: &Clocks,
                     apb: &mut <$I2CX as RccBus>::Bus,
                     data_timeout_us: u32
                 ) -> Self {

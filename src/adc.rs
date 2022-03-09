@@ -9,6 +9,7 @@ use crate::gpio::{self, Analog};
 use crate::pac::{ADC1, ADC2, ADC3, ADC_COMMON};
 
 use cortex_m::asm::delay;
+use fugit::HertzU32 as Hertz;
 
 use embedded_hal::adc::{Channel, OneShot};
 
@@ -89,7 +90,7 @@ impl From<Align> for bool {
 /////////////////////////////////
 
 macro_rules! adc_pins {
-    ($ADC:ident, $($pin:ty => $chan:expr),+ $(,)*) => {
+    ($ADC:ident, $($pin:ty => $chan:literal),+ $(,)*) => {
         $(
             impl Channel<$ADC> for $pin {
                 type ID = u8;
@@ -103,60 +104,60 @@ macro_rules! adc_pins {
 // See "Datasheet - production data"
 // Pinouts and pin description (page 66..)
 adc_pins!(ADC1,
-    gpio::PA0<Analog> => 0_u8,
-    gpio::PA1<Analog> => 1_u8,
-    gpio::PA2<Analog> => 2_u8,
-    gpio::PA3<Analog> => 3_u8,
-    gpio::PA4<Analog> => 4_u8,
-    gpio::PA5<Analog> => 5_u8,
-    gpio::PA6<Analog> => 6_u8,
-    gpio::PA7<Analog> => 7_u8,
-    gpio::PB0<Analog>  => 8_u8,
-    gpio::PB1<Analog>  => 9_u8,
-    gpio::PC0<Analog>  => 10_u8,
-    gpio::PC1<Analog>  => 11_u8,
-    gpio::PC2<Analog>  => 12_u8,
-    gpio::PC3<Analog>  => 13_u8,
-    gpio::PC4<Analog>  => 14_u8,
-    gpio::PC5<Analog>  => 15_u8,
+    gpio::PA0<Analog> => 0,
+    gpio::PA1<Analog> => 1,
+    gpio::PA2<Analog> => 2,
+    gpio::PA3<Analog> => 3,
+    gpio::PA4<Analog> => 4,
+    gpio::PA5<Analog> => 5,
+    gpio::PA6<Analog> => 6,
+    gpio::PA7<Analog> => 7,
+    gpio::PB0<Analog>  => 8,
+    gpio::PB1<Analog>  => 9,
+    gpio::PC0<Analog>  => 10,
+    gpio::PC1<Analog>  => 11,
+    gpio::PC2<Analog>  => 12,
+    gpio::PC3<Analog>  => 13,
+    gpio::PC4<Analog>  => 14,
+    gpio::PC5<Analog>  => 15,
 );
 
 adc_pins!(ADC2,
-    gpio::PA0<Analog>  => 0_u8,
-    gpio::PA1<Analog>  => 1_u8,
-    gpio::PA2<Analog>  => 2_u8,
-    gpio::PA3<Analog>  => 3_u8,
-    gpio::PA4<Analog>  => 4_u8,
-    gpio::PA5<Analog>  => 5_u8,
-    gpio::PA6<Analog>  => 6_u8,
-    gpio::PA7<Analog>  => 7_u8,
-    gpio::PB0<Analog>  => 8_u8,
-    gpio::PB1<Analog>  => 9_u8,
-    gpio::PC0<Analog>  => 10_u8,
-    gpio::PC1<Analog>  => 11_u8,
-    gpio::PC2<Analog>  => 12_u8,
-    gpio::PC3<Analog>  => 13_u8,
-    gpio::PC4<Analog>  => 14_u8,
-    gpio::PC5<Analog>  => 15_u8,
+    gpio::PA0<Analog>  => 0,
+    gpio::PA1<Analog>  => 1,
+    gpio::PA2<Analog>  => 2,
+    gpio::PA3<Analog>  => 3,
+    gpio::PA4<Analog>  => 4,
+    gpio::PA5<Analog>  => 5,
+    gpio::PA6<Analog>  => 6,
+    gpio::PA7<Analog>  => 7,
+    gpio::PB0<Analog>  => 8,
+    gpio::PB1<Analog>  => 9,
+    gpio::PC0<Analog>  => 10,
+    gpio::PC1<Analog>  => 11,
+    gpio::PC2<Analog>  => 12,
+    gpio::PC3<Analog>  => 13,
+    gpio::PC4<Analog>  => 14,
+    gpio::PC5<Analog>  => 15,
 );
 
 adc_pins!(ADC3,
-    gpio::PA0<Analog> => 0_u8,
-    gpio::PA1<Analog> => 1_u8,
-    gpio::PA2<Analog> => 2_u8,
-    gpio::PA3<Analog> => 3_u8,
-    gpio::PF6<Analog> => 4_u8,
-    gpio::PF7<Analog> => 5_u8,
-    gpio::PF8<Analog> => 6_u8,
-    gpio::PF9<Analog> => 7_u8,
-    gpio::PF10<Analog> => 8_u8,
-    gpio::PF3<Analog> => 9_u8,
-    gpio::PC0<Analog> => 10_u8,
-    gpio::PC1<Analog> => 11_u8,
-    gpio::PC2<Analog> => 12_u8,
-    gpio::PC3<Analog> => 13_u8,
-    gpio::PF4<Analog> => 14_u8,
-    gpio::PF5<Analog> => 15_u8,
+    gpio::PA0<Analog> => 0,
+    gpio::PA1<Analog> => 1,
+    gpio::PA2<Analog> => 2,
+    gpio::PA3<Analog> => 3,
+    gpio::PF6<Analog> => 4,
+    gpio::PF7<Analog> => 5,
+    gpio::PF8<Analog> => 6,
+    gpio::PF9<Analog> => 7,
+    gpio::PF10<Analog> => 8,
+    gpio::PF3<Analog> => 9,
+    gpio::PC0<Analog> => 10,
+    gpio::PC1<Analog> => 11,
+    gpio::PC2<Analog> => 12,
+    gpio::PC3<Analog> => 13,
+    gpio::PF4<Analog> => 14,
+    gpio::PF5<Analog> => 15,
 );
 
 ////////////////////////////////////
@@ -166,7 +167,7 @@ pub struct Adc<ADC> {
     rb: ADC,
     sample_time: SampleTime,
     align: Align,
-    clocks: Clocks,
+    sysclk: Hertz,
 }
 
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
@@ -182,7 +183,7 @@ macro_rules! adc_hal {
             pub fn $adc(
                 adc: $ADC,
                 apb2: &mut APB2,
-                clocks: Clocks,
+                clocks: &Clocks,
                 nb_resolution_bits: u8,
                 reset: bool,
             ) -> Self {
@@ -190,7 +191,7 @@ macro_rules! adc_hal {
                     rb: adc,
                     sample_time: SampleTime::default(),
                     align: Align::default(),
-                    clocks,
+                    sysclk: clocks.sysclk(),
                 };
                 <$ADC>::enable(apb2);
                 if reset {
@@ -257,7 +258,7 @@ macro_rules! adc_hal {
                 // The reference manual says that a stabilization time is needed after power_up,
                 // this time can be found in the datasheets.
                 // for STM32F7xx : delay(216_000_000/800_000)= delay(270 cycles) = 1.25us
-                delay(self.clocks.sysclk().raw() / 800_000);
+                delay(self.sysclk.raw() / 800_000);
             }
 
             // 15.3.1 ADC on-off control
@@ -466,7 +467,7 @@ impl Adc<ADC1> {
 
             // The reference manual says that a stabilization time is needed after the powering the
             // sensor, this time can be found in the datasheets.
-            delay(self.clocks.sysclk().raw() / 80_000);
+            delay(self.sysclk.raw() / 80_000);
             true
         } else {
             false
