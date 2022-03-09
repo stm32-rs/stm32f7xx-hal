@@ -2,7 +2,6 @@
 //!
 //! See chapter 32 in the STM32F746 Reference Manual.
 
-pub use crate::pac::spi1::cr1::BR_A as ClockDivider;
 pub use embedded_hal::spi::{Mode, Phase, Polarity};
 
 use core::{fmt, marker::PhantomData, ops::DerefMut, pin::Pin, ptr};
@@ -16,11 +15,12 @@ use embedded_hal::{
 use crate::{
     gpio::{self, Alternate},
     pac::{self, spi1::cr2},
-    rcc::{Enable, RccBus},
+    rcc::{BusClock, Clocks, Enable, RccBus},
     state,
 };
 
 use crate::dma;
+use fugit::HertzU32 as Hertz;
 
 /// Entry point to the SPI API
 pub struct Spi<I, P, State> {
@@ -31,7 +31,7 @@ pub struct Spi<I, P, State> {
 
 impl<I, P> Spi<I, P, state::Disabled>
 where
-    I: Instance + Enable,
+    I: Instance + Enable + BusClock,
     P: Pins<I>,
 {
     /// Create a new instance of the SPI API
@@ -46,9 +46,10 @@ where
     /// Initialize the SPI peripheral
     pub fn enable<Word>(
         self,
-        apb: &mut <I as RccBus>::Bus,
-        clock_divider: ClockDivider,
         mode: Mode,
+        freq: Hertz,
+        clocks: &Clocks,
+        apb: &mut <I as RccBus>::Bus,
     ) -> Spi<I, P, Enabled<Word>>
     where
         Word: SupportedWordSize,
@@ -57,7 +58,18 @@ where
         let cpol = mode.polarity == Polarity::IdleHigh;
         let cpha = mode.phase == Phase::CaptureOnSecondTransition;
 
-        self.spi.configure::<Word>(clock_divider.into(), cpol, cpha);
+        let br = match I::clock(clocks) / freq {
+            0 => unreachable!(),
+            1..=2 => 0b000,
+            3..=5 => 0b001,
+            6..=11 => 0b010,
+            12..=23 => 0b011,
+            24..=47 => 0b100,
+            48..=95 => 0b101,
+            96..=191 => 0b110,
+            _ => 0b111,
+        };
+        self.spi.configure::<Word>(br, cpol, cpha);
 
         Spi {
             spi: self.spi,

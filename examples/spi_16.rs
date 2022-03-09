@@ -15,6 +15,7 @@ fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
     let mut rcc = p.RCC.constrain();
+    let clocks = rcc.cfgr.freeze();
 
     let gpioa = p.GPIOA.split();
     let gpioc = p.GPIOC.split();
@@ -34,9 +35,10 @@ fn main() -> ! {
 
     // Initialize SPI
     let mut spi = Spi::new(p.SPI1, (sck, spi::NoMiso, mosi)).enable::<u16>(
-        &mut rcc.apb2,
-        spi::ClockDivider::DIV32,
         embedded_hal::spi::MODE_0,
+        250.kHz(),
+        &clocks,
+        &mut rcc.apb2,
     );
 
     // Use a button to control output via the Maxim Integrated MAX5214 DAC.

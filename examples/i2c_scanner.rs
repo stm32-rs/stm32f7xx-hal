@@ -31,7 +31,7 @@ fn main() -> ! {
         dp.I2C1,
         (scl, sda),
         hal::i2c::Mode::fast(100_000.Hz()),
-        clocks,
+        &clocks,
         &mut rcc.apb1,
         50_000,
     );

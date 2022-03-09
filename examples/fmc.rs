@@ -44,7 +44,7 @@ fn main() -> ! {
 
     // Get the delay provider.
     let clocks = dp.RCC.constrain().cfgr.sysclk(216_000_000.Hz()).freeze();
-    let mut delay = Delay::new(cp.SYST, clocks);
+    let mut delay = Delay::new(cp.SYST, &clocks);
 
     // IO
     let gpioc = dp.GPIOC.split();

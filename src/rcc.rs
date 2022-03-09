@@ -1200,52 +1200,77 @@ impl Clocks {
     }
 }
 
-/// Trait to get the frequency of a bus.
-pub trait GetBusFreq {
-    /// Returns the frequency of the bus.
-    fn get_frequency(clocks: &Clocks) -> Hertz;
+/// Frequency on bus that peripheral is connected in
+pub trait BusClock {
+    /// Calculates frequency depending on `Clock` state
+    fn clock(clocks: &Clocks) -> Hertz;
+}
 
-    /// Returns the timer frequency of the bus.
-    ///
-    /// Timers on an APB bus run at twice the bus speed if the APB prescaler is >= 2.
-    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
-        Self::get_frequency(clocks)
+/// Frequency on bus that timer is connected in
+pub trait BusTimerClock {
+    /// Calculates base frequency of timer depending on `Clock` state
+    fn timer_clock(clocks: &Clocks) -> Hertz;
+}
+
+impl<T> BusClock for T
+where
+    T: RccBus,
+    T::Bus: BusClock,
+{
+    fn clock(clocks: &Clocks) -> Hertz {
+        T::Bus::clock(clocks)
     }
 }
 
-impl GetBusFreq for AHB1 {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
+impl<T> BusTimerClock for T
+where
+    T: RccBus,
+    T::Bus: BusTimerClock,
+{
+    fn timer_clock(clocks: &Clocks) -> Hertz {
+        T::Bus::timer_clock(clocks)
+    }
+}
+
+impl BusClock for AHB1 {
+    fn clock(clocks: &Clocks) -> Hertz {
         clocks.hclk
     }
 }
 
-impl GetBusFreq for AHB2 {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
+impl BusClock for AHB2 {
+    fn clock(clocks: &Clocks) -> Hertz {
         clocks.hclk
     }
 }
 
-impl GetBusFreq for AHB3 {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
+impl BusClock for AHB3 {
+    fn clock(clocks: &Clocks) -> Hertz {
         clocks.hclk
     }
 }
 
-impl GetBusFreq for APB1 {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
+impl BusClock for APB1 {
+    fn clock(clocks: &Clocks) -> Hertz {
         clocks.pclk1
     }
-    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
-        clocks.timclk1()
+}
+
+impl BusClock for APB2 {
+    fn clock(clocks: &Clocks) -> Hertz {
+        clocks.pclk2
     }
 }
 
-impl GetBusFreq for APB2 {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
-        clocks.pclk2
+impl BusTimerClock for APB1 {
+    fn timer_clock(clocks: &Clocks) -> Hertz {
+        clocks.timclk1
     }
-    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
-        clocks.timclk2()
+}
+
+impl BusTimerClock for APB2 {
+    fn timer_clock(clocks: &Clocks) -> Hertz {
+        clocks.timclk2
     }
 }
 

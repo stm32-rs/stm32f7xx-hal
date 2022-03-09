@@ -9,7 +9,7 @@ use crate::gpio::{
     gpiob::{PB14, PB15},
     Alternate,
 };
-use crate::rcc::{Clocks, Enable, Reset};
+use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use fugit::{HertzU32 as Hertz, RateExtU32};
 
 #[cfg(feature = "usb_hs_phy")]
@@ -65,7 +65,7 @@ impl USB {
         usb_pwrclk: pac::OTG_HS_PWRCLK,
         usb_phy: pac::USBPHYC,
         pins: (PB14<Alternate<12>>, PB15<Alternate<12>>),
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> Self {
         Self {
             usb_global,
@@ -74,7 +74,7 @@ impl USB {
             usb_phy: Some(usb_phy),
             pin_dm: pins.0,
             pin_dp: pins.1,
-            hclk: clocks.hclk(),
+            hclk: pac::OTG_HS_GLOBAL::clock(clocks),
             hse: clocks.hse().expect("HSE should be enabled"),
         }
     }

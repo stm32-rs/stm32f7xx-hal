@@ -15,6 +15,7 @@ fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
     let mut rcc = p.RCC.constrain();
+    let clocks = rcc.cfgr.freeze();
 
     let gpiob = p.GPIOB.split();
     let gpioc = p.GPIOC.split();
@@ -35,12 +36,13 @@ fn main() -> ! {
 
     // Initialize SPI
     let mut spi = Spi::new(p.SPI3, (sck, miso, mosi)).enable::<u8>(
-        &mut rcc.apb1,
-        spi::ClockDivider::DIV32,
         spi::Mode {
             polarity: spi::Polarity::IdleHigh,
             phase: spi::Phase::CaptureOnSecondTransition,
         },
+        250.kHz(),
+        &clocks,
+        &mut rcc.apb1,
     );
 
     loop {

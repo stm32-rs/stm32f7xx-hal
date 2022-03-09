@@ -34,11 +34,12 @@ fn main() -> ! {
     let serial = Serial::new(
         p.USART1,
         (tx, rx),
-        clocks,
+        &clocks,
         serial::Config {
             baud_rate: 115_200.bps(),
             oversampling: serial::Oversampling::By16,
             character_match: None,
+            sysclock: false,
         },
     );
 

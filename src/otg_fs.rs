@@ -9,7 +9,7 @@ use crate::gpio::{
     gpioa::{PA11, PA12},
     Alternate,
 };
-use crate::rcc::{Clocks, Enable, Reset};
+use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use fugit::HertzU32 as Hertz;
 
 pub use synopsys_usb_otg::UsbBus;
@@ -33,7 +33,7 @@ impl USB {
         usb_device: pac::OTG_FS_DEVICE,
         usb_pwrclk: pac::OTG_FS_PWRCLK,
         pins: (PA11<Alternate<10>>, PA12<Alternate<10>>),
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> Self {
         Self {
             usb_global,
@@ -41,7 +41,7 @@ impl USB {
             usb_pwrclk,
             pin_dm: pins.0,
             pin_dp: pins.1,
-            hclk: clocks.hclk(),
+            hclk: pac::OTG_FS_GLOBAL::clock(clocks),
         }
     }
 }
