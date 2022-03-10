@@ -21,7 +21,7 @@ use core::{mem, slice};
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
 use stm32_fmc::devices::is42s16400j_7;
-use stm32f7xx_hal::{delay::Delay, gpio::Speed, pac, prelude::*};
+use stm32f7xx_hal::{gpio::Speed, pac, prelude::*};
 
 /// Configure pins for the FMC controller
 macro_rules! fmc_pins {
@@ -43,8 +43,8 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     // Get the delay provider.
-    let clocks = dp.RCC.constrain().cfgr.sysclk(216_000_000.Hz()).freeze();
-    let mut delay = Delay::new(cp.SYST, &clocks);
+    let clocks = dp.RCC.constrain().cfgr.sysclk(216.MHz()).freeze();
+    let mut delay = cp.SYST.delay(&clocks);
 
     // IO
     let gpioc = dp.GPIOC.split();

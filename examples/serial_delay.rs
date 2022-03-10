@@ -13,7 +13,6 @@ use core::fmt::Write;
 
 use cortex_m_rt::entry;
 use stm32f7xx_hal::{
-    delay::Delay,
     pac,
     prelude::*,
     serial::{self, Serial},
@@ -27,7 +26,7 @@ fn main() -> ! {
     let rcc = p.RCC.constrain();
     let clocks = rcc.cfgr.sysclk(216_000_000.Hz()).freeze();
 
-    let mut delay = Delay::new(cp.SYST, &clocks);
+    let mut delay = cp.SYST.delay(&clocks);
 
     let gpioa = p.GPIOA.split();
     let gpiob = p.GPIOB.split();

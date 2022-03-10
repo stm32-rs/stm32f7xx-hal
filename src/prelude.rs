@@ -8,4 +8,9 @@ pub use crate::hal::digital::v2::{InputPin, OutputPin};
 pub use crate::hal::prelude::*;
 pub use crate::rcc::RccExt as _stm32f7xx_hal_rcc_RccExt;
 pub use crate::rng::RngExt as _;
+#[cfg(feature = "rtic")]
+pub use crate::timer::MonoTimerExt as _;
+pub use crate::timer::PwmExt as _;
+pub use crate::timer::SysTimerExt as _;
+pub use crate::timer::TimerExt as _;
 pub use crate::U32Ext as _;
