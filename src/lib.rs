@@ -75,9 +75,6 @@ pub use crate::pac::interrupt;
 pub mod can;
 
 #[cfg(feature = "device-selected")]
-pub mod delay;
-
-#[cfg(feature = "device-selected")]
 pub mod dma;
 
 #[cfg(all(feature = "device-selected", feature = "fmc"))]
