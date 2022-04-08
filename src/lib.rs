@@ -159,6 +159,9 @@ pub mod ltdc;
 #[cfg(feature = "device-selected")]
 pub mod flash;
 
+#[cfg(feature = "device-selected")]
+pub mod watchdog;
+
 pub mod state {
     /// Indicates that a peripheral is enabled
     pub struct Enabled;
