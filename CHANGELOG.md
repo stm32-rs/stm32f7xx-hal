@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - Support for flash.rs on bigger chips.
+- Implement `IndependentWatchdog` for the IWDG peripheral
 
 ### Changed
 
