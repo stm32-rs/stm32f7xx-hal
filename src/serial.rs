@@ -163,10 +163,23 @@ where
         let ch = config.character_match.unwrap_or(0);
         usart.cr2.write(|w| w.add().bits(ch));
 
-        // Enable transmission and receiving
-        usart
-            .cr1
-            .modify(|_, w| w.te().enabled().re().enabled().ue().enabled());
+        // Enable tx / rx and configure parity
+        usart.cr1.modify(|_, w| {
+            w.te()
+                .enabled()
+                .re()
+                .enabled()
+                .ue()
+                .enabled()
+                .m1()
+                .m0()
+                .m0()
+                .bit(!matches!(config.parity, Parity::ParityNone))
+                .pce()
+                .bit(!matches!(config.parity, Parity::ParityNone))
+                .ps()
+                .bit(matches!(config.parity, Parity::ParityOdd))
+        });
 
         // Enable DMA
         usart.cr3.write(|w| w.dmat().enabled().dmar().enabled());
@@ -415,11 +428,26 @@ pub struct Config {
     pub oversampling: Oversampling,
     pub character_match: Option<u8>,
     pub sysclock: bool,
+    pub parity: Parity,
 }
 
 pub enum Oversampling {
     By8,
     By16,
+}
+
+/// Parity generation and checking. If odd or even parity is selected, the
+/// underlying USART will be configured to send/receive the parity bit in
+/// addtion to the data bits.
+pub enum Parity {
+    /// No parity bit will be added/checked.
+    ParityNone,
+    /// The MSB transmitted/received will be generated/checked to have a
+    /// even number of bits set.
+    ParityEven,
+    /// The MSB transmitted/received will be generated/checked to have a
+    /// odd number of bits set.
+    ParityOdd,
 }
 
 impl Default for Config {
@@ -429,6 +457,7 @@ impl Default for Config {
             oversampling: Oversampling::By16,
             character_match: None,
             sysclock: false,
+            parity: Parity::ParityNone,
         }
     }
 }
