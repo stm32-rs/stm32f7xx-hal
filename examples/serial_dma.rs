@@ -51,6 +51,7 @@ fn main() -> ! {
             oversampling: serial::Oversampling::By16,
             character_match: None,
             sysclock: false,
+            parity: serial::Parity::ParityNone,
         },
     );
     let (mut tx, mut rx) = serial.split();
