@@ -155,6 +155,10 @@ name = "serial_echo"
 required-features = ["stm32f746", "rt"]
 
 [[example]]
+name = "serial_parity"
+required-features = ["stm32f767", "rt"]
+
+[[example]]
 name = "stm32f7disco-screen"
 required-features = ["stm32f746", "rt"]
 
