@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32f7xx_hal::{
     pac,
     prelude::*,
-    serial::{self, Serial},
+    serial::{self, Serial, DataBits},
 };
 
 #[entry]
@@ -37,11 +37,11 @@ fn main() -> ! {
         (tx, rx),
         &clocks,
         serial::Config {
-            baud_rate: 56_700.bps(),
-            oversampling: serial::Oversampling::By16,
-            character_match: None,
-            sysclock: false,
-            parity: serial::Parity::ParityEven,
+            // Using 8 bits of data + 1 for even parity
+            data_bits: DataBits::Bits9,
+            parity: Parity::ParityEven,
+            // Default to 115_200 bauds
+            ..Default::default()
         },
     );
 

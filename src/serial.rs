@@ -163,22 +163,28 @@ where
         let ch = config.character_match.unwrap_or(0);
         usart.cr2.write(|w| w.add().bits(ch));
 
-        // Enable tx / rx and configure parity
+        // Enable tx / rx, configure data bits and parity
         usart.cr1.modify(|_, w| {
-            w.te()
-                .enabled()
-                .re()
-                .enabled()
-                .ue()
-                .enabled()
-                .m1()
-                .m0()
-                .m0()
-                .bit(!matches!(config.parity, Parity::ParityNone))
-                .pce()
-                .bit(!matches!(config.parity, Parity::ParityNone))
-                .ps()
-                .bit(matches!(config.parity, Parity::ParityOdd))
+            w
+                .te().enabled()
+                .re().enabled()
+                .ue().enabled();
+
+            // M[1:0] are used to set data bits
+            // M[1:0] = 00: 1 Start bit, 8 data bits, n stop bits
+            // M[1:0] = 01: 1 Start bit, 9 data bits, n stop bits
+            // M[1:0] = 10: 1 Start bit, 7 data bits, n stop bits
+            match config.data_bits {
+                DataBits::Bits8 => w.m1().clear_bit().m0().bit8(),
+                DataBits::Bits9 => w.m1().clear_bit().m0().bit9(),
+                DataBits::Bits7 => w.m0().clear_bit().m1().bit7(),
+            };
+
+            match config.parity {
+                Parity::ParityEven => w.ps().even().pce().enabled(),
+                Parity::ParityOdd  => w.ps().odd().pce().enabled(),
+                Parity::ParityNone => w.pce().disabled(),
+            }
         });
 
         // Enable DMA
@@ -429,11 +435,23 @@ pub struct Config {
     pub character_match: Option<u8>,
     pub sysclock: bool,
     pub parity: Parity,
+    pub data_bits: DataBits,
+
 }
 
 pub enum Oversampling {
     By8,
     By16,
+}
+
+/// Number of data bits
+pub enum DataBits {
+    /// 8 bits of data
+    Bits8,
+    /// 9 bits of data
+    Bits9,
+    /// 7 bits of data
+    Bits7,
 }
 
 /// Parity generation and checking. If odd or even parity is selected, the
@@ -458,6 +476,7 @@ impl Default for Config {
             character_match: None,
             sysclock: false,
             parity: Parity::ParityNone,
+            data_bits: DataBits::Bits8,
         }
     }
 }

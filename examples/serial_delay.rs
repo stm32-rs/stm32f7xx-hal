@@ -39,11 +39,8 @@ fn main() -> ! {
         (tx, rx),
         &clocks,
         serial::Config {
-            baud_rate: 115_200.bps(),
-            oversampling: serial::Oversampling::By16,
-            character_match: None,
-            sysclock: false,
-            parity: serial::Parity::ParityNone,
+            // Default to 115_200 bauds
+            ..Default::default()
         },
     );
     let (mut tx, _) = serial.split();
