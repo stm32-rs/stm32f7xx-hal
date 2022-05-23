@@ -23,7 +23,9 @@ fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
     let rcc = p.RCC.constrain();
-    let clocks = rcc.cfgr.sysclk(216_000_000.Hz()).freeze();
+    let clocks = rcc.cfgr.sysclk(48.MHz()).freeze();
+
+    let mut delay = p.TIM5.delay_ms(&clocks);
 
     let gpiod = p.GPIOD.split();
 
@@ -50,6 +52,8 @@ fn main() -> ! {
     loop {
         block!(tx.write(byte)).ok();
 
-        byte += 1;
+        byte = byte.wrapping_add(1);
+
+        delay.delay(10.millis());
     }
 }
