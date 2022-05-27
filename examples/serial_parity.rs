@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32f7xx_hal::{
     pac,
     prelude::*,
-    serial::{self, Serial, DataBits},
+    serial::{self, Serial, DataBits, Parity},
 };
 
 #[entry]
