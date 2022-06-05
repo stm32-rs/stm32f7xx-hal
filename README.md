@@ -55,6 +55,10 @@ features = ["stm32f767", "rt"]
 
 The documentation can be found at [docs.rs/stm32f7xx-hal](https://docs.rs/stm32f7xx-hal/).
 
+## VSCode
+
+Default settings for `rust-analyzer` are set in [.vscode/settings.json](.vscode/settings.json) for `stm32f767`. If you're working on another chip, you can change the target there for convenience, but don't commit your change to this file.
+
 ## License
 
 Licensed under either of
