@@ -15,6 +15,10 @@ This crate is largely inspired by the awesome work done here:
 - [embedded-hal](https://github.com/japaric/embedded-hal.git)
 - [stm32f4](https://crates.io/crates/stm32f4)
 
+## VSCode
+
+Default settings for `rust-analyzer` are set in [.vscode/settings.json](.vscode/settings.json) for `stm32f767`. If you're working on another chip, you can change the target there for convenience, but don't commit your change to this file.
+
 ## License
 
 Licensed under either of
