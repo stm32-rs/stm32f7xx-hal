@@ -1,3 +1,5 @@
+//! Interface to the true random number generator
+
 use core::cmp;
 use core::mem;
 

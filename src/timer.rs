@@ -1,3 +1,5 @@
+//! Interface to the timer peripherals
+
 #![allow(non_upper_case_globals)]
 
 use core::convert::TryFrom;

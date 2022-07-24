@@ -1,3 +1,5 @@
+//! Interface to the LCD-TFT display controller
+
 #[cfg_attr(test, allow(unused_imports))]
 use micromath::F32Ext;
 
