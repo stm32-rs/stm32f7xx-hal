@@ -1,3 +1,5 @@
+//! Digital-to-analog converter
+
 use crate::pac::DAC;
 use crate::{
     gpio::{

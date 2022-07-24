@@ -1,3 +1,5 @@
+//! Serial communication using UART/USART peripherals
+
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::Deref;
