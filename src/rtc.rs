@@ -1,4 +1,4 @@
-//! Interface to the real time clock. See STM32F303 reference manual, section 27.
+//! Interface to the real time clock.
 //! For more details, see
 //! [ST AN4759](https://www.st.com/resource/en/application_note/an4759-using-the-hardware-realtime-clock-rtc-and-the-tamper-management-unit-tamp-with-stm32-microcontrollers-stmicroelectronics.pdf)
 
