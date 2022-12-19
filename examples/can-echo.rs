@@ -4,6 +4,7 @@
 #![no_main]
 #![no_std]
 
+use bxcan::Fifo::Fifo0;
 use panic_halt as _;
 
 use bxcan::filter::Mask32;
@@ -50,7 +51,7 @@ fn main() -> ! {
 
     // Configure filters so that can frames can be received.
     let mut filters = can1.modify_filters();
-    filters.enable_bank(0, Mask32::accept_all());
+    filters.enable_bank(0, Fifo0, Mask32::accept_all());
 
     let _can2 = {
         let rx = gpiob.pb5.into_alternate();
@@ -68,11 +69,11 @@ fn main() -> ! {
         // Split them equally between CAN1 and CAN2.
         filters.set_split(14);
         let mut slave_filters = filters.slave_filters();
-        slave_filters.enable_bank(14, Mask32::accept_all());
+        slave_filters.enable_bank(14, Fifo0, Mask32::accept_all());
         can2
     };
 
-    // Drop filters to leave filter configuraiton mode.
+    // Drop filters to leave filter configuration mode.
     drop(filters);
 
     // Select the interface.
@@ -80,8 +81,6 @@ fn main() -> ! {
     //let mut can = can2;
 
     // Echo back received packages in sequence.
-    // See the `can-rtfm` example for an echo implementation that adheres to
-    // correct frame ordering based on the transfer id.
     loop {
         if let Ok(frame) = block!(can.receive()) {
             block!(can.transmit(&frame)).unwrap();
