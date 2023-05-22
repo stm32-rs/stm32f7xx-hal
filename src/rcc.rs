@@ -1277,10 +1277,10 @@ impl BusTimerClock for APB2 {
 impl From<MCO1> for crate::pac::rcc::cfgr::MCO1_A {
     fn from(input: MCO1) -> Self {
         match input {
-            MCO1::Hsi => Self::HSI,
-            MCO1::Lse => Self::LSE,
-            MCO1::Hse => Self::HSE,
-            MCO1::Pll => Self::PLL,
+            MCO1::Hsi => Self::Hsi,
+            MCO1::Lse => Self::Lse,
+            MCO1::Hse => Self::Hse,
+            MCO1::Pll => Self::Pll,
         }
     }
 }
@@ -1288,10 +1288,10 @@ impl From<MCO1> for crate::pac::rcc::cfgr::MCO1_A {
 impl From<MCO2> for crate::pac::rcc::cfgr::MCO2_A {
     fn from(input: MCO2) -> Self {
         match input {
-            MCO2::Sysclk => Self::SYSCLK,
-            MCO2::Plli2s => Self::PLLI2S,
-            MCO2::Hse => Self::HSE,
-            MCO2::Pll => Self::PLL,
+            MCO2::Sysclk => Self::Sysclk,
+            MCO2::Plli2s => Self::Plli2s,
+            MCO2::Hse => Self::Hse,
+            MCO2::Pll => Self::Pll,
         }
     }
 }
@@ -1299,11 +1299,11 @@ impl From<MCO2> for crate::pac::rcc::cfgr::MCO2_A {
 impl From<MCOPRE> for crate::pac::rcc::cfgr::MCO2PRE_A {
     fn from(input: MCOPRE) -> Self {
         match input {
-            MCOPRE::Div1_no_div => Self::DIV1,
-            MCOPRE::Div2 => Self::DIV2,
-            MCOPRE::Div3 => Self::DIV3,
-            MCOPRE::Div4 => Self::DIV4,
-            MCOPRE::Div5 => Self::DIV5,
+            MCOPRE::Div1_no_div => Self::Div1,
+            MCOPRE::Div2 => Self::Div2,
+            MCOPRE::Div3 => Self::Div3,
+            MCOPRE::Div4 => Self::Div4,
+            MCOPRE::Div5 => Self::Div5,
         }
     }
 }

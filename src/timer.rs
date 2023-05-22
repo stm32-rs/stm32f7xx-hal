@@ -376,7 +376,7 @@ macro_rules! with_pwm {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 match channel {
                     0 => {
-                        tim.ccr1.read().bits()
+                        tim.ccr1().read().bits()
                     }
                     _ => 0,
                 }
@@ -388,7 +388,7 @@ macro_rules! with_pwm {
                 #[allow(unused_unsafe)]
                 match channel {
                     0 => {
-                        tim.ccr1.write(|w| unsafe { w.bits(value) })
+                        tim.ccr1().write(|w| unsafe { w.bits(value) })
                     }
                     _ => {},
                 }
@@ -433,10 +433,10 @@ macro_rules! with_pwm {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 match channel {
                     0 => {
-                        tim.ccr1.read().bits()
+                        tim.ccr1().read().bits()
                     }
                     1 => {
-                        tim.ccr2.read().bits()
+                        tim.ccr2().read().bits()
                     }
                     _ => 0,
                 }
@@ -448,10 +448,10 @@ macro_rules! with_pwm {
                 #[allow(unused_unsafe)]
                 match channel {
                     0 => {
-                        tim.ccr1.write(|w| unsafe { w.bits(value) })
+                        tim.ccr1().write(|w| unsafe { w.bits(value) })
                     }
                     1 => {
-                        tim.ccr2.write(|w| unsafe { w.bits(value) })
+                        tim.ccr2().write(|w| unsafe { w.bits(value) })
                     }
                     _ => {},
                 }
@@ -500,16 +500,16 @@ macro_rules! with_pwm {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 let ccr = match channel {
                     0 => {
-                        &tim.ccr1
+                        tim.ccr1()
                     }
                     1 => {
-                        &tim.ccr2
+                        tim.ccr2()
                     }
                     2 => {
-                        &tim.ccr3
+                        tim.ccr3()
                     }
                     _ => {
-                        &tim.ccr4
+                        tim.ccr4()
                     }
                 };
                 ccr.read().bits()
@@ -520,16 +520,16 @@ macro_rules! with_pwm {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 let ccr = match channel {
                     0 => {
-                        &tim.ccr1
+                        tim.ccr1()
                     }
                     1 => {
-                        &tim.ccr2
+                        tim.ccr2()
                     }
                     2 => {
-                        &tim.ccr3
+                        tim.ccr3()
                     }
                     _ => {
-                        &tim.ccr4
+                        tim.ccr4()
                     }
                 };
                 ccr.write(|w| unsafe { w.bits(value) })

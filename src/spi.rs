@@ -759,22 +759,22 @@ pub trait SupportedWordSize: dma::SupportedWordSize + private::Sealed {
 impl private::Sealed for u8 {}
 impl SupportedWordSize for u8 {
     fn frxth() -> cr2::FRXTH_A {
-        cr2::FRXTH_A::QUARTER
+        cr2::FRXTH_A::Quarter
     }
 
     fn ds() -> cr2::DS_A {
-        cr2::DS_A::EIGHTBIT
+        cr2::DS_A::EightBit
     }
 }
 
 impl private::Sealed for u16 {}
 impl SupportedWordSize for u16 {
     fn frxth() -> cr2::FRXTH_A {
-        cr2::FRXTH_A::HALF
+        cr2::FRXTH_A::Half
     }
 
     fn ds() -> cr2::DS_A {
-        cr2::DS_A::SIXTEENBIT
+        cr2::DS_A::SixteenBit
     }
 }
 
