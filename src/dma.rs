@@ -741,22 +741,22 @@ pub trait SupportedWordSize: private::Sealed + Unpin + 'static {
 impl private::Sealed for u8 {}
 impl SupportedWordSize for u8 {
     fn msize() -> cr::MSIZE_A {
-        cr::MSIZE_A::BITS8
+        cr::MSIZE_A::Bits8
     }
 
     fn psize() -> cr::PSIZE_A {
-        cr::MSIZE_A::BITS8
+        cr::MSIZE_A::Bits8
     }
 }
 
 impl private::Sealed for u16 {}
 impl SupportedWordSize for u16 {
     fn msize() -> cr::MSIZE_A {
-        cr::MSIZE_A::BITS16
+        cr::MSIZE_A::Bits16
     }
 
     fn psize() -> cr::PSIZE_A {
-        cr::MSIZE_A::BITS16
+        cr::MSIZE_A::Bits16
     }
 }
 
