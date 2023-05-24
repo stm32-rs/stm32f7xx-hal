@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Updated `stm32f7` dependency 0.14.0 -> 0.15
+  - Use PascalCase for generated values of enums ([stm32-rs#727](https://github.com/stm32-rs/stm32-rs/pull/727))
+- Updated `synopsys-usb-otg` dependency 0.2.3 -> 0.3
+- Updated `stm32-fmc` dependency 0.2.0 -> 0.3
+
 ## [v0.7.0] - 2022-06-05
 
 ### Added
