@@ -150,6 +150,7 @@ mod sealed {
 use sealed::Interruptable;
 impl<MODE> Interruptable for Output<MODE> {}
 impl<MODE> Interruptable for Input<MODE> {}
+impl<const A: u8, MODE> Interruptable for Alternate<A, MODE> {}
 
 /// External Interrupt Pin
 pub trait ExtiPin {
