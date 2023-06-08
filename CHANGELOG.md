@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - Use PascalCase for generated values of enums ([stm32-rs#727](https://github.com/stm32-rs/stm32-rs/pull/727))
 - Updated `synopsys-usb-otg` dependency 0.2.3 -> 0.3
 - Updated `stm32-fmc` dependency 0.2.0 -> 0.3
+- Added Interruptable trait to Alternate mode pins
 
 ## [v0.7.0] - 2022-06-05
 
