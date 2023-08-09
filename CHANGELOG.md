@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Updated `synopsys-usb-otg` dependency 0.2.3 -> 0.3
 - Updated `stm32-fmc` dependency 0.2.0 -> 0.3
 - Added Interruptable trait to Alternate mode pins
+- Added a "low pin count" variant of the f730 chip to the crate features: packages <144 pins don't include a high speed USB PHY
 
 ## [v0.7.0] - 2022-06-05
 
