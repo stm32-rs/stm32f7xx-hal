@@ -192,6 +192,9 @@ where
         // Enable DMA
         usart.cr3.write(|w| w.dmat().enabled().dmar().enabled());
 
+        // Configure hardware flow control
+        usart.cr3.write(|w| w.ctse().bit(config.cts_enabled).rtse().bit(config.rts_enabled));
+
         Serial { usart, pins }
     }
 
@@ -438,7 +441,8 @@ pub struct Config {
     pub sysclock: bool,
     pub parity: Parity,
     pub data_bits: DataBits,
-
+    pub cts_enabled: bool,
+    pub rts_enabled: bool,
 }
 
 pub enum Oversampling {
@@ -479,6 +483,8 @@ impl Default for Config {
             sysclock: false,
             parity: Parity::ParityNone,
             data_bits: DataBits::Bits8,
+            cts_enabled: false,
+            rts_enabled: false,
         }
     }
 }
