@@ -165,13 +165,20 @@ where
         let ch = config.character_match.unwrap_or(0);
         usart.cr2.write(|w| w.add().bits(ch));
 
+        // Set active state level for RX and TX pins
+        usart.cr2.modify(|_r, w| {
+            match config.active_level_tx {
+                ActiveLevel::Standard => w.txinv().clear_bit(),
+                ActiveLevel::Inverted => w.txinv().set_bit(),
+            };
+            match config.active_level_rx {
+                ActiveLevel::Standard => w.rxinv().clear_bit(),
+                ActiveLevel::Inverted => w.rxinv().set_bit(),
+            }
+        });
+
         // Enable tx / rx, configure data bits and parity
         usart.cr1.modify(|_, w| {
-            w
-                .te().enabled()
-                .re().enabled()
-                .ue().enabled();
-
             // M[1:0] are used to set data bits
             // M[1:0] = 00: 1 Start bit, 8 data bits, n stop bits
             // M[1:0] = 01: 1 Start bit, 9 data bits, n stop bits
@@ -186,7 +193,12 @@ where
                 Parity::ParityEven => w.ps().even().pce().enabled(),
                 Parity::ParityOdd  => w.ps().odd().pce().enabled(),
                 Parity::ParityNone => w.pce().disabled(),
-            }
+            };
+
+            w
+                .te().enabled()
+                .re().enabled()
+                .ue().enabled()
         });
 
         // Enable DMA
@@ -438,7 +450,16 @@ pub struct Config {
     pub sysclock: bool,
     pub parity: Parity,
     pub data_bits: DataBits,
+    pub active_level_tx: ActiveLevel,
+    pub active_level_rx: ActiveLevel,
+}
 
+/// Active level on the wire
+pub enum ActiveLevel {
+    /// Idle = high (VDD); Active = low (GND)
+    Standard,
+    /// Inverted: Idle = low (GND); Active = high (VDD)
+    Inverted,
 }
 
 pub enum Oversampling {
@@ -479,6 +500,8 @@ impl Default for Config {
             sysclock: false,
             parity: Parity::ParityNone,
             data_bits: DataBits::Bits8,
+            active_level_tx: ActiveLevel::Standard,
+            active_level_rx: ActiveLevel::Standard,
         }
     }
 }
