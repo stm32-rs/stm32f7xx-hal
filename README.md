@@ -28,6 +28,7 @@ If no microcontroller is specified, the crate will not compile.
 * `stm32f722`
 * `stm32f723`
 * `stm32f730`
+* `stm32f730-lpc` ("low pin count" variant
 * `stm32f732`
 * `stm32f733`
 * `stm32f745`
