@@ -88,7 +88,7 @@ impl SubFamily {
             SubFamily::Stm32f722
         } else if cfg!(feature = "stm32f723") {
             SubFamily::Stm32f723
-        } else if cfg!(feature = "stm32f730") {
+        } else if cfg!(feature = "stm32f730") || cfg!(feature = "stm32f730-lpc") {
             SubFamily::Stm32f730
         } else if cfg!(feature = "stm32f732") {
             SubFamily::Stm32f732
