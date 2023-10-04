@@ -24,7 +24,7 @@ jobs:
         rust:
           - stable
         include:
-          - rust: nightly
+          - rust: stable
             mcu: stm32f746
             experimental: true
 
