@@ -159,14 +159,14 @@ pub struct Serial<U, PINS> {
     pins: PINS,
 }
 
-pub trait UART<U: Instance> {
-    fn new_async_uart_no_flwctl<PINS: Pins<U>>(
+pub trait UART<U: Instance, PINS: Pins<U>> {
+    fn new_async_no_flwctl<>(
         uart: U, pins: PINS, clocks: &Clocks, config: Config,
     ) -> Serial<U, PINS> {
         Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232None))
     }
 
-    fn new_async_uart_rs232_cts_rts<PINS: Pins<U>, CTS: PinCts<U>, RTS: PinRts<U>>(
+    fn new_async_rs232_cts_rts<CTS: PinCts<U>, RTS: PinRts<U>>(
         uart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS, rts: RTS,
     ) -> Serial<U, PINS> {
         // TODO Clarify if we can borrow cts and rts and keep them borrowed.
@@ -175,13 +175,13 @@ pub trait UART<U: Instance> {
         Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232CtsRts))
     }
 
-    fn new_async_uart_rs232_cts<PINS: Pins<U>, CTS: PinCts<U>, RTS: PinRts<U>>(
+    fn new_async_rs232_cts<CTS: PinCts<U>>(
         uart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS,
     ) -> Serial<U, PINS> {
         Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Cts))
     }
 
-    fn new_async_uart_rs232_rts<PINS: Pins<U>, RTS: PinRts<U>>(
+    fn new_async_rs232_rts<RTS: PinRts<U>>(
         uart: U, pins: PINS, clocks: &Clocks, config: Config, rts: RTS,
     ) -> Serial<U, PINS> {
         Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Rts))
@@ -189,14 +189,14 @@ pub trait UART<U: Instance> {
 
     // TODO Add constructors for other modes of operation
 }
-impl <PINS> UART<UART4> for Serial<UART4, PINS> where PINS: Pins<UART4> {}
-impl <PINS> UART<UART5> for Serial<UART5, PINS> where PINS: Pins<UART5> {}
-impl <PINS> UART<UART7> for Serial<UART7, PINS> where PINS: Pins<UART7> {}
+impl <PINS: Pins<UART4>> UART<UART4, PINS> for Serial<UART4, PINS> {}
+impl <PINS: Pins<UART5>> UART<UART5, PINS> for Serial<UART5, PINS> {}
+impl <PINS: Pins<UART7>> UART<UART7, PINS> for Serial<UART7, PINS> {}
 // TODO where is UART8?
-impl <PINS> UART<USART1> for Serial<USART1, PINS> where PINS: Pins<USART1> {}
-impl <PINS> UART<USART2> for Serial<USART2, PINS> where PINS: Pins<USART2> {}
-impl <PINS> UART<USART3> for Serial<USART3, PINS> where PINS: Pins<USART3> {}
-impl <PINS> UART<USART6> for Serial<USART6, PINS> where PINS: Pins<USART6> {}
+impl <PINS: Pins<USART1>> UART<USART1, PINS> for Serial<USART1, PINS> {}
+impl <PINS: Pins<USART2>> UART<USART2, PINS> for Serial<USART2, PINS> {}
+impl <PINS: Pins<USART3>> UART<USART3, PINS> for Serial<USART3, PINS> {}
+impl <PINS: Pins<USART6>> UART<USART6, PINS> for Serial<USART6, PINS> {}
 
 // TODO add USART trait which would have USART-specific modes like "Synchronous" and "SmartCard"
 // TOOD add add implementation of those traits for all USART*

@@ -31,7 +31,7 @@ fn main() -> ! {
     let tx = gpioa.pa9.into_alternate();
     let rx = gpiob.pb7.into_alternate();
 
-    let serial = Serial::new_async_uart_no_flwctl(
+    let serial = Serial::new_async_no_flwctl(
         p.USART1,
         (tx, rx),
         &clocks,
