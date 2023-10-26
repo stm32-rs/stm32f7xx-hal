@@ -161,35 +161,35 @@ pub struct Serial<U, PINS> {
 
 pub trait UART<U: Instance> {
     fn new_async_uart_no_flwctl<PINS: Pins<U>>(
-        usart: U, pins: PINS, clocks: &Clocks, config: Config,
+        uart: U, pins: PINS, clocks: &Clocks, config: Config,
     ) -> Serial<U, PINS> {
-        Serial::new(usart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232None))
+        Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232None))
     }
 
     fn new_async_uart_rs232_cts_rts<PINS: Pins<U>, CTS: PinCts<U>, RTS: PinRts<U>>(
-        usart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS, rts: RTS,
+        uart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS, rts: RTS,
     ) -> Serial<U, PINS> {
         // TODO Clarify if we can borrow cts and rts and keep them borrowed.
         // TODO Note that at the moment any CTS and RTS pin of this U(S)ART would be accepted
         //      This may be too flexible.
-        Serial::new(usart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232CtsRts))
+        Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232CtsRts))
     }
 
     fn new_async_uart_rs232_cts<PINS: Pins<U>, CTS: PinCts<U>, RTS: PinRts<U>>(
-        usart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS,
+        uart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS,
     ) -> Serial<U, PINS> {
-        Serial::new(usart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Cts))
+        Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Cts))
     }
 
     fn new_async_uart_rs232_rts<PINS: Pins<U>, RTS: PinRts<U>>(
-        usart: U, pins: PINS, clocks: &Clocks, config: Config, rts: RTS,
+        uart: U, pins: PINS, clocks: &Clocks, config: Config, rts: RTS,
     ) -> Serial<U, PINS> {
-        Serial::new(usart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Rts))
+        Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Rts))
     }
 
     // TODO Add constructors for other modes of operation
 }
-impl <PINS> UART<UART4> for Serial<UART5, PINS> where PINS: Pins<UART4> {}
+impl <PINS> UART<UART4> for Serial<UART4, PINS> where PINS: Pins<UART4> {}
 impl <PINS> UART<UART5> for Serial<UART5, PINS> where PINS: Pins<UART5> {}
 impl <PINS> UART<UART7> for Serial<UART7, PINS> where PINS: Pins<UART7> {}
 // TODO where is UART8?

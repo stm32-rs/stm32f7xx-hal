@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32f7xx_hal::{
     pac,
     prelude::*,
-    serial::{self, Serial},
+    serial::{self, Serial, UART},
 };
 
 #[entry]
@@ -31,7 +31,7 @@ fn main() -> ! {
     let tx = gpioa.pa9.into_alternate();
     let rx = gpiob.pb7.into_alternate();
 
-    let serial = Serial::new(
+    let serial = Serial::new_async_uart_no_flwctl(
         p.USART1,
         (tx, rx),
         &clocks,
