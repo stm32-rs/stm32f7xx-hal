@@ -139,18 +139,37 @@ impl PinRts<USART6> for gpio::PG12<Alternate<8>> {}
 impl PinRts<UART7> for gpio::PE9<Alternate<8>> {}
 impl PinRts<UART7> for gpio::PF8<Alternate<8>> {}
 
+pub enum IrDAPower {
+    Normal,
+    Low,
+}
+
+pub enum Rs485Polarity {
+    High,
+    Low,
+}
 
 enum AsyncFlowControl {
     Rs232None,
     Rs232CtsRts,
     Rs232Cts,
     Rs232Rts,
-    // TODO add Rs485
+    Rs485(Rs485Polarity),
 }
 
 enum SerialMode {
-    Async(AsyncFlowControl),
-    // TODO add SingleWire, IrDA, ModbusCommunication, LIN, SnartCard, etc.
+    // These options are for any UART, including USART
+    Asynchronous(AsyncFlowControl),
+    SingleWire,
+    MultiprocessorCommunication,
+    IrDA(IrDAPower),
+    ModbusCommunication,
+    LIN,
+
+    // The following options are for USART only
+    Synchronous,
+    SmartCard,
+    SmartCardWithCardLock,
 }
 
 /// Serial abstraction
@@ -163,7 +182,8 @@ pub trait UART<U: Instance, PINS: Pins<U>> {
     fn new_async_no_flwctl<>(
         uart: U, pins: PINS, clocks: &Clocks, config: Config,
     ) -> Serial<U, PINS> {
-        Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232None))
+        Serial::new(uart, pins, clocks, config,
+                    SerialMode::Asynchronous(AsyncFlowControl::Rs232None))
     }
 
     fn new_async_rs232_cts_rts<CTS: PinCts<U>, RTS: PinRts<U>>(
@@ -172,19 +192,36 @@ pub trait UART<U: Instance, PINS: Pins<U>> {
         // TODO Clarify if we can borrow cts and rts and keep them borrowed.
         // TODO Note that at the moment any CTS and RTS pin of this U(S)ART would be accepted
         //      This may be too flexible.
-        Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232CtsRts))
+        Serial::new(uart, pins, clocks, config,
+                    SerialMode::Asynchronous(AsyncFlowControl::Rs232CtsRts))
     }
 
     fn new_async_rs232_cts<CTS: PinCts<U>>(
         uart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS,
     ) -> Serial<U, PINS> {
-        Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Cts))
+        Serial::new(uart, pins, clocks, config,
+                    SerialMode::Asynchronous(AsyncFlowControl::Rs232Cts))
     }
 
     fn new_async_rs232_rts<RTS: PinRts<U>>(
         uart: U, pins: PINS, clocks: &Clocks, config: Config, rts: RTS,
     ) -> Serial<U, PINS> {
-        Serial::new(uart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Rts))
+        Serial::new(uart, pins, clocks, config,
+                    SerialMode::Asynchronous(AsyncFlowControl::Rs232Rts))
+    }
+
+    fn new_async_rs458<RTS: PinRts<U>>(
+        uart: U, pins: PINS, clocks: &Clocks, config: Config, polarity: Rs485Polarity,
+    ) -> Serial<U, PINS> {
+        Serial::new(uart, pins, clocks, config,
+                    SerialMode::Asynchronous(AsyncFlowControl::Rs485(polarity)))
+    }
+
+    fn new_irda<RTS: PinRts<U>>(
+        uart: U, pins: PINS, clocks: &Clocks, config: Config, irda_power: IrDAPower,
+    ) -> Serial<U, PINS> {
+        Serial::new(uart, pins, clocks, config,
+                    SerialMode::IrDA(irda_power))
     }
 
     // TODO Add constructors for other modes of operation
@@ -280,20 +317,68 @@ where
         usart.cr3.write(|w| w.dmat().enabled().dmar().enabled());
 
         match mode {
-            SerialMode::Async(flow_control) => match flow_control {
-                AsyncFlowControl::Rs232None => {
-                    usart.cr3.write(|w| w.ctse().disabled().rtse().disabled());
-                },
-                AsyncFlowControl::Rs232CtsRts => {
-                    usart.cr3.write(|w| w.ctse().enabled().rtse().enabled());
-                },
-                AsyncFlowControl::Rs232Cts => {
-                    usart.cr3.write(|w| w.ctse().enabled().rtse().disabled());
-                },
-                AsyncFlowControl::Rs232Rts => {
-                    usart.cr3.write(|w| w.ctse().disabled().rtse().enabled());
-                },
-            }
+            SerialMode::Asynchronous(flow_control) => {
+                usart.cr2.write(|w| w.linen().clear_bit().clken().clear_bit());
+                usart.cr3.write(|w| w.scen().clear_bit().iren().clear_bit().hdsel().clear_bit());
+                match flow_control {
+                    AsyncFlowControl::Rs232None => {
+                        usart.cr3.write(|w| w.ctse().disabled().rtse().disabled());
+                    },
+                    AsyncFlowControl::Rs232CtsRts => {
+                        usart.cr3.write(|w| w.ctse().enabled().rtse().enabled());
+                    },
+                    AsyncFlowControl::Rs232Cts => {
+                        usart.cr3.write(|w| w.ctse().enabled().rtse().disabled());
+                    },
+                    AsyncFlowControl::Rs232Rts => {
+                        usart.cr3.write(|w| w.ctse().disabled().rtse().enabled());
+                    },
+                    AsyncFlowControl::Rs485(polarity) => {
+                        usart.cr3.write(|w| w.dem().enabled());  // drive-enabled mode ON
+                        usart.cr3.write(|w| w.dep().bit(match polarity {
+                            Rs485Polarity::High => false,
+                            Rs485Polarity::Low => true,
+                        }));
+                        usart.cr1.write(|w| w.deat().bits(0));  // setting the assertion time
+                        usart.cr1.write(|w| w.dedt().bits(0));  // setting the de-assertion time
+                        // TODO ^ make the times be configurable?
+                    },
+                }
+            },
+            SerialMode::SingleWire => {
+                usart.cr2.write(|w| w.linen().clear_bit().clken().clear_bit());
+                usart.cr3.write(|w| w.scen().clear_bit().iren().clear_bit());
+                usart.cr3.write(|w| w.hdsel().set_bit());
+            },
+            SerialMode::MultiprocessorCommunication => {
+                // TODO implement this
+            },
+            SerialMode::IrDA(power) => {
+                usart.cr3.write(|w| w.irlp().bit(match power {
+                    IrDAPower::Normal => false,
+                    IrDAPower::Low => true,
+                }));
+                usart.gtpr.write(|w| w.gt().bits(1));  // setting the prescaler
+
+                usart.cr2.write(|w| w.linen().clear_bit().clken().clear_bit().stop().bits(0));
+                usart.cr3.write(|w| w.scen().clear_bit().hdsel().clear_bit());
+                usart.cr3.write(|w| w.iren().set_bit());
+            },
+            SerialMode::ModbusCommunication => {
+                // TODO implement this
+            },
+            SerialMode::LIN => {
+                // TODO implement this
+            },
+            SerialMode::Synchronous => {
+                // TODO implement this
+            },
+            SerialMode::SmartCard => {
+                // TODO implement this
+            },
+            SerialMode::SmartCardWithCardLock => {
+                // TODO implement this
+            },
         }
 
         Serial { usart, pins }
