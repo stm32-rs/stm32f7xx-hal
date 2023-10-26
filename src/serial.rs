@@ -41,11 +41,13 @@ pub enum Error {
 pub trait Pins<USART> {}
 pub trait PinTx<USART> {}
 pub trait PinRx<USART> {}
+pub trait PinCts<USART> {}
+pub trait PinRts<USART> {}
 
-impl<USART, TX, RX> Pins<USART> for (TX, RX)
+impl<U, TX, RX> Pins<U> for (TX, RX)
 where
-    TX: PinTx<USART>,
-    RX: PinRx<USART>,
+    TX: PinTx<U>,
+    RX: PinRx<U>,
 {
 }
 
@@ -113,34 +115,119 @@ impl PinRx<USART6> for gpio::PC7<Alternate<8>> {}
 impl PinRx<USART6> for gpio::PG9<Alternate<8>> {}
 impl PinRx<UART7> for gpio::PE7<Alternate<8>> {}
 impl PinRx<UART7> for gpio::PF6<Alternate<8>> {}
+// TODO where is UART8?
+
+impl PinCts<USART1> for gpio::PA11<Alternate<7>> {}
+impl PinCts<USART2> for gpio::PA0<Alternate<7>> {}
+impl PinCts<USART3> for gpio::PB13<Alternate<7>> {}
+impl PinCts<USART3> for gpio::PD11<Alternate<7>> {}
+impl PinCts<UART4> for gpio::PA15<Alternate<8>> {}
+impl PinCts<UART5> for gpio::PC9<Alternate<7>> {}
+impl PinCts<USART6> for gpio::PG13<Alternate<8>> {}
+impl PinCts<USART6> for gpio::PG15<Alternate<8>> {}
+impl PinCts<UART7> for gpio::PE10<Alternate<8>> {}
+impl PinCts<UART7> for gpio::PF9<Alternate<8>> {}
+
+impl PinRts<USART1> for gpio::PA12<Alternate<7>> {}
+impl PinRts<USART2> for gpio::PA1<Alternate<7>> {}
+impl PinRts<USART3> for gpio::PB14<Alternate<7>> {}
+impl PinRts<USART3> for gpio::PD12<Alternate<7>> {}
+impl PinRts<UART4> for gpio::PB0<Alternate<8>> {}
+impl PinRts<UART5> for gpio::PC8<Alternate<7>> {}
+impl PinRts<USART6> for gpio::PG8<Alternate<8>> {}
+impl PinRts<USART6> for gpio::PG12<Alternate<8>> {}
+impl PinRts<UART7> for gpio::PE9<Alternate<8>> {}
+impl PinRts<UART7> for gpio::PF8<Alternate<8>> {}
+
+
+enum AsyncFlowControl {
+    Rs232None,
+    Rs232CtsRts,
+    Rs232Cts,
+    Rs232Rts,
+    // TODO add Rs485
+}
+
+enum SerialMode {
+    Async(AsyncFlowControl),
+    // TODO add SingleWire, IrDA, ModbusCommunication, LIN, SnartCard, etc.
+}
 
 /// Serial abstraction
-pub struct Serial<USART, PINS> {
-    usart: USART,
+pub struct Serial<U, PINS> {
+    usart: U,
     pins: PINS,
 }
 
-impl<USART, PINS> Serial<USART, PINS>
+pub trait UART<U: Instance> {
+    fn new_async_uart_no_flwctl<PINS: Pins<U>>(
+        usart: U, pins: PINS, clocks: &Clocks, config: Config,
+    ) -> Serial<U, PINS> {
+        Serial::new(usart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232None))
+    }
+
+    fn new_async_uart_rs232_cts_rts<PINS: Pins<U>, CTS: PinCts<U>, RTS: PinRts<U>>(
+        usart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS, rts: RTS,
+    ) -> Serial<U, PINS> {
+        // TODO Clarify if we can borrow cts and rts and keep them borrowed.
+        // TODO Note that at the moment any CTS and RTS pin of this U(S)ART would be accepted
+        //      This may be too flexible.
+        Serial::new(usart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232CtsRts))
+    }
+
+    fn new_async_uart_rs232_cts<PINS: Pins<U>, CTS: PinCts<U>, RTS: PinRts<U>>(
+        usart: U, pins: PINS, clocks: &Clocks, config: Config, cts: CTS,
+    ) -> Serial<U, PINS> {
+        Serial::new(usart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Cts))
+    }
+
+    fn new_async_uart_rs232_rts<PINS: Pins<U>, RTS: PinRts<U>>(
+        usart: U, pins: PINS, clocks: &Clocks, config: Config, rts: RTS,
+    ) -> Serial<U, PINS> {
+        Serial::new(usart, pins, clocks, config, SerialMode::Async(AsyncFlowControl::Rs232Rts))
+    }
+
+    // TODO Add constructors for other modes of operation
+}
+impl <PINS> UART<UART4> for Serial<UART5, PINS> where PINS: Pins<UART4> {}
+impl <PINS> UART<UART5> for Serial<UART5, PINS> where PINS: Pins<UART5> {}
+impl <PINS> UART<UART7> for Serial<UART7, PINS> where PINS: Pins<UART7> {}
+// TODO where is UART8?
+impl <PINS> UART<USART1> for Serial<USART1, PINS> where PINS: Pins<USART1> {}
+impl <PINS> UART<USART2> for Serial<USART2, PINS> where PINS: Pins<USART2> {}
+impl <PINS> UART<USART3> for Serial<USART3, PINS> where PINS: Pins<USART3> {}
+impl <PINS> UART<USART6> for Serial<USART6, PINS> where PINS: Pins<USART6> {}
+
+// TODO add USART trait which would have USART-specific modes like "Synchronous" and "SmartCard"
+// TOOD add add implementation of those traits for all USART*
+
+impl<U, PINS> Serial<U, PINS>
 where
-    PINS: Pins<USART>,
-    USART: Instance,
+    PINS: Pins<U>,
+    U: Instance,
 {
-    pub fn new(usart: USART, pins: PINS, clocks: &Clocks, config: Config) -> Self {
+    fn new(
+        usart: U,
+        pins: PINS,
+        clocks: &Clocks,
+        config: Config,
+        mode: SerialMode
+    ) -> Self {  // TODO remove "pub"
         // NOTE(unsafe) This executes only during initialisation
         let rcc = unsafe { &(*RCC::ptr()) };
 
         // TODO: The unsafe calls below should be replaced with accessing
         //       the correct registers directly.
 
-        USART::select_sysclock(rcc, config.sysclock);
+        U::select_sysclock(rcc, config.sysclock);
         unsafe {
-            USART::enable_unchecked();
+            U::enable_unchecked();
         }
 
         let clk = if config.sysclock {
             clocks.sysclk()
         } else {
-            USART::clock(clocks)
+            U::clock(clocks)
         };
 
         // Calculate correct baudrate divisor on the fly
@@ -192,8 +279,22 @@ where
         // Enable DMA
         usart.cr3.write(|w| w.dmat().enabled().dmar().enabled());
 
-        // Configure hardware flow control
-        usart.cr3.write(|w| w.ctse().bit(config.cts_enabled).rtse().bit(config.rts_enabled));
+        match mode {
+            SerialMode::Async(flow_control) => match flow_control {
+                AsyncFlowControl::Rs232None => {
+                    usart.cr3.write(|w| w.ctse().disabled().rtse().disabled());
+                },
+                AsyncFlowControl::Rs232CtsRts => {
+                    usart.cr3.write(|w| w.ctse().enabled().rtse().enabled());
+                },
+                AsyncFlowControl::Rs232Cts => {
+                    usart.cr3.write(|w| w.ctse().enabled().rtse().disabled());
+                },
+                AsyncFlowControl::Rs232Rts => {
+                    usart.cr3.write(|w| w.ctse().disabled().rtse().enabled());
+                },
+            }
+        }
 
         Serial { usart, pins }
     }
@@ -218,7 +319,7 @@ where
         }
     }
 
-    pub fn split(self) -> (Tx<USART>, Rx<USART>) {
+    pub fn split(self) -> (Tx<U>, Rx<U>) {
         (
             Tx {
                 _usart: PhantomData,
@@ -229,40 +330,40 @@ where
         )
     }
 
-    pub fn release(self) -> (USART, PINS) {
+    pub fn release(self) -> (U, PINS) {
         (self.usart, self.pins)
     }
 }
 
-impl<USART, PINS> serial::Read<u8> for Serial<USART, PINS>
+impl<U, PINS> serial::Read<u8> for Serial<U, PINS>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
-        let mut rx: Rx<USART> = Rx {
+        let mut rx: Rx<U> = Rx {
             _usart: PhantomData,
         };
         rx.read()
     }
 }
 
-impl<USART, PINS> serial::Write<u8> for Serial<USART, PINS>
+impl<U, PINS> serial::Write<u8> for Serial<U, PINS>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        let mut tx: Tx<USART> = Tx {
+        let mut tx: Tx<U> = Tx {
             _usart: PhantomData,
         };
         tx.flush()
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        let mut tx: Tx<USART> = Tx {
+        let mut tx: Tx<U> = Tx {
             _usart: PhantomData,
         };
         tx.write(byte)
@@ -270,13 +371,13 @@ where
 }
 
 /// Serial receiver
-pub struct Rx<USART> {
-    _usart: PhantomData<USART>,
+pub struct Rx<U> {
+    _usart: PhantomData<U>,
 }
 
-impl<USART> Rx<USART>
+impl<U> Rx<U>
 where
-    USART: Instance,
+    U: Instance,
     Self: dma::Target,
 {
     /// Reads data using DMA until `buffer` is full
@@ -295,7 +396,7 @@ where
     {
         // This is safe, as we're only using the USART instance to access the
         // address of one register.
-        let address = &unsafe { &*USART::ptr() }.rdr as *const _ as _;
+        let address = &unsafe { &*U::ptr() }.rdr as *const _ as _;
 
         // Safe, because the trait bounds on this method guarantee that `buffer`
         // can be written to safely.
@@ -312,18 +413,18 @@ where
     }
 }
 
-impl<USART> serial::Read<u8> for Rx<USART>
+impl<U> serial::Read<u8> for Rx<U>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         // NOTE(unsafe): Only used for atomic writes, to clear error flags.
-        let icr = unsafe { &(*USART::ptr()).icr };
+        let icr = unsafe { &(*U::ptr()).icr };
 
         if isr.pe().bit_is_set() {
             icr.write(|w| w.pecf().clear());
@@ -347,7 +448,7 @@ where
             return Ok(unsafe {
                 // Casting to `u8` should be fine, as we've configured the USART
                 // to use 8 data bits.
-                (*USART::ptr()).rdr.read().rdr().bits() as u8
+                (*U::ptr()).rdr.read().rdr().bits() as u8
             });
         }
 
@@ -356,14 +457,14 @@ where
 }
 
 /// Serial transmitter
-pub struct Tx<USART> {
-    _usart: PhantomData<USART>,
+pub struct Tx<U> {
+    _usart: PhantomData<U>,
 }
 
-impl<USART> Tx<USART>
+impl<U> Tx<U>
 where
     Self: dma::Target,
-    USART: Instance,
+    U: Instance,
 {
     /// Writes data using DMA
     ///
@@ -383,7 +484,7 @@ where
         // STM32F74xxx, section 31.5.15.
         //
         // This is safe, as we're doing just one atomic write.
-        let usart = unsafe { &*USART::ptr() };
+        let usart = unsafe { &*U::ptr() };
         usart.icr.write(|w| w.tccf().clear());
 
         // Safe, because the trait bounds on this method guarantee that `buffer`
@@ -401,15 +502,15 @@ where
     }
 }
 
-impl<USART> serial::Write<u8> for Tx<USART>
+impl<U> serial::Write<u8> for Tx<U>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         if isr.tc().bit_is_set() {
             Ok(())
@@ -420,12 +521,12 @@ where
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         if isr.txe().bit_is_set() {
             // NOTE(unsafe) atomic write to stateless register
             // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-            unsafe { ptr::write_volatile(&(*USART::ptr()).tdr as *const _ as *mut _, byte) }
+            unsafe { ptr::write_volatile(&(*U::ptr()).tdr as *const _ as *mut _, byte) }
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -441,8 +542,6 @@ pub struct Config {
     pub sysclock: bool,
     pub parity: Parity,
     pub data_bits: DataBits,
-    pub cts_enabled: bool,
-    pub rts_enabled: bool,
 }
 
 pub enum Oversampling {
@@ -483,8 +582,6 @@ impl Default for Config {
             sysclock: false,
             parity: Parity::ParityNone,
             data_bits: DataBits::Bits8,
-            cts_enabled: false,
-            rts_enabled: false,
         }
     }
 }
@@ -537,9 +634,9 @@ impl_instance! {
     UART7:  (uart7sel),
 }
 
-impl<USART> fmt::Write for Tx<USART>
+impl<U> fmt::Write for Tx<U>
 where
-    Tx<USART>: serial::Write<u8>,
+    Tx<U>: serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
