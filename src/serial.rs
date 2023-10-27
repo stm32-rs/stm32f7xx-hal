@@ -38,14 +38,14 @@ pub enum Error {
     Parity,
 }
 
-pub trait Pins<USART> {}
-pub trait PinTx<USART> {}
-pub trait PinRx<USART> {}
+pub trait Pins<U> {}
+pub trait PinTx<U> {}
+pub trait PinRx<U> {}
 
-impl<USART, TX, RX> Pins<USART> for (TX, RX)
+impl<U, TX, RX> Pins<U> for (TX, RX)
 where
-    TX: PinTx<USART>,
-    RX: PinRx<USART>,
+    TX: PinTx<U>,
+    RX: PinRx<U>,
 {
 }
 
@@ -115,32 +115,32 @@ impl PinRx<UART7> for gpio::PE7<Alternate<8>> {}
 impl PinRx<UART7> for gpio::PF6<Alternate<8>> {}
 
 /// Serial abstraction
-pub struct Serial<USART, PINS> {
-    usart: USART,
+pub struct Serial<U, PINS> {
+    usart: U,
     pins: PINS,
 }
 
-impl<USART, PINS> Serial<USART, PINS>
+impl<U, PINS> Serial<U, PINS>
 where
-    PINS: Pins<USART>,
-    USART: Instance,
+    PINS: Pins<U>,
+    U: Instance,
 {
-    pub fn new(usart: USART, pins: PINS, clocks: &Clocks, config: Config) -> Self {
+    pub fn new(usart: U, pins: PINS, clocks: &Clocks, config: Config) -> Self {
         // NOTE(unsafe) This executes only during initialisation
         let rcc = unsafe { &(*RCC::ptr()) };
 
         // TODO: The unsafe calls below should be replaced with accessing
         //       the correct registers directly.
 
-        USART::select_sysclock(rcc, config.sysclock);
+        U::select_sysclock(rcc, config.sysclock);
         unsafe {
-            USART::enable_unchecked();
+            U::enable_unchecked();
         }
 
         let clk = if config.sysclock {
             clocks.sysclk()
         } else {
-            USART::clock(clocks)
+            U::clock(clocks)
         };
 
         // Calculate correct baudrate divisor on the fly
@@ -215,7 +215,7 @@ where
         }
     }
 
-    pub fn split(self) -> (Tx<USART>, Rx<USART>) {
+    pub fn split(self) -> (Tx<U>, Rx<U>) {
         (
             Tx {
                 _usart: PhantomData,
@@ -226,40 +226,40 @@ where
         )
     }
 
-    pub fn release(self) -> (USART, PINS) {
+    pub fn release(self) -> (U, PINS) {
         (self.usart, self.pins)
     }
 }
 
-impl<USART, PINS> serial::Read<u8> for Serial<USART, PINS>
+impl<U, PINS> serial::Read<u8> for Serial<U, PINS>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
-        let mut rx: Rx<USART> = Rx {
+        let mut rx: Rx<U> = Rx {
             _usart: PhantomData,
         };
         rx.read()
     }
 }
 
-impl<USART, PINS> serial::Write<u8> for Serial<USART, PINS>
+impl<U, PINS> serial::Write<u8> for Serial<U, PINS>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        let mut tx: Tx<USART> = Tx {
+        let mut tx: Tx<U> = Tx {
             _usart: PhantomData,
         };
         tx.flush()
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        let mut tx: Tx<USART> = Tx {
+        let mut tx: Tx<U> = Tx {
             _usart: PhantomData,
         };
         tx.write(byte)
@@ -267,13 +267,13 @@ where
 }
 
 /// Serial receiver
-pub struct Rx<USART> {
-    _usart: PhantomData<USART>,
+pub struct Rx<U> {
+    _usart: PhantomData<U>,
 }
 
-impl<USART> Rx<USART>
+impl<U> Rx<U>
 where
-    USART: Instance,
+    U: Instance,
     Self: dma::Target,
 {
     /// Reads data using DMA until `buffer` is full
@@ -292,7 +292,7 @@ where
     {
         // This is safe, as we're only using the USART instance to access the
         // address of one register.
-        let address = &unsafe { &*USART::ptr() }.rdr as *const _ as _;
+        let address = &unsafe { &*U::ptr() }.rdr as *const _ as _;
 
         // Safe, because the trait bounds on this method guarantee that `buffer`
         // can be written to safely.
@@ -309,18 +309,18 @@ where
     }
 }
 
-impl<USART> serial::Read<u8> for Rx<USART>
+impl<U> serial::Read<u8> for Rx<U>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         // NOTE(unsafe): Only used for atomic writes, to clear error flags.
-        let icr = unsafe { &(*USART::ptr()).icr };
+        let icr = unsafe { &(*U::ptr()).icr };
 
         if isr.pe().bit_is_set() {
             icr.write(|w| w.pecf().clear());
@@ -344,7 +344,7 @@ where
             return Ok(unsafe {
                 // Casting to `u8` should be fine, as we've configured the USART
                 // to use 8 data bits.
-                (*USART::ptr()).rdr.read().rdr().bits() as u8
+                (*U::ptr()).rdr.read().rdr().bits() as u8
             });
         }
 
@@ -353,14 +353,14 @@ where
 }
 
 /// Serial transmitter
-pub struct Tx<USART> {
-    _usart: PhantomData<USART>,
+pub struct Tx<U> {
+    _usart: PhantomData<U>,
 }
 
-impl<USART> Tx<USART>
+impl<U> Tx<U>
 where
     Self: dma::Target,
-    USART: Instance,
+    U: Instance,
 {
     /// Writes data using DMA
     ///
@@ -380,7 +380,7 @@ where
         // STM32F74xxx, section 31.5.15.
         //
         // This is safe, as we're doing just one atomic write.
-        let usart = unsafe { &*USART::ptr() };
+        let usart = unsafe { &*U::ptr() };
         usart.icr.write(|w| w.tccf().clear());
 
         // Safe, because the trait bounds on this method guarantee that `buffer`
@@ -398,15 +398,15 @@ where
     }
 }
 
-impl<USART> serial::Write<u8> for Tx<USART>
+impl<U> serial::Write<u8> for Tx<U>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         if isr.tc().bit_is_set() {
             Ok(())
@@ -417,12 +417,12 @@ where
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         if isr.txe().bit_is_set() {
             // NOTE(unsafe) atomic write to stateless register
             // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-            unsafe { ptr::write_volatile(&(*USART::ptr()).tdr as *const _ as *mut _, byte) }
+            unsafe { ptr::write_volatile(&(*U::ptr()).tdr as *const _ as *mut _, byte) }
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -504,12 +504,12 @@ pub trait Instance: Deref<Target = pac::usart1::RegisterBlock> + Enable + Reset 
 
 macro_rules! impl_instance {
     ($(
-        $USARTX:ident: ($usartXsel:ident),
+        $UARTX:ident: ($usartXsel:ident),
     )+) => {
         $(
-            impl Instance for $USARTX {
+            impl Instance for $UARTX {
                 fn ptr() -> *const pac::usart1::RegisterBlock {
-                    $USARTX::ptr()
+                    $UARTX::ptr()
                 }
 
                 fn select_sysclock(rcc: &pac::rcc::RegisterBlock, sys: bool) {
@@ -531,9 +531,9 @@ impl_instance! {
     UART7:  (uart7sel),
 }
 
-impl<USART> fmt::Write for Tx<USART>
+impl<U> fmt::Write for Tx<U>
 where
-    Tx<USART>: serial::Write<u8>,
+    Tx<U>: serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
