@@ -17,7 +17,7 @@ use crate::rcc::{BusClock, Enable, Reset};
 use crate::state;
 use nb::block;
 
-use crate::pac::{RCC, UART4, UART5, UART7, USART1, USART2, USART3, USART6};
+use crate::pac::{RCC, UART4, UART5, UART7, UART8, USART1, USART2, USART3, USART6};
 
 use crate::gpio::{self, Alternate};
 
@@ -84,35 +84,57 @@ mod f7xx_pins {
     impl PinRx<UART7> for gpio::PB3<Alternate<12>> {}
 }
 
+// USART1
 impl PinTx<USART1> for gpio::PA9<Alternate<7>> {}
 impl PinTx<USART1> for gpio::PB6<Alternate<7>> {}
-impl PinTx<USART2> for gpio::PA2<Alternate<7>> {}
-impl PinTx<USART2> for gpio::PD5<Alternate<7>> {}
-impl PinTx<USART3> for gpio::PB10<Alternate<7>> {}
-impl PinTx<USART3> for gpio::PC10<Alternate<7>> {}
-impl PinTx<USART3> for gpio::PD8<Alternate<7>> {}
-impl PinTx<UART4> for gpio::PA0<Alternate<8>> {}
-impl PinTx<UART4> for gpio::PC10<Alternate<8>> {}
-impl PinTx<UART5> for gpio::PC12<Alternate<8>> {}
-impl PinTx<USART6> for gpio::PC6<Alternate<8>> {}
-impl PinTx<USART6> for gpio::PG14<Alternate<8>> {}
-impl PinTx<UART7> for gpio::PE8<Alternate<8>> {}
-impl PinTx<UART7> for gpio::PF7<Alternate<8>> {}
 
 impl PinRx<USART1> for gpio::PA10<Alternate<7>> {}
 impl PinRx<USART1> for gpio::PB7<Alternate<7>> {}
+
+// USART2
+impl PinTx<USART2> for gpio::PA2<Alternate<7>> {}
+impl PinTx<USART2> for gpio::PD5<Alternate<7>> {}
+
 impl PinRx<USART2> for gpio::PA3<Alternate<7>> {}
 impl PinRx<USART2> for gpio::PD6<Alternate<7>> {}
+
+// USART3
+impl PinTx<USART3> for gpio::PB10<Alternate<7>> {}
+impl PinTx<USART3> for gpio::PC10<Alternate<7>> {}
+impl PinTx<USART3> for gpio::PD8<Alternate<7>> {}
+
 impl PinRx<USART3> for gpio::PB11<Alternate<7>> {}
 impl PinRx<USART3> for gpio::PC11<Alternate<7>> {}
 impl PinRx<USART3> for gpio::PD9<Alternate<7>> {}
-impl PinRx<UART4> for gpio::PA1<Alternate<8>> {}
-impl PinRx<UART4> for gpio::PC11<Alternate<8>> {}
-impl PinRx<UART5> for gpio::PD2<Alternate<8>> {}
+
+// USART6
+impl PinTx<USART6> for gpio::PC6<Alternate<8>> {}
+impl PinTx<USART6> for gpio::PG14<Alternate<8>> {}
+
 impl PinRx<USART6> for gpio::PC7<Alternate<8>> {}
 impl PinRx<USART6> for gpio::PG9<Alternate<8>> {}
+
+// UART4
+impl PinTx<UART4> for gpio::PA0<Alternate<8>> {}
+impl PinTx<UART4> for gpio::PC10<Alternate<8>> {}
+
+impl PinRx<UART4> for gpio::PA1<Alternate<8>> {}
+impl PinRx<UART4> for gpio::PC11<Alternate<8>> {}
+
+// UART5
+impl PinTx<UART5> for gpio::PC12<Alternate<8>> {}
+impl PinRx<UART5> for gpio::PD2<Alternate<8>> {}
+
+// UART7
+impl PinTx<UART7> for gpio::PE8<Alternate<8>> {}
+impl PinTx<UART7> for gpio::PF7<Alternate<8>> {}
+
 impl PinRx<UART7> for gpio::PE7<Alternate<8>> {}
 impl PinRx<UART7> for gpio::PF6<Alternate<8>> {}
+
+// UART8
+impl PinTx<UART8> for gpio::PE1<Alternate<8>> {}
+impl PinRx<UART8> for gpio::PE0<Alternate<8>> {}
 
 /// Serial abstraction
 pub struct Serial<U, PINS> {
