@@ -189,10 +189,7 @@ where
 
         // Enable tx / rx, configure data bits and parity
         usart.cr1.modify(|_, w| {
-            w
-                .te().enabled()
-                .re().enabled()
-                .ue().enabled();
+            w.te().enabled().re().enabled().ue().enabled();
 
             // M[1:0] are used to set data bits
             // M[1:0] = 00: 1 Start bit, 8 data bits, n stop bits
@@ -206,7 +203,7 @@ where
 
             match config.parity {
                 Parity::ParityEven => w.ps().even().pce().enabled(),
-                Parity::ParityOdd  => w.ps().odd().pce().enabled(),
+                Parity::ParityOdd => w.ps().odd().pce().enabled(),
                 Parity::ParityNone => w.pce().disabled(),
             }
         });
@@ -444,7 +441,7 @@ where
         if isr.txe().bit_is_set() {
             // NOTE(unsafe) atomic write to stateless register
             // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-            unsafe { ptr::write_volatile(&(*U::ptr()).tdr as *const _ as *mut _, byte) }
+            unsafe { ptr::write_volatile(core::ptr::addr_of!((*U::ptr()).tdr) as *mut u8, byte) }
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -460,7 +457,6 @@ pub struct Config {
     pub sysclock: bool,
     pub parity: Parity,
     pub data_bits: DataBits,
-
 }
 
 pub enum Oversampling {

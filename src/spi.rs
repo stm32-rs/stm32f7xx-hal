@@ -386,9 +386,7 @@ macro_rules! impl_instance {
                         // to access it. This is safe, as `&self.dr` is a
                         // memory-mapped register.
                         let value = unsafe {
-                            ptr::read_volatile(
-                                &self.dr as *const _ as *const _,
-                            )
+                            ptr::read_volatile(self.dr_address() as *mut _)
                         };
 
                         return Ok(value);
@@ -424,7 +422,7 @@ macro_rules! impl_instance {
                         // memory-mapped register.
                         unsafe {
                             ptr::write_volatile(
-                                &self.dr as *const _ as *mut _,
+                                self.dr_address() as *mut _,
                                 word,
                             );
                         }
@@ -436,7 +434,7 @@ macro_rules! impl_instance {
                 }
 
                 fn dr_address(&self) -> u32 {
-                    &self.dr as *const _ as _
+                    core::ptr::addr_of!(self.dr) as u32
                 }
             }
 
