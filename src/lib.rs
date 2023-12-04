@@ -9,6 +9,7 @@ compile_error!(
         stm32f722
         stm32f723
         stm32f730
+        stm32f730-lpc
         stm32f732
         stm32f733
         stm32f745
@@ -31,7 +32,7 @@ pub use stm32f7::stm32f7x2 as pac;
 #[cfg(feature = "stm32f723")]
 pub use stm32f7::stm32f7x3 as pac;
 
-#[cfg(feature = "stm32f730")]
+#[cfg(any(feature = "stm32f730", feature = "stm32f730-lpc"))]
 pub use stm32f7::stm32f730 as pac;
 
 #[cfg(feature = "stm32f732")]
@@ -95,6 +96,7 @@ pub mod dac;
         feature = "stm32f722",
         feature = "stm32f723",
         feature = "stm32f730",
+        feature = "stm32f730-lpc",
         feature = "stm32f732",
         feature = "stm32f733",
         feature = "stm32f746",
@@ -109,6 +111,7 @@ pub mod otg_fs;
         feature = "stm32f722",
         feature = "stm32f723",
         feature = "stm32f730",
+        feature = "stm32f730-lpc",
         feature = "stm32f732",
         feature = "stm32f733",
         feature = "stm32f746",

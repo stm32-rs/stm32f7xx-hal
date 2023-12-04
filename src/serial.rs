@@ -17,7 +17,7 @@ use crate::rcc::{BusClock, Enable, Reset};
 use crate::state;
 use nb::block;
 
-use crate::pac::{RCC, UART4, UART5, UART7, USART1, USART2, USART3, USART6};
+use crate::pac::{RCC, UART4, UART5, UART7, UART8, USART1, USART2, USART3, USART6};
 
 use crate::gpio::{self, Alternate};
 
@@ -38,14 +38,14 @@ pub enum Error {
     Parity,
 }
 
-pub trait Pins<USART> {}
-pub trait PinTx<USART> {}
-pub trait PinRx<USART> {}
+pub trait Pins<U> {}
+pub trait PinTx<U> {}
+pub trait PinRx<U> {}
 
-impl<USART, TX, RX> Pins<USART> for (TX, RX)
+impl<U, TX, RX> Pins<U> for (TX, RX)
 where
-    TX: PinTx<USART>,
-    RX: PinRx<USART>,
+    TX: PinTx<U>,
+    RX: PinRx<U>,
 {
 }
 
@@ -84,63 +84,85 @@ mod f7xx_pins {
     impl PinRx<UART7> for gpio::PB3<Alternate<12>> {}
 }
 
+// USART1
 impl PinTx<USART1> for gpio::PA9<Alternate<7>> {}
 impl PinTx<USART1> for gpio::PB6<Alternate<7>> {}
-impl PinTx<USART2> for gpio::PA2<Alternate<7>> {}
-impl PinTx<USART2> for gpio::PD5<Alternate<7>> {}
-impl PinTx<USART3> for gpio::PB10<Alternate<7>> {}
-impl PinTx<USART3> for gpio::PC10<Alternate<7>> {}
-impl PinTx<USART3> for gpio::PD8<Alternate<7>> {}
-impl PinTx<UART4> for gpio::PA0<Alternate<8>> {}
-impl PinTx<UART4> for gpio::PC10<Alternate<8>> {}
-impl PinTx<UART5> for gpio::PC12<Alternate<8>> {}
-impl PinTx<USART6> for gpio::PC6<Alternate<8>> {}
-impl PinTx<USART6> for gpio::PG14<Alternate<8>> {}
-impl PinTx<UART7> for gpio::PE8<Alternate<8>> {}
-impl PinTx<UART7> for gpio::PF7<Alternate<8>> {}
 
 impl PinRx<USART1> for gpio::PA10<Alternate<7>> {}
 impl PinRx<USART1> for gpio::PB7<Alternate<7>> {}
+
+// USART2
+impl PinTx<USART2> for gpio::PA2<Alternate<7>> {}
+impl PinTx<USART2> for gpio::PD5<Alternate<7>> {}
+
 impl PinRx<USART2> for gpio::PA3<Alternate<7>> {}
 impl PinRx<USART2> for gpio::PD6<Alternate<7>> {}
+
+// USART3
+impl PinTx<USART3> for gpio::PB10<Alternate<7>> {}
+impl PinTx<USART3> for gpio::PC10<Alternate<7>> {}
+impl PinTx<USART3> for gpio::PD8<Alternate<7>> {}
+
 impl PinRx<USART3> for gpio::PB11<Alternate<7>> {}
 impl PinRx<USART3> for gpio::PC11<Alternate<7>> {}
 impl PinRx<USART3> for gpio::PD9<Alternate<7>> {}
-impl PinRx<UART4> for gpio::PA1<Alternate<8>> {}
-impl PinRx<UART4> for gpio::PC11<Alternate<8>> {}
-impl PinRx<UART5> for gpio::PD2<Alternate<8>> {}
+
+// USART6
+impl PinTx<USART6> for gpio::PC6<Alternate<8>> {}
+impl PinTx<USART6> for gpio::PG14<Alternate<8>> {}
+
 impl PinRx<USART6> for gpio::PC7<Alternate<8>> {}
 impl PinRx<USART6> for gpio::PG9<Alternate<8>> {}
+
+// UART4
+impl PinTx<UART4> for gpio::PA0<Alternate<8>> {}
+impl PinTx<UART4> for gpio::PC10<Alternate<8>> {}
+
+impl PinRx<UART4> for gpio::PA1<Alternate<8>> {}
+impl PinRx<UART4> for gpio::PC11<Alternate<8>> {}
+
+// UART5
+impl PinTx<UART5> for gpio::PC12<Alternate<8>> {}
+impl PinRx<UART5> for gpio::PD2<Alternate<8>> {}
+
+// UART7
+impl PinTx<UART7> for gpio::PE8<Alternate<8>> {}
+impl PinTx<UART7> for gpio::PF7<Alternate<8>> {}
+
 impl PinRx<UART7> for gpio::PE7<Alternate<8>> {}
 impl PinRx<UART7> for gpio::PF6<Alternate<8>> {}
 
+// UART8
+impl PinTx<UART8> for gpio::PE1<Alternate<8>> {}
+impl PinRx<UART8> for gpio::PE0<Alternate<8>> {}
+
 /// Serial abstraction
-pub struct Serial<USART, PINS> {
-    usart: USART,
+pub struct Serial<U, PINS> {
+    usart: U,
     pins: PINS,
 }
 
-impl<USART, PINS> Serial<USART, PINS>
+impl<U, PINS> Serial<U, PINS>
 where
-    PINS: Pins<USART>,
-    USART: Instance,
+    PINS: Pins<U>,
+    U: Instance,
 {
-    pub fn new(usart: USART, pins: PINS, clocks: &Clocks, config: Config) -> Self {
+    pub fn new(usart: U, pins: PINS, clocks: &Clocks, config: Config) -> Self {
         // NOTE(unsafe) This executes only during initialisation
         let rcc = unsafe { &(*RCC::ptr()) };
 
         // TODO: The unsafe calls below should be replaced with accessing
         //       the correct registers directly.
 
-        USART::select_sysclock(rcc, config.sysclock);
+        U::select_sysclock(rcc, config.sysclock);
         unsafe {
-            USART::enable_unchecked();
+            U::enable_unchecked();
         }
 
         let clk = if config.sysclock {
             clocks.sysclk()
         } else {
-            USART::clock(clocks)
+            U::clock(clocks)
         };
 
         // Calculate correct baudrate divisor on the fly
@@ -191,14 +213,11 @@ where
 
             match config.parity {
                 Parity::ParityEven => w.ps().even().pce().enabled(),
-                Parity::ParityOdd  => w.ps().odd().pce().enabled(),
+                Parity::ParityOdd => w.ps().odd().pce().enabled(),
                 Parity::ParityNone => w.pce().disabled(),
             };
 
-            w
-                .te().enabled()
-                .re().enabled()
-                .ue().enabled()
+            w.te().enabled().re().enabled().ue().enabled();
         });
 
         // Enable DMA
@@ -227,7 +246,7 @@ where
         }
     }
 
-    pub fn split(self) -> (Tx<USART>, Rx<USART>) {
+    pub fn split(self) -> (Tx<U>, Rx<U>) {
         (
             Tx {
                 _usart: PhantomData,
@@ -238,40 +257,40 @@ where
         )
     }
 
-    pub fn release(self) -> (USART, PINS) {
+    pub fn release(self) -> (U, PINS) {
         (self.usart, self.pins)
     }
 }
 
-impl<USART, PINS> serial::Read<u8> for Serial<USART, PINS>
+impl<U, PINS> serial::Read<u8> for Serial<U, PINS>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
-        let mut rx: Rx<USART> = Rx {
+        let mut rx: Rx<U> = Rx {
             _usart: PhantomData,
         };
         rx.read()
     }
 }
 
-impl<USART, PINS> serial::Write<u8> for Serial<USART, PINS>
+impl<U, PINS> serial::Write<u8> for Serial<U, PINS>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        let mut tx: Tx<USART> = Tx {
+        let mut tx: Tx<U> = Tx {
             _usart: PhantomData,
         };
         tx.flush()
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        let mut tx: Tx<USART> = Tx {
+        let mut tx: Tx<U> = Tx {
             _usart: PhantomData,
         };
         tx.write(byte)
@@ -279,13 +298,13 @@ where
 }
 
 /// Serial receiver
-pub struct Rx<USART> {
-    _usart: PhantomData<USART>,
+pub struct Rx<U> {
+    _usart: PhantomData<U>,
 }
 
-impl<USART> Rx<USART>
+impl<U> Rx<U>
 where
-    USART: Instance,
+    U: Instance,
     Self: dma::Target,
 {
     /// Reads data using DMA until `buffer` is full
@@ -304,7 +323,7 @@ where
     {
         // This is safe, as we're only using the USART instance to access the
         // address of one register.
-        let address = &unsafe { &*USART::ptr() }.rdr as *const _ as _;
+        let address = &unsafe { &*U::ptr() }.rdr as *const _ as _;
 
         // Safe, because the trait bounds on this method guarantee that `buffer`
         // can be written to safely.
@@ -321,18 +340,18 @@ where
     }
 }
 
-impl<USART> serial::Read<u8> for Rx<USART>
+impl<U> serial::Read<u8> for Rx<U>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         // NOTE(unsafe): Only used for atomic writes, to clear error flags.
-        let icr = unsafe { &(*USART::ptr()).icr };
+        let icr = unsafe { &(*U::ptr()).icr };
 
         if isr.pe().bit_is_set() {
             icr.write(|w| w.pecf().clear());
@@ -356,7 +375,7 @@ where
             return Ok(unsafe {
                 // Casting to `u8` should be fine, as we've configured the USART
                 // to use 8 data bits.
-                (*USART::ptr()).rdr.read().rdr().bits() as u8
+                (*U::ptr()).rdr.read().rdr().bits() as u8
             });
         }
 
@@ -365,14 +384,14 @@ where
 }
 
 /// Serial transmitter
-pub struct Tx<USART> {
-    _usart: PhantomData<USART>,
+pub struct Tx<U> {
+    _usart: PhantomData<U>,
 }
 
-impl<USART> Tx<USART>
+impl<U> Tx<U>
 where
     Self: dma::Target,
-    USART: Instance,
+    U: Instance,
 {
     /// Writes data using DMA
     ///
@@ -392,7 +411,7 @@ where
         // STM32F74xxx, section 31.5.15.
         //
         // This is safe, as we're doing just one atomic write.
-        let usart = unsafe { &*USART::ptr() };
+        let usart = unsafe { &*U::ptr() };
         usart.icr.write(|w| w.tccf().clear());
 
         // Safe, because the trait bounds on this method guarantee that `buffer`
@@ -410,15 +429,15 @@ where
     }
 }
 
-impl<USART> serial::Write<u8> for Tx<USART>
+impl<U> serial::Write<u8> for Tx<U>
 where
-    USART: Instance,
+    U: Instance,
 {
     type Error = Error;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         if isr.tc().bit_is_set() {
             Ok(())
@@ -429,12 +448,12 @@ where
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let isr = unsafe { (*USART::ptr()).isr.read() };
+        let isr = unsafe { (*U::ptr()).isr.read() };
 
         if isr.txe().bit_is_set() {
             // NOTE(unsafe) atomic write to stateless register
             // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-            unsafe { ptr::write_volatile(&(*USART::ptr()).tdr as *const _ as *mut _, byte) }
+            unsafe { ptr::write_volatile(core::ptr::addr_of!((*U::ptr()).tdr) as *mut u8, byte) }
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -527,12 +546,12 @@ pub trait Instance: Deref<Target = pac::usart1::RegisterBlock> + Enable + Reset 
 
 macro_rules! impl_instance {
     ($(
-        $USARTX:ident: ($usartXsel:ident),
+        $UARTX:ident: ($usartXsel:ident),
     )+) => {
         $(
-            impl Instance for $USARTX {
+            impl Instance for $UARTX {
                 fn ptr() -> *const pac::usart1::RegisterBlock {
-                    $USARTX::ptr()
+                    $UARTX::ptr()
                 }
 
                 fn select_sysclock(rcc: &pac::rcc::RegisterBlock, sys: bool) {
@@ -554,9 +573,9 @@ impl_instance! {
     UART7:  (uart7sel),
 }
 
-impl<USART> fmt::Write for Tx<USART>
+impl<U> fmt::Write for Tx<U>
 where
-    Tx<USART>: serial::Write<u8>,
+    Tx<U>: serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();

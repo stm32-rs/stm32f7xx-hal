@@ -202,7 +202,7 @@ impl<'a> EraseSequence<'a> {
         flash.check_locked_or_busy()?;
         flash.clear_errors();
 
-        flash.registers.cr.modify(|_, w| unsafe {
+        flash.registers.cr.modify(|_, w| {
             #[cfg(any(
                 feature = "stm32f765",
                 feature = "stm32f767",
