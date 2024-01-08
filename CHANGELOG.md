@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Updated `stm32-fmc` dependency 0.2.0 -> 0.3
 - Added Interruptable trait to Alternate mode pins
 - Added a "low pin count" variant of the f730 chip to the crate features: packages <144 pins don't include a high speed USB PHY
+- Added SPI2_SCK pin for stm32f769i-discovery
 
 ## [v0.7.0] - 2022-06-05
 
