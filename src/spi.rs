@@ -479,6 +479,7 @@ impl_instance!(
         pins: {
             SCK: [
                 gpio::PA9<Alternate<5>>,
+                gpio::PA12<Alternate<5>>,
                 gpio::PB10<Alternate<5>>,
                 gpio::PB13<Alternate<5>>,
                 gpio::PD3<Alternate<5>>,
