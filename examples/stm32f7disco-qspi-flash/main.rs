@@ -123,8 +123,8 @@ fn memory_example_dma(
 
     // Create pinned versions for DMA transfers
     let mut stream = stream;
-    let mut read_buffer = unsafe { Pin::new(&mut READ_BUFFER) };
-    let mut page_buffer = unsafe { Pin::new(&mut PAGE_BUFFER) };
+    let mut read_buffer = unsafe { Pin::new(&mut *core::ptr::addr_of_mut!(READ_BUFFER)) };
+    let mut page_buffer = unsafe { Pin::new(&mut *core::ptr::addr_of_mut!(PAGE_BUFFER)) };
 
     ///////////////////////
     // Test erase + read //
