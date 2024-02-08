@@ -56,7 +56,7 @@ fn main() -> ! {
     // function won't return as long as the program runs, so there's no chance
     // of anyone else using the same static.
     static mut BUFFER: [u16; 1] = [0; 1];
-    let mut buffer = unsafe { Pin::new(&mut BUFFER) };
+    let mut buffer = unsafe { Pin::new(&mut *core::ptr::addr_of_mut!(BUFFER)) };
 
     // Use a button to control output via the Maxim Integrated MAX5214 DAC.
     loop {
