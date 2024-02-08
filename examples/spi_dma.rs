@@ -60,7 +60,7 @@ fn main() -> ! {
     // function won't return as long as the program runs, so there's no chance
     // of anyone else using the same static.
     static mut BUFFER: [u8; 2] = [0; 2];
-    let mut buffer = unsafe { Pin::new(&mut BUFFER) };
+    let mut buffer = unsafe { Pin::new(&mut *core::ptr::addr_of_mut!(BUFFER)) };
 
     loop {
         // Read WHO_AM_I register of an MPU9250 sensor.
