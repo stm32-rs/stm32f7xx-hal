@@ -220,7 +220,7 @@ impl<'a> EraseSequence<'a> {
                 feature = "stm32f778",
                 feature = "stm32f779",
             )))]
-            w.mer().clear_bit();
+            w.mer().set_bit();
             w.ser().clear_bit()
         });
 
