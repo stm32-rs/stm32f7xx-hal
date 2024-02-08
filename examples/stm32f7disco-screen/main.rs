@@ -103,7 +103,7 @@ fn main() -> ! {
     let mut display = screen::Stm32F7DiscoDisplay::new(perif.LTDC, perif.DMA2D);
     display
         .controller
-        .config_layer(Layer::L1, unsafe { &mut FB_LAYER1 }, PixelFormat::RGB565);
+        .config_layer(Layer::L1, unsafe { &mut *core::ptr::addr_of_mut!(FB_LAYER1) }, PixelFormat::RGB565);
 
     display.controller.enable_layer(Layer::L1);
     display.controller.reload();
