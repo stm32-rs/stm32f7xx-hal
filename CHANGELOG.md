@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added a "low pin count" variant of the f730 chip to the crate features: packages <144 pins don't include a high speed USB PHY
 - Added SPI2_SCK pin for stm32f769i-discovery
 - Fix mass-erase triggering in `flash` on smaller chips
+- Remove the need for software u64 division in the clock setup code, shrinking code (#211)
 
 ## [v0.7.0] - 2022-06-05
 
