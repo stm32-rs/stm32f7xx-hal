@@ -616,16 +616,21 @@ impl CFGR {
             // the software division.  Fortunately our 26 bit choice for the
             // decimal place, and the fact that these are 1/N, means we can
             // fit them into 26 bits, so a u32 is fine.
-            let one_over_m = ((1<<Self::FIXED_POINT_LSHIFT) / (self.pllm as u32) + 1) >> 1;
-            let one_over_p = ((1<<Self::FIXED_POINT_LSHIFT) / match self.pllp {
-                PLLP::Div2 => 2u32,
-                PLLP::Div4 => 4u32,
-                PLLP::Div6 => 6u32,
-                PLLP::Div8 => 8u32,
-            } + 1) >> 1;
-            sysclk =
-                (((base_clk as u64 * self.plln as u64 * one_over_m as u64) >> Self::FIXED_POINT_RSHIFT)
-                 * one_over_p as u64) >> Self::FIXED_POINT_RSHIFT << Self::BASE_CLK_SHIFT;
+            let one_over_m = ((1 << Self::FIXED_POINT_LSHIFT) / (self.pllm as u32) + 1) >> 1;
+            let one_over_p = ((1 << Self::FIXED_POINT_LSHIFT)
+                / match self.pllp {
+                    PLLP::Div2 => 2u32,
+                    PLLP::Div4 => 4u32,
+                    PLLP::Div6 => 6u32,
+                    PLLP::Div8 => 8u32,
+                }
+                + 1)
+                >> 1;
+            sysclk = (((base_clk as u64 * self.plln as u64 * one_over_m as u64)
+                >> Self::FIXED_POINT_RSHIFT)
+                * one_over_p as u64)
+                >> Self::FIXED_POINT_RSHIFT
+                << Self::BASE_CLK_SHIFT;
         }
 
         // Check if pll48clk is valid
@@ -633,11 +638,15 @@ impl CFGR {
             match pll48clk {
                 PLL48CLK::Pllq => {
                     pll48clk_valid = {
-                        let one_over_m = ((1<<Self::FIXED_POINT_LSHIFT) / (self.pllm as u32) + 1) >> 1;
-                        let one_over_q = ((1<<Self::FIXED_POINT_LSHIFT) / (self.pllq as u32) + 1) >> 1;
-                        let pll48clk = (((base_clk as u64 * self.plln as u64
-                            * one_over_m as u64) >> Self::FIXED_POINT_RSHIFT)
-                            * one_over_q as u64) >> Self::FIXED_POINT_RSHIFT << Self::BASE_CLK_SHIFT;
+                        let one_over_m =
+                            ((1 << Self::FIXED_POINT_LSHIFT) / (self.pllm as u32) + 1) >> 1;
+                        let one_over_q =
+                            ((1 << Self::FIXED_POINT_LSHIFT) / (self.pllq as u32) + 1) >> 1;
+                        let pll48clk = (((base_clk as u64 * self.plln as u64 * one_over_m as u64)
+                            >> Self::FIXED_POINT_RSHIFT)
+                            * one_over_q as u64)
+                            >> Self::FIXED_POINT_RSHIFT
+                            << Self::BASE_CLK_SHIFT;
                         (48_000_000 - 120_000..=48_000_000 + 120_000).contains(&pll48clk)
                     }
                 }
@@ -645,16 +654,23 @@ impl CFGR {
                     pll48clk_valid = {
                         if self.use_pllsai {
                             // base_clk * pllsain has the same range as above
-                            let one_over_m = ((1<<Self::FIXED_POINT_LSHIFT) / (self.pllm as u32) + 1) >> 1;
-                            let one_over_p = ((1<<Self::FIXED_POINT_LSHIFT) / match self.pllsaip {
-                                PLLSAIP::Div2 => 2u32,
-                                PLLSAIP::Div4 => 4u32,
-                                PLLSAIP::Div6 => 6u32,
-                                PLLSAIP::Div8 => 8u32,
-                            } + 1) >> 1;
-                            let pll48clk = (((base_clk as u64 * self.pllsain as u64
-                                * one_over_m as u64) >> Self::FIXED_POINT_RSHIFT)
-                                * one_over_p as u64) >> Self::FIXED_POINT_RSHIFT << Self::BASE_CLK_SHIFT;
+                            let one_over_m =
+                                ((1 << Self::FIXED_POINT_LSHIFT) / (self.pllm as u32) + 1) >> 1;
+                            let one_over_p = ((1 << Self::FIXED_POINT_LSHIFT)
+                                / match self.pllsaip {
+                                    PLLSAIP::Div2 => 2u32,
+                                    PLLSAIP::Div4 => 4u32,
+                                    PLLSAIP::Div6 => 6u32,
+                                    PLLSAIP::Div8 => 8u32,
+                                }
+                                + 1)
+                                >> 1;
+                            let pll48clk =
+                                (((base_clk as u64 * self.pllsain as u64 * one_over_m as u64)
+                                    >> Self::FIXED_POINT_RSHIFT)
+                                    * one_over_p as u64)
+                                    >> Self::FIXED_POINT_RSHIFT
+                                    << Self::BASE_CLK_SHIFT;
                             (48_000_000 - 120_000..=48_000_000 + 120_000).contains(&pll48clk)
                         } else {
                             false
@@ -850,9 +866,12 @@ impl CFGR {
                 continue;
             }
             // See the comments around Self::FIXED_POINT_LSHIFT to see how this works.
-            let one_over_m = ((1<<Self::FIXED_POINT_LSHIFT) / (m as u32) + 1) >> 1;
-            let f_vco_clock = (((f_pll_clock_input as u64 >> Self::BASE_CLK_SHIFT) * n as u64
-                                * one_over_m as u64) >> Self::FIXED_POINT_RSHIFT << Self::BASE_CLK_SHIFT) as u32;
+            let one_over_m = ((1 << Self::FIXED_POINT_LSHIFT) / (m as u32) + 1) >> 1;
+            let f_vco_clock = (((f_pll_clock_input as u64 >> Self::BASE_CLK_SHIFT)
+                * n as u64
+                * one_over_m as u64)
+                >> Self::FIXED_POINT_RSHIFT
+                << Self::BASE_CLK_SHIFT) as u32;
             if f_vco_clock < 50_000_000 {
                 m += 1;
                 n = 432;
@@ -908,7 +927,8 @@ impl CFGR {
             Some(hse) => hse.freq,
             None => HSI_FREQUENCY,
         }
-        .raw() >> Self::BASE_CLK_SHIFT;
+        .raw()
+            >> Self::BASE_CLK_SHIFT;
 
         let sysclk = if let Some(clk) = self.sysclk {
             clk
@@ -936,21 +956,29 @@ impl CFGR {
 
         // We check if (pllm, plln, pllp) allow to obtain the requested Sysclk,
         // so that we don't have to calculate them
-        let one_over_m = ((1<<Self::FIXED_POINT_LSHIFT) / (self.pllm as u32) + 1) >> 1;
-        let one_over_p = ((1<<Self::FIXED_POINT_LSHIFT) / match self.pllp {
-            PLLP::Div2 => 2u32,
-            PLLP::Div4 => 4u32,
-            PLLP::Div6 => 6u32,
-            PLLP::Div8 => 8u32,
-        } + 1) >> 1;
+        let one_over_m = ((1 << Self::FIXED_POINT_LSHIFT) / (self.pllm as u32) + 1) >> 1;
+        let one_over_p = ((1 << Self::FIXED_POINT_LSHIFT)
+            / match self.pllp {
+                PLLP::Div2 => 2u32,
+                PLLP::Div4 => 4u32,
+                PLLP::Div6 => 6u32,
+                PLLP::Div8 => 8u32,
+            }
+            + 1)
+            >> 1;
         let p_ok = (sysclk as u64)
-            == (((base_clk as u64 * self.plln as u64 * one_over_m as u64) >> Self::FIXED_POINT_RSHIFT)
-                * one_over_p as u64) >> Self::FIXED_POINT_RSHIFT << Self::BASE_CLK_SHIFT;
+            == (((base_clk as u64 * self.plln as u64 * one_over_m as u64)
+                >> Self::FIXED_POINT_RSHIFT)
+                * one_over_p as u64)
+                >> Self::FIXED_POINT_RSHIFT
+                << Self::BASE_CLK_SHIFT;
         if p_ok && q.is_none() {
             return;
         }
 
-        if let Some((m, n, p, q)) = CFGR::calculate_mnpq(base_clk << Self::BASE_CLK_SHIFT, FreqRequest { p, q }) {
+        if let Some((m, n, p, q)) =
+            CFGR::calculate_mnpq(base_clk << Self::BASE_CLK_SHIFT, FreqRequest { p, q })
+        {
             self.pllm = m as u8;
             self.plln = n as u16;
             if let Some(p) = p {
