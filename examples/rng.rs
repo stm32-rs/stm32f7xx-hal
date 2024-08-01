@@ -15,7 +15,7 @@ fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
     let mut rng = p.RNG.init();
     let val = rng.get_rand().unwrap();
-    hprintln!("random value {}", val).unwrap();
+    hprintln!("random value {}", val);
     loop {
         core::hint::spin_loop();
     }

@@ -39,7 +39,7 @@ fn main() -> ! {
 
     // Compare the written data with the expected value.
     if flash_data == DATA {
-        hprintln!("Flash programming successful").unwrap();
+        hprintln!("Flash programming successful");
     }
 
     loop {}

@@ -50,6 +50,6 @@ fn main() -> ! {
     // rtc.set_minutes(59).unwrap();
     // rtc.set_seconds(59).unwrap();
     loop {
-        hprintln!("{}", rtc.get_datetime()).unwrap();
+        hprintln!("{}", rtc.get_datetime());
     }
 }
