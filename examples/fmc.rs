@@ -124,7 +124,7 @@ fn main() -> ! {
         }
     }
 
-    hprintln!("Success!").unwrap();
+    hprintln!("Success!");
 
     loop {}
 }

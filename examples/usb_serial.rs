@@ -77,11 +77,14 @@ fn main() -> ! {
     let mut serial = usbd_serial::SerialPort::new(&usb_bus);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
-        .manufacturer("Fake company")
-        .product("Serial port")
-        .serial_number("TEST")
+        .strings(&[StringDescriptors::default()
+            .manufacturer("Fake company")
+            .product("Serial port")
+            .serial_number("TEST")
+        ]).unwrap()
         .device_class(usbd_serial::USB_CLASS_CDC)
         .max_packet_size_0(64) // Size required for HS, and ok for FS
+        .unwrap()
         .build();
 
     loop {

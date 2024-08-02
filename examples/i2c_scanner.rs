@@ -36,26 +36,26 @@ fn main() -> ! {
         50_000,
     );
 
-    hprintln!("Start i2c scanning...").expect("Error using hprintln.");
-    hprintln!().unwrap();
+    hprintln!("Start i2c scanning...");
+    hprintln!();
 
     for addr in 0x00_u8..0x80 {
         // Write the empty array and check the slave response.
         let byte: [u8; 1] = [0; 1];
         if VALID_ADDR_RANGE.contains(&addr) && i2c.write(addr, &byte).is_ok() {
-            hprint!("{:02x}", addr).unwrap();
+            hprint!("{:02x}", addr);
         } else {
-            hprint!("..").unwrap();
+            hprint!("..");
         }
         if addr % 0x10 == 0x0F {
-            hprintln!().unwrap();
+            hprintln!();
         } else {
-            hprint!(" ").unwrap();
+            hprint!(" ");
         }
     }
 
-    hprintln!().unwrap();
-    hprintln!("Done!").unwrap();
+    hprintln!();
+    hprintln!("Done!");
 
     loop {}
 }

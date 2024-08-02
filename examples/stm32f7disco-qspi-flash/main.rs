@@ -97,7 +97,7 @@ fn memory_example_polling(mt25q: &mut mt25q::Mt25q) {
         }
     }
 
-    hprintln!("Flash device memory test successful!").unwrap();
+    hprintln!("Flash device memory test successful!");
 }
 
 fn memory_example_dma(
@@ -174,5 +174,5 @@ fn memory_example_dma(
         }
     }
 
-    hprintln!("Flash device memory DMA test successful!").unwrap();
+    hprintln!("Flash device memory DMA test successful!");
 }

@@ -13,6 +13,6 @@ use cortex_m_semihosting::hprintln;
 
 #[entry]
 fn main() -> ! {
-    hprintln!("Hello, world!").unwrap();
+    hprintln!("Hello, world!");
     loop {}
 }

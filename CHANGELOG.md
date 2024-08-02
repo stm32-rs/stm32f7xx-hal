@@ -11,13 +11,28 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Updated `stm32f7` dependency 0.14.0 -> 0.15
   - Use PascalCase for generated values of enums ([stm32-rs#727](https://github.com/stm32-rs/stm32-rs/pull/727))
-- Updated `synopsys-usb-otg` dependency 0.2.3 -> 0.3
+- Updated `synopsys-usb-otg` dependency 0.2.3 -> 0.4.0
 - Updated `stm32-fmc` dependency 0.2.0 -> 0.3
 - Added Interruptable trait to Alternate mode pins
 - Added a "low pin count" variant of the f730 chip to the crate features: packages <144 pins don't include a high speed USB PHY
 - Added SPI2_SCK pin for stm32f769i-discovery
 - Fix mass-erase triggering in `flash` on smaller chips
 - Remove the need for software u64 division in the clock setup code, shrinking code (#211)
+- Updated `cortex-m` dependency 0.7.4 -> 0.7.7
+- Updated `nb` dependency 1.0 -> 1.1.0
+- Updated `micromath` dependency 2.0 -> 2.1.0
+- Updated `fugit` dependency 0.3.5 -> 0.3.7
+- Updated `bitflags` dependency 1.3.2 -> 2.6.0
+- Updated `embedded-hal` dependency 0.2.3 -> 0.2.7
+- Updated `display-interface` dependency 0.4.1 -> 0.5.0
+- Updated `cortex-m-semihosting` development dependency 0.3.3 -> 0.5.0
+  - Removed unwrap from the end of hprintln / hprint for new version of semihosting
+- Updated `panic-semihosting` development dependency 0.5.2 -> 0.6.0
+- Updated `embedded-graphics` development dependency 0.6.1 -> 0.6.2
+- Updated `usb-device` development dependency 0.2.5 -> 0.3.2
+- Updated `usbd-serial` development dependency 0.1.0 -> 0.2.2
+  - Updated usb serial example to use new api
+- Renamed .cargo/config -> .cargo/config.toml
 
 ## [v0.7.0] - 2022-06-05
 
