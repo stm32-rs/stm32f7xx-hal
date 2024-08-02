@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+<!-- next-header -->
+## [Unreleased] - ReleaseDate
 
 ### Changed
 
@@ -85,6 +86,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [v0.1.0] - 2019-11-05
 
 
+<!-- next-url -->
 [Unreleased]: https://github.com/stm32-rs/stm32f7xx-hal/compare/v0.7.0...HEAD
 [v0.7.0]: https://github.com/stm32-rs/stm32f7xx-hal/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/stm32-rs/stm32f7xx-hal/compare/v0.5.0...v0.6.0
