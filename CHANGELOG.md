@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Use the right addresses for `signature` module structs on f7x2, f7x3, and f730 devices
+
 ## [0.8.0] - 2024-08-02
 
 ### Changed
