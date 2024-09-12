@@ -82,6 +82,8 @@ impl FlashSize {
 #[derive(Debug)]
 #[repr(C)]
 pub struct VrefCal(u16);
+#[cfg(any(feature = "svd-f7x2", feature = "svd-f7x3", feature = "svd-f730"))]
+define_ptr_type!(VrefCal, 0x1FF0_7A2A);
 #[cfg(not(any(feature = "svd-f7x2", feature = "svd-f7x3", feature = "svd-f730")))]
 define_ptr_type!(VrefCal, 0x1FF0_F44A);
 
@@ -96,6 +98,8 @@ impl VrefCal {
 #[derive(Debug)]
 #[repr(C)]
 pub struct VtempCal30(u16);
+#[cfg(any(feature = "svd-f7x2", feature = "svd-f7x3", feature = "svd-f730"))]
+define_ptr_type!(VtempCal30, 0x1FF0_7A2C);
 #[cfg(not(any(feature = "svd-f7x2", feature = "svd-f7x3", feature = "svd-f730")))]
 define_ptr_type!(VtempCal30, 0x1FF0_F44C);
 
@@ -110,6 +114,8 @@ impl VtempCal30 {
 #[derive(Debug)]
 #[repr(C)]
 pub struct VtempCal110(u16);
+#[cfg(any(feature = "svd-f7x2", feature = "svd-f7x3", feature = "svd-f730"))]
+define_ptr_type!(VtempCal110, 0x1FF0_7A2E);
 #[cfg(not(any(feature = "svd-f7x2", feature = "svd-f7x3", feature = "svd-f730")))]
 define_ptr_type!(VtempCal110, 0x1FF0_F44E);
 
