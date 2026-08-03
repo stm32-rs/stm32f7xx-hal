@@ -7,21 +7,22 @@
 //!
 //! ### CAN1
 //!
-//! | Function | NoRemap | Remap |
-//! |----------|---------|-------|
-//! | TX       | PA12    | PB9   |
-//! | RX       | PA11    | PB8   |
+//! | Function | NoRemap | Remap    |
+//! |----------|---------|----------|
+//! | TX       | PA12    | PB9, PD1 |
+//! | RX       | PA11    | PB8, PD0 |
 //!
 //! ### CAN2
 //!
-//! | Function | NoRemap | Remap |
-//! |----------|---------|-------|
-//! | TX       | PB6     | PB13  |
-//! | RX       | PB5     | PB12  |
+//! | Function | NoRemap | Remap  |
+//! |----------|---------|--------|
+//! | TX       | PB6     | PB13   |
+//! | RX       | PB5     | PB12   |
 
 use crate::gpio::gpiob::{PB12, PB13, PB5, PB6, PB8, PB9};
 use crate::gpio::{
     gpioa::{PA11, PA12},
+    gpiod::{PD0, PD1},
     Alternate,
 };
 use crate::pac::CAN1;
@@ -43,6 +44,11 @@ impl Pins for (PA12<Alternate<9>>, PA11<Alternate<9>>) {
 
 impl sealed::Sealed for (PB9<Alternate<9>>, PB8<Alternate<9>>) {}
 impl Pins for (PB9<Alternate<9>>, PB8<Alternate<9>>) {
+    type Instance = CAN1;
+}
+
+impl sealed::Sealed for (PD1<Alternate<9>>, PD0<Alternate<9>>) {}
+impl Pins for (PD1<Alternate<9>>, PD0<Alternate<9>>) {
     type Instance = CAN1;
 }
 
