@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Add CAN1 `PD1`/`PD0` alternate-function pin mapping.
+
 ### Fixed
 
 - Use the right addresses for `signature` module structs on f7x2, f7x3, and f730 devices
