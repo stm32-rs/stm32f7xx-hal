@@ -6,11 +6,11 @@ jobs:
   clippy_check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           components: clippy
-          toolchain: 1.80.0
+          toolchain: 1.95.0
           targets: thumbv7em-none-eabihf
       # TODO: For now, allow clippy::erasing_op
       # TODO: Enable clippy on examples via `--examples`
